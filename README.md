@@ -42,4 +42,3 @@ Sistema web de gestión de citas médicas para clínicas y consultorios privados
 ## Licencia
 
 Proyecto privado Carlos Alberto Ceballos. Todos los derechos reservados.
-****
