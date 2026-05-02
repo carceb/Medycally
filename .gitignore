@@ -361,3 +361,18 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# ASP.NET Core — configuración local con credenciales / cadenas de conexión
+appsettings.Development.json
+appsettings.Production.json
+appsettings.Staging.json
+appsettings.*.local.json
+
+# ASP.NET Core user secrets
+secrets.json
+
+# Perfil de lanzamiento local (puede contener puertos, variables de entorno)
+Properties/launchSettings.json
+
+# Guía interna de desarrollo (contiene credenciales de demo y notas internas)
+CLAUDE.md
