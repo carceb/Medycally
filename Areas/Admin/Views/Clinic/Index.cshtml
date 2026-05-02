@@ -1,0 +1,1077 @@
+@model List<Medycally.Models.ClinicModel>
+@{
+    ViewData["Title"] = "Clínicas";
+    var clinicTypes    = ViewBag.ClinicTypes    as List<Medycally.Models.ClinicTypeModel> ?? [];
+    var states         = ViewBag.States         as List<Medycally.Models.GeographyModel>  ?? [];
+    var municipalities = ViewBag.Municipalities as List<Medycally.Models.GeographyModel>  ?? [];
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">Clínicas</h4>
+    <button class="btn btn-primary" onclick="openModal()">
+        <i class="fas fa-plus me-1"></i> Nueva Clínica
+    </button>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+
+        <div class="row mb-3">
+            <div class="col-md-5">
+                <div class="input-group">
+                    <span class="input-group-text text-muted"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="searchInput"
+                           placeholder="Buscar por nombre, RIF, estado, tipo..."
+                           oninput="applyFilters()" />
+                    <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()" title="Limpiar">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Nombre</th>
+                        <th>RIF</th>
+                        <th>Estado / Municipio</th>
+                        <th>Tipo</th>
+                        <th>Estatus</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="clinicBody"></tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <small class="text-muted" id="paginationInfo"></small>
+            <nav>
+                <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
+            </nav>
+        </div>
+
+    </div>
+</div>
+
+<!-- Save Modal -->
+<div class="modal fade" id="clinicModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Nueva Clínica</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="clinicId" value="0" />
+
+                <h6 class="text-muted mb-3">Información General</h6>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Tipo <span class="text-danger">*</span></label>
+                        <select class="form-select" id="clinicTypeId">
+                            <option value="">— Seleccione —</option>
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label">Nombre <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control clinic-text" id="clinicName" maxlength="150" />
+                        <div class="invalid-feedback" id="nameError"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">RIF</label>
+                        <input type="text" class="form-control" id="clinicRif" maxlength="10" placeholder="J000000000" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Estatus</label>
+                        <select class="form-select" id="statusId">
+                            <option value="1">Activo</option>
+                            <option value="2">Inactivo</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Representante</label>
+                        <input type="text" class="form-control clinic-text" id="representativeName" maxlength="150" />
+                    </div>
+                </div>
+
+                <h6 class="text-muted mb-3">Grupo</h6>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-12">
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="isParentClinic" onchange="toggleParentSelect()" />
+                            <label class="form-check-label" for="isParentClinic">Es clínica principal (no pertenece a ningún grupo)</label>
+                        </div>
+                        <div id="parentClinicDiv">
+                            <label class="form-label">Clínica principal del grupo</label>
+                            <select class="form-select" id="clinicGroupId">
+                                <option value="0">— Seleccionar —</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <h6 class="text-muted mb-3">Ubicación</h6>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Estado <span class="text-danger">*</span></label>
+                        <select class="form-select" id="stateId" onchange="loadMunicipalities(this.value)">
+                            <option value="0">— Seleccionar —</option>
+                            @foreach (var s in states)
+                            {
+                                <option value="@s.StateId">@s.StateName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Municipio <span class="text-danger">*</span></label>
+                        <select class="form-select" id="municipalityId">
+                            <option value="0">— Seleccionar estado primero —</option>
+                        </select>
+                        <div class="invalid-feedback" id="municipalityError"></div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Dirección</label>
+                        <input type="text" class="form-control clinic-text" id="clinicAddress" maxlength="300" />
+                    </div>
+                </div>
+
+                <h6 class="text-muted mb-3">Contacto y Web</h6>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Teléfonos</label>
+                        <input type="text" class="form-control clinic-text" id="clinicPhones" maxlength="100" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Landing Page</label>
+                        <input type="text" class="form-control" id="landingPage" maxlength="200" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Google Maps URL</label>
+                        <input type="text" class="form-control" id="googleMapsUrl" maxlength="500" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Latitud</label>
+                        <input type="number" step="any" class="form-control" id="latitude" value="0" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Longitud</label>
+                        <input type="number" step="any" class="form-control" id="longitude" value="0" />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSave" onclick="saveClinic()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Doctors Modal -->
+<div class="modal fade" id="doctorsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="doctorsModalTitle">Médicos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="doctorsLoading" class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted">Cargando médicos...</p>
+                </div>
+                <div id="doctorsChecks" class="d-none">
+                    <input type="text" class="form-control form-control-sm mb-3" id="doctorsSearch"
+                           placeholder="Buscar médico..." oninput="applyDoctorFilter()" />
+                    <div id="doctorsList"></div>
+                    <div id="docPagination" class="d-flex justify-content-between align-items-center mt-2">
+                        <small class="text-muted" id="docPaginationInfo"></small>
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="docPrevBtn" onclick="docChangePage(-1)">&lsaquo;</button>
+                            <small id="docPageLabel"></small>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="docNextBtn" onclick="docChangePage(1)">&rsaquo;</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="doctorsError" class="alert alert-danger d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSaveDoctors" onclick="saveClinicDoctors()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Schedule Modal -->
+<div class="modal fade" id="scheduleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="scheduleModalTitle">Horarios</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Médico</label>
+                    <select class="form-select" id="scheduleDoctorId" onchange="onScheduleDoctorChange()">
+                        <option value="0">— Seleccionar médico —</option>
+                    </select>
+                </div>
+                <div id="scheduleLoading" class="d-none text-center py-3">
+                    <div class="spinner-border spinner-border-sm text-primary"></div>
+                    <span class="ms-2 text-muted">Cargando...</span>
+                </div>
+                <div id="scheduleSection" class="d-none">
+                    <table class="table table-sm table-hover mb-3">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Día</th>
+                                <th>Inicio</th>
+                                <th>Fin</th>
+                                <th>Duración</th>
+                                <th>Activo</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scheduleBody"></tbody>
+                    </table>
+                    <hr />
+                    <h6 id="scheduleFormTitle" class="text-muted mb-3">Agregar horario</h6>
+                    <div class="row g-2 align-items-end">
+                        <input type="hidden" id="scheduleId" value="0" />
+                        <div class="col-md-3">
+                            <label class="form-label form-label-sm">Día</label>
+                            <select class="form-select form-select-sm" id="scheduleDayOfWeek">
+                                <option value="0">Domingo</option>
+                                <option value="1" selected>Lunes</option>
+                                <option value="2">Martes</option>
+                                <option value="3">Miércoles</option>
+                                <option value="4">Jueves</option>
+                                <option value="5">Viernes</option>
+                                <option value="6">Sábado</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label form-label-sm">Inicio</label>
+                            <input type="time" class="form-control form-control-sm" id="scheduleStartTime" value="08:00" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label form-label-sm">Fin</label>
+                            <input type="time" class="form-control form-control-sm" id="scheduleEndTime" value="17:00" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label form-label-sm">Duración (min)</label>
+                            <input type="number" class="form-control form-control-sm" id="scheduleSlotMinutes" value="20" min="5" max="120" />
+                        </div>
+                        <div class="col-auto">
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox" id="scheduleIsActive" checked />
+                                <label class="form-check-label" for="scheduleIsActive">Activo</label>
+                            </div>
+                        </div>
+                        <div class="col-auto d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="saveScheduleRow()">
+                                <i class="fas fa-save"></i> Guardar
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="scheduleCancelEdit"
+                                    onclick="cancelScheduleEdit()" style="display:none">
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Eliminar Clínica</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Eliminar <strong id="deleteName"></strong>?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnDelete" onclick="deleteClinic()">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="toast" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMessage"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const clinicModal   = new bootstrap.Modal(document.getElementById('clinicModal'));
+    const doctorsModal  = new bootstrap.Modal(document.getElementById('doctorsModal'));
+    const scheduleModal = new bootstrap.Modal(document.getElementById('scheduleModal'));
+    const deleteModal   = new bootstrap.Modal(document.getElementById('deleteModal'));
+    const toast         = new bootstrap.Toast(document.getElementById('toast'), { delay: 3500 });
+
+    let pendingDeleteId  = 0;
+    let filteredClinics  = [];
+    let currentPage      = 1;
+    const PAGE_SIZE      = 10;
+
+    let allClinicDoctorData   = [];
+    let filteredClinicDoctors = [];
+    let clinicDoctorPage      = 1;
+    const DOC_PAGE_SIZE       = 10;
+    let checkedDoctorIds      = new Set();
+    let currentDoctorClinicId = 0;
+
+    const allClinics        = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+    const allClinicTypes    = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(clinicTypes));
+    const allStates         = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(states));
+    const allMunicipalities = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(municipalities));
+
+    const TYPE_NAMES = Object.fromEntries(allClinicTypes.map(t => [t.ClinicTypeId, t.ClinicTypeName ?? '—']));
+
+    // Poblar dropdown de tipos
+    (function() {
+        const sel = document.getElementById('clinicTypeId');
+        allClinicTypes.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value       = t.ClinicTypeId;
+            opt.textContent = t.ClinicTypeName ?? '';
+            sel.appendChild(opt);
+        });
+    })();
+
+    // === Mayúsculas en campos de texto del modal ===
+    (function() {
+        const ACCENT = {
+            'á':'A','à':'A','ä':'A','â':'A','ã':'A','Á':'A','À':'A','Ä':'A','Â':'A','Ã':'A',
+            'é':'E','è':'E','ë':'E','ê':'E','É':'E','È':'E','Ë':'E','Ê':'E',
+            'í':'I','ì':'I','ï':'I','î':'I','Í':'I','Ì':'I','Ï':'I','Î':'I',
+            'ó':'O','ò':'O','ö':'O','ô':'O','õ':'O','Ó':'O','Ò':'O','Ö':'O','Ô':'O','Õ':'O',
+            'ú':'U','ù':'U','ü':'U','û':'U','Ú':'U','Ù':'U','Ü':'U','Û':'U',
+            'ñ':'Ñ'
+        };
+        function toUpper(val) {
+            return val.split('').map(c => ACCENT[c] ?? c).join('').toUpperCase();
+        }
+        document.querySelectorAll('#clinicModal .clinic-text').forEach(el => {
+            el.addEventListener('input', () => {
+                const p = el.selectionStart;
+                el.value = toUpper(el.value);
+                try { el.setSelectionRange(p, p); } catch(_) {}
+            });
+            el.addEventListener('paste', e => {
+                e.preventDefault();
+                const raw = (e.clipboardData || window.clipboardData).getData('text') || '';
+                el.value = toUpper(el.value.slice(0, el.selectionStart) + raw + el.value.slice(el.selectionEnd));
+            });
+        });
+    })();
+
+    // === RIF: prefijo J/V/E/G/P/C + dígitos, máx 10 caracteres ===
+    (function() {
+        const PREFIXES = 'JVEGPC';
+        function sanitizeRif(val) {
+            val = val.toUpperCase();
+            if (!val) return '';
+            let prefix, digits;
+            if (PREFIXES.includes(val[0])) {
+                prefix = val[0];
+                digits = val.slice(1).replace(/\D/g, '');
+            } else {
+                prefix = 'J';
+                digits = val.replace(/\D/g, '');
+            }
+            return (prefix + digits).slice(0, 10);
+        }
+        const rifEl = document.getElementById('clinicRif');
+        rifEl.addEventListener('input', () => {
+            const pos = rifEl.selectionStart;
+            const old = rifEl.value;
+            rifEl.value = sanitizeRif(rifEl.value);
+            const diff = rifEl.value.length - old.length;
+            try { rifEl.setSelectionRange(Math.max(0, pos + diff), Math.max(0, pos + diff)); } catch(_) {}
+        });
+        rifEl.addEventListener('paste', e => {
+            e.preventDefault();
+            const raw = (e.clipboardData || window.clipboardData).getData('text') || '';
+            rifEl.value = sanitizeRif(rifEl.value.slice(0, rifEl.selectionStart) + raw + rifEl.value.slice(rifEl.selectionEnd));
+        });
+    })();
+
+    function renderTable() {
+        const tbody = document.getElementById('clinicBody');
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const page  = filteredClinics.slice(start, start + PAGE_SIZE);
+
+        if (filteredClinics.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No se encontraron clínicas.</td></tr>';
+            renderPagination();
+            return;
+        }
+
+        tbody.innerHTML = page.map(c => {
+            const displayName = clinicDisplayName(c);
+            const escaped    = displayName.replace(/'/g, "\\'");
+            const branchIcon = c.ClinicGroupId > 0 ? '<span class="text-muted me-1" title="Sucursal"><i class="fas fa-code-branch fa-sm"></i></span>' : '';
+            const location   = [c.StateName, c.MunicipalityName].filter(Boolean).join(' / ') || '—';
+            const typeName   = TYPE_NAMES[c.ClinicTypeId] ?? '—';
+            const badge      = c.StatusId === 1
+                ? '<span class="badge bg-success">Activo</span>'
+                : '<span class="badge bg-secondary">Inactivo</span>';
+            return `<tr data-id="${c.ClinicId}">
+                <td>${c.ClinicId}</td>
+                <td>${branchIcon}${escapeHtml(displayName)}</td>
+                <td>${escapeHtml(c.ClinicRif ?? '—')}</td>
+                <td>${escapeHtml(location)}</td>
+                <td>${typeName}</td>
+                <td>${badge}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editClinic(${c.ClinicId})" title="Editar"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-outline-info me-1" onclick="openDoctorsModal(${c.ClinicId},'${escaped}')" title="Médicos"><i class="fas fa-user-md"></i></button>
+                    <button class="btn btn-sm btn-outline-success me-1" onclick="openScheduleModal(${c.ClinicId},'${escaped}')" title="Horarios"><i class="fas fa-calendar-alt"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(${c.ClinicId},'${escaped}')" title="Eliminar"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>`;
+        }).join('');
+
+        renderPagination();
+    }
+
+    function renderPagination() {
+        const total      = filteredClinics.length;
+        const totalPages = Math.ceil(total / PAGE_SIZE);
+        const pag        = document.getElementById('pagination');
+        const info       = document.getElementById('paginationInfo');
+
+        if (total === 0) { info.textContent = ''; pag.innerHTML = ''; return; }
+
+        const start = (currentPage - 1) * PAGE_SIZE + 1;
+        const end   = Math.min(currentPage * PAGE_SIZE, total);
+        info.textContent = `Mostrando ${start}–${end} de ${total}`;
+
+        if (totalPages <= 1) { pag.innerHTML = ''; return; }
+
+        const pages  = new Set([1, totalPages]);
+        for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) pages.add(i);
+        const sorted = [...pages].sort((a, b) => a - b);
+
+        let html = `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage - 1});return false;">&lsaquo;</a></li>`;
+        let prev = 0;
+        for (const p of sorted) {
+            if (p - prev > 1) html += `<li class="page-item disabled"><span class="page-link">&hellip;</span></li>`;
+            html += `<li class="page-item ${p === currentPage ? 'active' : ''}">
+                <a class="page-link" href="#" onclick="goToPage(${p});return false;">${p}</a></li>`;
+            prev = p;
+        }
+        html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage + 1});return false;">&rsaquo;</a></li>`;
+
+        pag.innerHTML = html;
+    }
+
+    function goToPage(page) {
+        const totalPages = Math.max(1, Math.ceil(filteredClinics.length / PAGE_SIZE));
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        renderTable();
+    }
+
+    function applyFilters() {
+        const q = (document.getElementById('searchInput').value ?? '').trim().toLowerCase();
+        filteredClinics = q
+            ? allClinics.filter(c => {
+                const name  = clinicDisplayName(c).toLowerCase();
+                const rif   = (c.ClinicRif ?? '').toLowerCase();
+                const loc   = [(c.StateName ?? ''), (c.MunicipalityName ?? '')].join(' ').toLowerCase();
+                const type  = (TYPE_NAMES[c.ClinicTypeId] ?? '').toLowerCase();
+                const stat  = c.StatusId === 1 ? 'activo' : 'inactivo';
+                return name.includes(q) || rif.includes(q) || loc.includes(q) ||
+                       type.includes(q) || stat.includes(q);
+            })
+            : [...allClinics];
+        currentPage = 1;
+        renderTable();
+    }
+
+    function clearSearch() {
+        document.getElementById('searchInput').value = '';
+        applyFilters();
+    }
+
+    function showToast(message, success) {
+        const el = document.getElementById('toast');
+        el.classList.remove('bg-success', 'bg-danger');
+        el.classList.add(success ? 'bg-success' : 'bg-danger');
+        document.getElementById('toastMessage').textContent = message;
+        toast.show();
+    }
+
+    function loadGroupClinics(excludeId, preselectId = 0) {
+        const sel = document.getElementById('clinicGroupId');
+        sel.innerHTML = '<option value="0">— Seleccionar —</option>';
+        allClinics
+            .filter(c => c.ClinicId !== excludeId && c.ClinicGroupId === 0)
+            .forEach(c => {
+                const opt = document.createElement('option');
+                opt.value       = c.ClinicId;
+                opt.textContent = clinicDisplayName(c);
+                if (c.ClinicId === preselectId) opt.selected = true;
+                sel.appendChild(opt);
+            });
+    }
+
+    function toggleParentSelect() {
+        const isParent   = document.getElementById('isParentClinic').checked;
+        const currentId  = parseInt(document.getElementById('clinicId').value) || 0;
+        const div        = document.getElementById('parentClinicDiv');
+        if (isParent) {
+            div.style.display = 'none';
+            document.getElementById('clinicGroupId').value = '0';
+        } else {
+            loadGroupClinics(currentId);
+            div.style.display = 'block';
+        }
+    }
+
+    function openModal() {
+        document.getElementById('clinicId').value            = '0';
+        document.getElementById('clinicName').value          = '';
+        document.getElementById('clinicRif').value           = '';
+        document.getElementById('clinicTypeId').value        = allClinicTypes.length > 0 ? String(allClinicTypes[0].ClinicTypeId) : '';
+        document.getElementById('statusId').value            = '1';
+        document.getElementById('representativeName').value  = '';
+        document.getElementById('isParentClinic').checked    = true;
+        document.getElementById('clinicGroupId').value       = '0';
+        document.getElementById('parentClinicDiv').style.display = 'none';
+        document.getElementById('stateId').value             = '0';
+        document.getElementById('municipalityId').innerHTML  = '<option value="0">— Seleccionar estado primero —</option>';
+        document.getElementById('clinicAddress').value       = '';
+        document.getElementById('clinicPhones').value        = '';
+        document.getElementById('landingPage').value         = '';
+        document.getElementById('googleMapsUrl').value       = '';
+        document.getElementById('latitude').value            = '0';
+        document.getElementById('longitude').value           = '0';
+        document.getElementById('modalTitle').textContent    = 'Nueva Clínica';
+        clearValidation();
+        clinicModal.show();
+    }
+
+    function editClinic(id) {
+        const c = allClinics.find(x => x.ClinicId === id);
+        if (!c) return;
+
+        document.getElementById('clinicId').value            = c.ClinicId;
+        document.getElementById('clinicName').value          = c.ClinicName ?? '';
+        document.getElementById('clinicRif').value           = c.ClinicRif ?? '';
+        document.getElementById('clinicTypeId').value        = c.ClinicTypeId;
+        document.getElementById('statusId').value            = c.StatusId;
+        document.getElementById('representativeName').value  = c.RepresentativeName ?? '';
+        document.getElementById('clinicAddress').value       = c.ClinicAddress ?? '';
+        document.getElementById('clinicPhones').value        = c.ClinicPhones ?? '';
+        document.getElementById('landingPage').value         = c.LandingPage ?? '';
+        document.getElementById('googleMapsUrl').value       = c.GoogleMapsUrl ?? '';
+        document.getElementById('latitude').value            = c.Latitude ?? 0;
+        document.getElementById('longitude').value           = c.Longitude ?? 0;
+
+        const isParent = c.ClinicGroupId === 0;
+        document.getElementById('isParentClinic').checked = isParent;
+        if (isParent) {
+            document.getElementById('parentClinicDiv').style.display = 'none';
+            document.getElementById('clinicGroupId').value = '0';
+        } else {
+            loadGroupClinics(c.ClinicId, c.ClinicGroupId);
+            document.getElementById('parentClinicDiv').style.display = 'block';
+        }
+
+        let editStateId = c.StateId ?? 0;
+        if (editStateId === 0 && c.StateName) {
+            const found = allStates.find(s => s.StateName === c.StateName);
+            if (found) editStateId = found.StateId;
+        }
+        document.getElementById('stateId').value = editStateId;
+        loadMunicipalities(editStateId, c.MunicipalityId ?? 0);
+
+        document.getElementById('modalTitle').textContent = 'Editar Clínica';
+        clearValidation();
+        clinicModal.show();
+    }
+
+    function loadMunicipalities(stateId, preselectId = 0) {
+        const sel = document.getElementById('municipalityId');
+        const sid = parseInt(stateId) || 0;
+
+        if (sid === 0) {
+            sel.innerHTML = '<option value="0">— Seleccionar estado primero —</option>';
+            return;
+        }
+
+        const filtered = allMunicipalities.filter(m => m.StateId === sid);
+        sel.innerHTML = '<option value="0">— Seleccionar —</option>';
+        filtered.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value       = m.MunicipalityId;
+            opt.textContent = m.MunicipalityName;
+            if (m.MunicipalityId === preselectId) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    }
+
+    function clearValidation() {
+        document.getElementById('clinicName').classList.remove('is-invalid');
+        document.getElementById('municipalityId').classList.remove('is-invalid');
+    }
+
+    function saveClinic() {
+        clearValidation();
+        const name           = document.getElementById('clinicName').value.trim();
+        const municipalityId = parseInt(document.getElementById('municipalityId').value);
+        let valid = true;
+
+        if (!name) {
+            document.getElementById('clinicName').classList.add('is-invalid');
+            document.getElementById('nameError').textContent = 'El nombre es requerido.';
+            valid = false;
+        }
+        if (municipalityId === 0) {
+            document.getElementById('municipalityId').classList.add('is-invalid');
+            document.getElementById('municipalityError').textContent = 'Debe seleccionar un municipio.';
+            valid = false;
+        }
+        const lat = parseFloat(document.getElementById('latitude').value) || 0;
+        const lng = parseFloat(document.getElementById('longitude').value) || 0;
+        if (!valid) return;
+
+        const id          = parseInt(document.getElementById('clinicId').value);
+        const stateId     = parseInt(document.getElementById('stateId').value) || 0;
+        const isParent    = document.getElementById('isParentClinic').checked;
+        const muniSel     = document.getElementById('municipalityId');
+        const muniName    = muniSel.options[muniSel.selectedIndex]?.text ?? null;
+        const stateEntry  = allStates.find(s => s.StateId === stateId);
+
+        const payload = {
+            clinicId:          id,
+            clinicName:        name,
+            clinicRif:         document.getElementById('clinicRif').value.trim() || null,
+            clinicTypeId:      parseInt(document.getElementById('clinicTypeId').value),
+            statusId:          parseInt(document.getElementById('statusId').value),
+            representativeName:document.getElementById('representativeName').value.trim() || null,
+            clinicGroupId:     isParent ? 0 : (parseInt(document.getElementById('clinicGroupId').value) || 0),
+            municipalityId:    municipalityId,
+            clinicAddress:     document.getElementById('clinicAddress').value.trim() || null,
+            clinicPhones:      document.getElementById('clinicPhones').value.trim() || null,
+            landingPage:       document.getElementById('landingPage').value.trim() || null,
+            googleMapsUrl:     document.getElementById('googleMapsUrl').value.trim() || null,
+            latitude:          lat,
+            longitude:         lng,
+        };
+
+        document.getElementById('btnSave').disabled = true;
+
+        fetch('/Admin/Clinic/Save', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload)
+        })
+        .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)))
+        .then(data => {
+            clinicModal.hide();
+
+            const newId  = id === 0 ? data.clinicId : id;
+            const newDoc = {
+                ClinicId:           newId,
+                ClinicName:         payload.clinicName,
+                ClinicRif:          payload.clinicRif,
+                ClinicTypeId:       payload.clinicTypeId,
+                ClinicTypeName:     allClinicTypes.find(t => t.ClinicTypeId === payload.clinicTypeId)?.ClinicTypeName ?? null,
+                StatusId:           payload.statusId,
+                RepresentativeName: payload.representativeName,
+                ClinicGroupId:      payload.clinicGroupId,
+                MunicipalityId:     payload.municipalityId,
+                MunicipalityName:   muniName,
+                StateId:            stateId,
+                StateName:          stateEntry?.StateName ?? null,
+                ClinicAddress:      payload.clinicAddress,
+                ClinicPhones:       payload.clinicPhones,
+                LandingPage:        payload.landingPage,
+                GoogleMapsUrl:      payload.googleMapsUrl,
+                Latitude:           payload.latitude,
+                Longitude:          payload.longitude,
+            };
+
+            if (id === 0) {
+                allClinics.push(newDoc);
+            } else {
+                const idx = allClinics.findIndex(x => x.ClinicId === id);
+                if (idx >= 0) allClinics[idx] = newDoc;
+            }
+
+            applyFilters();
+            showToast(id === 0 ? 'Clínica creada correctamente.' : 'Clínica actualizada correctamente.', true);
+        })
+        .catch(err => showToast(err?.message ?? 'Error al guardar la clínica.', false))
+        .finally(() => { document.getElementById('btnSave').disabled = false; });
+    }
+
+    function confirmDelete(id, name) {
+        pendingDeleteId = id;
+        document.getElementById('deleteName').textContent = name;
+        deleteModal.show();
+    }
+
+    function deleteClinic() {
+        document.getElementById('btnDelete').disabled = true;
+        fetch('/Admin/Clinic/Delete', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(pendingDeleteId)
+        })
+        .then(r => {
+            if (!r.ok) return Promise.reject();
+            deleteModal.hide();
+            const idx = allClinics.findIndex(x => x.ClinicId === pendingDeleteId);
+            if (idx >= 0) allClinics.splice(idx, 1);
+            applyFilters();
+            showToast('Clínica eliminada correctamente.', true);
+        })
+        .catch(() => showToast('Error al eliminar la clínica.', false))
+        .finally(() => { document.getElementById('btnDelete').disabled = false; });
+    }
+
+    function escapeHtml(text) {
+        const d = document.createElement('div');
+        d.textContent = text ?? '';
+        return d.innerHTML;
+    }
+
+    function clinicDisplayName(c) {
+        const t = c.ClinicTypeName ?? TYPE_NAMES[c.ClinicTypeId] ?? '';
+        return (t ? t + ' ' : '') + (c.ClinicName ?? '');
+    }
+
+    // ── Médicos de clínica ────────────────────────────────────────────────────
+
+    function openDoctorsModal(clinicId, clinicName) {
+        currentDoctorClinicId = clinicId;
+        allClinicDoctorData   = [];
+        filteredClinicDoctors = [];
+        checkedDoctorIds      = new Set();
+        clinicDoctorPage      = 1;
+        document.getElementById('doctorsModalTitle').textContent = `Médicos — ${clinicName}`;
+        document.getElementById('doctorsLoading').classList.remove('d-none');
+        document.getElementById('doctorsChecks').classList.add('d-none');
+        document.getElementById('doctorsError').classList.add('d-none');
+        document.getElementById('btnSaveDoctors').disabled = false;
+        doctorsModal.show();
+
+        fetch(`/Admin/Clinic/GetDoctors?clinicId=${clinicId}`)
+            .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.message ?? 'Error al cargar.')))
+            .then(data => {
+                if (data.length === 0) {
+                    document.getElementById('doctorsList').innerHTML =
+                        '<p class="text-muted small">No hay médicos activos registrados. Agrega médicos desde el módulo <strong>Médicos</strong> primero.</p>';
+                    document.getElementById('docPagination').style.display = 'none';
+                } else {
+                    allClinicDoctorData = data.map(d => ({
+                        id:         d.DoctorId   ?? d.doctorId,
+                        name:       d.DoctorName ?? d.doctorName ?? '',
+                        isAssigned: d.IsAssigned ?? d.isAssigned ?? false,
+                    }));
+                    allClinicDoctorData.forEach(d => { if (d.isAssigned) checkedDoctorIds.add(d.id); });
+                    document.getElementById('doctorsSearch').value = '';
+                    applyDoctorFilter();
+                }
+                document.getElementById('doctorsLoading').classList.add('d-none');
+                document.getElementById('doctorsChecks').classList.remove('d-none');
+            })
+            .catch(msg => {
+                document.getElementById('doctorsLoading').classList.add('d-none');
+                const err = document.getElementById('doctorsError');
+                err.textContent = typeof msg === 'string' ? msg : 'Error al cargar los médicos.';
+                err.classList.remove('d-none');
+            });
+    }
+
+    function applyDoctorFilter() {
+        const q = (document.getElementById('doctorsSearch').value ?? '').trim().toLowerCase();
+        filteredClinicDoctors = q
+            ? allClinicDoctorData.filter(d => d.name.toLowerCase().includes(q))
+            : [...allClinicDoctorData];
+        clinicDoctorPage = 1;
+        renderClinicDoctorPage();
+    }
+
+    function renderClinicDoctorPage() {
+        const total      = filteredClinicDoctors.length;
+        const totalPages = Math.max(1, Math.ceil(total / DOC_PAGE_SIZE));
+        if (clinicDoctorPage > totalPages) clinicDoctorPage = totalPages;
+
+        const start = (clinicDoctorPage - 1) * DOC_PAGE_SIZE;
+        const page  = filteredClinicDoctors.slice(start, start + DOC_PAGE_SIZE);
+
+        const list = document.getElementById('doctorsList');
+        list.innerHTML = total === 0
+            ? '<p class="text-muted small">No se encontraron médicos.</p>'
+            : page.map(d => `
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" value="${d.id}"
+                           id="doc${d.id}" data-name="${escapeHtml(d.name)}"
+                           ${checkedDoctorIds.has(d.id) ? 'checked' : ''}
+                           onchange="toggleClinicDoctor(${d.id}, this.checked)">
+                    <label class="form-check-label" for="doc${d.id}">${escapeHtml(d.name)}</label>
+                </div>`).join('');
+
+        const pag = document.getElementById('docPagination');
+        if (total > DOC_PAGE_SIZE) {
+            document.getElementById('docPaginationInfo').textContent =
+                `${start + 1}–${Math.min(start + DOC_PAGE_SIZE, total)} de ${total}`;
+            document.getElementById('docPageLabel').textContent = `${clinicDoctorPage} / ${totalPages}`;
+            document.getElementById('docPrevBtn').disabled = clinicDoctorPage <= 1;
+            document.getElementById('docNextBtn').disabled = clinicDoctorPage >= totalPages;
+            pag.style.display = 'flex';
+        } else {
+            pag.style.display = 'none';
+        }
+    }
+
+    function docChangePage(delta) {
+        const totalPages = Math.max(1, Math.ceil(filteredClinicDoctors.length / DOC_PAGE_SIZE));
+        clinicDoctorPage = Math.max(1, Math.min(clinicDoctorPage + delta, totalPages));
+        renderClinicDoctorPage();
+    }
+
+    function toggleClinicDoctor(id, checked) {
+        if (checked) checkedDoctorIds.add(id);
+        else checkedDoctorIds.delete(id);
+    }
+
+    function saveClinicDoctors() {
+        const ids   = [...checkedDoctorIds];
+        const names = ids.map(id => allClinicDoctorData.find(d => d.id === id)?.name).filter(Boolean);
+
+        document.getElementById('btnSaveDoctors').disabled = true;
+
+        fetch('/Admin/Clinic/SaveDoctors', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ clinicId: currentDoctorClinicId, doctorIds: ids })
+        })
+        .then(r => { if (!r.ok) return Promise.reject(); })
+        .then(() => {
+            doctorsModal.hide();
+            showToast('Médicos asignados correctamente.', true);
+        })
+        .catch(() => showToast('Error al guardar los médicos.', false))
+        .finally(() => { document.getElementById('btnSaveDoctors').disabled = false; });
+    }
+
+    // ── Horarios ──────────────────────────────────────────────────────────────
+
+    const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+    let scheduleClinicId      = 0;
+    let scheduleClinicDoctors = [];
+    let currentScheduleData   = [];
+    let editingScheduleId     = 0;
+
+    function openScheduleModal(clinicId, clinicName) {
+        scheduleClinicId      = clinicId;
+        scheduleClinicDoctors = [];
+        currentScheduleData   = [];
+        editingScheduleId     = 0;
+        document.getElementById('scheduleModalTitle').textContent = `Horarios — ${clinicName}`;
+        document.getElementById('scheduleSection').classList.add('d-none');
+        document.getElementById('scheduleLoading').classList.add('d-none');
+        const docSel = document.getElementById('scheduleDoctorId');
+        docSel.innerHTML = '<option value="0">— Seleccionar médico —</option>';
+        scheduleModal.show();
+
+        fetch(`/Admin/Clinic/GetDoctors?clinicId=${clinicId}`)
+            .then(r => r.ok ? r.json() : Promise.reject('Error al cargar médicos'))
+            .then(data => {
+                scheduleClinicDoctors = data
+                    .filter(d => d.IsAssigned ?? d.isAssigned)
+                    .map(d => ({ id: d.DoctorId ?? d.doctorId, name: d.DoctorName ?? d.doctorName ?? '' }));
+                if (scheduleClinicDoctors.length === 0) {
+                    docSel.innerHTML = '<option value="0">— Sin médicos asignados —</option>';
+                } else {
+                    docSel.innerHTML = '<option value="0">— Seleccionar médico —</option>';
+                    scheduleClinicDoctors.forEach(d => {
+                        const opt = document.createElement('option');
+                        opt.value = d.id;
+                        opt.textContent = d.name;
+                        docSel.appendChild(opt);
+                    });
+                }
+            })
+            .catch(msg => showToast(typeof msg === 'string' ? msg : 'Error al cargar médicos.', false));
+    }
+
+    function onScheduleDoctorChange() {
+        const doctorId = parseInt(document.getElementById('scheduleDoctorId').value) || 0;
+        if (doctorId === 0) {
+            document.getElementById('scheduleSection').classList.add('d-none');
+            return;
+        }
+        document.getElementById('scheduleLoading').classList.remove('d-none');
+        document.getElementById('scheduleSection').classList.add('d-none');
+        resetScheduleForm();
+
+        fetch(`/Admin/Clinic/GetSchedule?clinicId=${scheduleClinicId}&doctorId=${doctorId}`)
+            .then(r => r.ok ? r.json() : Promise.reject('Error al cargar horarios'))
+            .then(data => {
+                currentScheduleData = data.map(s => ({
+                    doctorScheduleId:    s.DoctorScheduleId    ?? s.doctorScheduleId,
+                    doctorId:            s.DoctorId            ?? s.doctorId,
+                    clinicId:            s.ClinicId            ?? s.clinicId,
+                    dayOfWeek:           s.DayOfWeek           ?? s.dayOfWeek,
+                    startTime:           s.StartTime           ?? s.startTime           ?? '',
+                    endTime:             s.EndTime             ?? s.endTime             ?? '',
+                    slotDurationMinutes: s.SlotDurationMinutes ?? s.slotDurationMinutes ?? 20,
+                    isActive:            s.IsActive            ?? s.isActive            ?? true,
+                }));
+                renderScheduleTable();
+                document.getElementById('scheduleLoading').classList.add('d-none');
+                document.getElementById('scheduleSection').classList.remove('d-none');
+            })
+            .catch(msg => {
+                document.getElementById('scheduleLoading').classList.add('d-none');
+                showToast(typeof msg === 'string' ? msg : 'Error al cargar los horarios.', false);
+            });
+    }
+
+    function renderScheduleTable() {
+        const tbody = document.getElementById('scheduleBody');
+        if (currentScheduleData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-2">Sin horarios registrados.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = currentScheduleData.map(s => `
+            <tr>
+                <td>${DAY_NAMES[s.dayOfWeek] ?? s.dayOfWeek}</td>
+                <td>${s.startTime}</td>
+                <td>${s.endTime}</td>
+                <td>${s.slotDurationMinutes} min</td>
+                <td>${s.isActive ? '<span class="badge bg-success">Sí</span>' : '<span class="badge bg-secondary">No</span>'}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editScheduleRow(${s.doctorScheduleId})" title="Editar">
+                        <i class="fas fa-edit fa-sm"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteScheduleRow(${s.doctorScheduleId})" title="Eliminar">
+                        <i class="fas fa-trash fa-sm"></i>
+                    </button>
+                </td>
+            </tr>`).join('');
+    }
+
+    function editScheduleRow(id) {
+        const s = currentScheduleData.find(x => x.doctorScheduleId === id);
+        if (!s) return;
+        editingScheduleId = id;
+        document.getElementById('scheduleId').value            = id;
+        document.getElementById('scheduleDayOfWeek').value     = s.dayOfWeek;
+        document.getElementById('scheduleStartTime').value     = s.startTime;
+        document.getElementById('scheduleEndTime').value       = s.endTime;
+        document.getElementById('scheduleSlotMinutes').value   = s.slotDurationMinutes;
+        document.getElementById('scheduleIsActive').checked    = s.isActive;
+        document.getElementById('scheduleFormTitle').textContent = 'Editar horario';
+        document.getElementById('scheduleCancelEdit').style.display = '';
+    }
+
+    function cancelScheduleEdit() {
+        resetScheduleForm();
+    }
+
+    function resetScheduleForm() {
+        editingScheduleId = 0;
+        document.getElementById('scheduleId').value            = '0';
+        document.getElementById('scheduleDayOfWeek').value     = '1';
+        document.getElementById('scheduleStartTime').value     = '08:00';
+        document.getElementById('scheduleEndTime').value       = '17:00';
+        document.getElementById('scheduleSlotMinutes').value   = '20';
+        document.getElementById('scheduleIsActive').checked    = true;
+        document.getElementById('scheduleFormTitle').textContent = 'Agregar horario';
+        document.getElementById('scheduleCancelEdit').style.display = 'none';
+    }
+
+    function saveScheduleRow() {
+        const doctorId  = parseInt(document.getElementById('scheduleDoctorId').value) || 0;
+        const startTime = document.getElementById('scheduleStartTime').value;
+        const endTime   = document.getElementById('scheduleEndTime').value;
+        if (doctorId === 0) return;
+        if (!startTime || !endTime) { showToast('Ingrese la hora de inicio y fin.', false); return; }
+        if (startTime >= endTime)   { showToast('La hora de fin debe ser mayor que la hora de inicio.', false); return; }
+
+        const payload = {
+            doctorScheduleId:    parseInt(document.getElementById('scheduleId').value) || 0,
+            doctorId:            doctorId,
+            clinicId:            scheduleClinicId,
+            dayOfWeek:           parseInt(document.getElementById('scheduleDayOfWeek').value),
+            startTime:           startTime,
+            endTime:             endTime,
+            slotDurationMinutes: parseInt(document.getElementById('scheduleSlotMinutes').value) || 20,
+            isActive:            document.getElementById('scheduleIsActive').checked,
+        };
+
+        fetch('/Admin/Clinic/SaveSchedule', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload)
+        })
+        .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.message ?? 'Error')))
+        .then(data => {
+            payload.doctorScheduleId = data.scheduleId;
+            const prevId = editingScheduleId;
+            const idx = prevId > 0 ? currentScheduleData.findIndex(x => x.doctorScheduleId === prevId) : -1;
+            if (idx >= 0) currentScheduleData[idx] = payload;
+            else currentScheduleData.push(payload);
+            currentScheduleData.sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime));
+            renderScheduleTable();
+            resetScheduleForm();
+            showToast('Horario guardado correctamente.', true);
+        })
+        .catch(msg => showToast(typeof msg === 'string' ? msg : 'Error al guardar el horario.', false));
+    }
+
+    function deleteScheduleRow(id) {
+        if (!confirm('¿Eliminar este horario?')) return;
+        fetch('/Admin/Clinic/DeleteSchedule', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(id)
+        })
+        .then(r => { if (!r.ok) return r.json().then(e => Promise.reject(e.message ?? 'Error')); })
+        .then(() => {
+            const idx = currentScheduleData.findIndex(x => x.doctorScheduleId === id);
+            if (idx >= 0) currentScheduleData.splice(idx, 1);
+            renderScheduleTable();
+            showToast('Horario eliminado.', true);
+        })
+        .catch(msg => showToast(typeof msg === 'string' ? msg : 'Error al eliminar el horario.', false));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+
+    applyFilters();
+</script>
+}

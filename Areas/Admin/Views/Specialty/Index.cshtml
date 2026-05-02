@@ -1,0 +1,290 @@
+@model List<Medycally.Models.SpecialtyModel>
+@{
+    ViewData["Title"] = "Especialidades";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">Especialidades</h4>
+    <button class="btn btn-primary" onclick="openModal()">
+        <i class="fas fa-plus me-1"></i> Nueva Especialidad
+    </button>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+
+        <div class="row mb-3">
+            <div class="col-md-5">
+                <div class="input-group">
+                    <span class="input-group-text text-muted"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="searchInput"
+                           placeholder="Buscar por nombre..."
+                           oninput="applyFilters()" />
+                    <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()" title="Limpiar">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Nombre</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="specialtyBody"></tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <small class="text-muted" id="paginationInfo"></small>
+            <nav>
+                <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
+            </nav>
+        </div>
+
+    </div>
+</div>
+
+<!-- Save Modal -->
+<div class="modal fade" id="specialtyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Nueva Especialidad</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="specialtyId" value="0" />
+                <div class="mb-3">
+                    <label class="form-label">Nombre <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="specialtyName" maxlength="100" />
+                    <div class="invalid-feedback" id="nameError"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSave" onclick="saveSpecialty()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Eliminar Especialidad</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Eliminar <strong id="deleteName"></strong>?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnDelete" onclick="deleteSpecialty()">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="toast" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMessage"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const specialtyModal = new bootstrap.Modal(document.getElementById('specialtyModal'));
+    const deleteModal    = new bootstrap.Modal(document.getElementById('deleteModal'));
+    const toast          = new bootstrap.Toast(document.getElementById('toast'), { delay: 3000 });
+
+    let pendingDeleteId    = 0;
+    let filteredSpecialties = [];
+    let currentPage        = 1;
+    const PAGE_SIZE        = 10;
+
+    const allSpecialties = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+
+    function renderTable() {
+        const tbody = document.getElementById('specialtyBody');
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const page  = filteredSpecialties.slice(start, start + PAGE_SIZE);
+
+        if (filteredSpecialties.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">No se encontraron especialidades.</td></tr>';
+            renderPagination();
+            return;
+        }
+
+        tbody.innerHTML = page.map(s => {
+            const escaped = (s.SpecialtyName ?? '').replace(/'/g, "\\'");
+            return `<tr data-id="${s.SpecialtyId}">
+                <td>${s.SpecialtyId}</td>
+                <td>${escapeHtml(s.SpecialtyName ?? '')}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="openModal(${s.SpecialtyId},'${escaped}')" title="Editar">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(${s.SpecialtyId},'${escaped}')" title="Eliminar">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+        }).join('');
+
+        renderPagination();
+    }
+
+    function renderPagination() {
+        const total      = filteredSpecialties.length;
+        const totalPages = Math.ceil(total / PAGE_SIZE);
+        const pag        = document.getElementById('pagination');
+        const info       = document.getElementById('paginationInfo');
+
+        if (total === 0) { info.textContent = ''; pag.innerHTML = ''; return; }
+
+        const start = (currentPage - 1) * PAGE_SIZE + 1;
+        const end   = Math.min(currentPage * PAGE_SIZE, total);
+        info.textContent = `Mostrando ${start}–${end} de ${total}`;
+
+        if (totalPages <= 1) { pag.innerHTML = ''; return; }
+
+        const pages  = new Set([1, totalPages]);
+        for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) pages.add(i);
+        const sorted = [...pages].sort((a, b) => a - b);
+
+        let html = `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage - 1});return false;">&lsaquo;</a></li>`;
+        let prev = 0;
+        for (const p of sorted) {
+            if (p - prev > 1) html += `<li class="page-item disabled"><span class="page-link">&hellip;</span></li>`;
+            html += `<li class="page-item ${p === currentPage ? 'active' : ''}">
+                <a class="page-link" href="#" onclick="goToPage(${p});return false;">${p}</a></li>`;
+            prev = p;
+        }
+        html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage + 1});return false;">&rsaquo;</a></li>`;
+
+        pag.innerHTML = html;
+    }
+
+    function goToPage(page) {
+        const totalPages = Math.max(1, Math.ceil(filteredSpecialties.length / PAGE_SIZE));
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        renderTable();
+    }
+
+    function applyFilters() {
+        const q = (document.getElementById('searchInput').value ?? '').trim().toLowerCase();
+        filteredSpecialties = q
+            ? allSpecialties.filter(s => (s.SpecialtyName ?? '').toLowerCase().includes(q))
+            : [...allSpecialties];
+        currentPage = 1;
+        renderTable();
+    }
+
+    function clearSearch() {
+        document.getElementById('searchInput').value = '';
+        applyFilters();
+    }
+
+    function showToast(message, success) {
+        const el = document.getElementById('toast');
+        el.classList.remove('bg-success', 'bg-danger');
+        el.classList.add(success ? 'bg-success' : 'bg-danger');
+        document.getElementById('toastMessage').textContent = message;
+        toast.show();
+    }
+
+    function openModal(id = 0, name = '') {
+        document.getElementById('specialtyId').value   = id;
+        document.getElementById('specialtyName').value = name;
+        document.getElementById('modalTitle').textContent = id === 0 ? 'Nueva Especialidad' : 'Editar Especialidad';
+        document.getElementById('specialtyName').classList.remove('is-invalid');
+        specialtyModal.show();
+        setTimeout(() => document.getElementById('specialtyName').focus(), 300);
+    }
+
+    function saveSpecialty() {
+        const id   = parseInt(document.getElementById('specialtyId').value);
+        const name = document.getElementById('specialtyName').value.trim();
+
+        if (!name) {
+            document.getElementById('specialtyName').classList.add('is-invalid');
+            document.getElementById('nameError').textContent = 'El nombre es requerido.';
+            return;
+        }
+        document.getElementById('specialtyName').classList.remove('is-invalid');
+        document.getElementById('btnSave').disabled = true;
+
+        fetch('/Admin/Specialty/Save', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ specialtyId: id, specialtyName: name })
+        })
+        .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)))
+        .then(data => {
+            specialtyModal.hide();
+            const newId  = id === 0 ? data.specialtyId : id;
+            const newDoc = { SpecialtyId: newId, SpecialtyName: name };
+
+            if (id === 0) {
+                allSpecialties.push(newDoc);
+            } else {
+                const idx = allSpecialties.findIndex(x => x.SpecialtyId === id);
+                if (idx >= 0) allSpecialties[idx] = newDoc;
+            }
+
+            applyFilters();
+            showToast(id === 0 ? 'Especialidad creada correctamente.' : 'Especialidad actualizada correctamente.', true);
+        })
+        .catch(err => showToast(err?.message ?? 'Error al guardar la especialidad.', false))
+        .finally(() => { document.getElementById('btnSave').disabled = false; });
+    }
+
+    function confirmDelete(id, name) {
+        pendingDeleteId = id;
+        document.getElementById('deleteName').textContent = name;
+        deleteModal.show();
+    }
+
+    function deleteSpecialty() {
+        document.getElementById('btnDelete').disabled = true;
+        fetch('/Admin/Specialty/Delete', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(pendingDeleteId)
+        })
+        .then(r => {
+            if (!r.ok) return Promise.reject();
+            deleteModal.hide();
+            const idx = allSpecialties.findIndex(x => x.SpecialtyId === pendingDeleteId);
+            if (idx >= 0) allSpecialties.splice(idx, 1);
+            applyFilters();
+            showToast('Especialidad eliminada correctamente.', true);
+        })
+        .catch(() => showToast('Error al eliminar la especialidad.', false))
+        .finally(() => { document.getElementById('btnDelete').disabled = false; });
+    }
+
+    function escapeHtml(text) {
+        const d = document.createElement('div');
+        d.textContent = text ?? '';
+        return d.innerHTML;
+    }
+
+    applyFilters();
+</script>
+}

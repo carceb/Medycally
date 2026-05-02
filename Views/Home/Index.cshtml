@@ -1,0 +1,1111 @@
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Citas Médicas";
+}
+
+<style>
+    .status-select {
+        border: none;
+        background: transparent;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        padding: 0 18px 0 0;
+        outline: none;
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239ca3af'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 2px center;
+        background-size: 8px;
+    }
+    .status-select.status-pending   { color: #f59e0b; }
+    .status-select.status-confirmed { color: #10b981; }
+    .status-select.status-cancelled { color: #ef4444; }
+    .status-select:disabled { opacity: 0.5; cursor: wait; }
+
+    /* Modal detalle de cita */
+    .detail-section-title {
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: #6c757d;
+        margin-bottom: .5rem;
+    }
+    .detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: .25rem .75rem;
+        font-size: .875rem;
+    }
+    .detail-grid .label { color: #6c757d; }
+    .detail-grid .value { font-weight: 500; word-break: break-word; }
+    .detail-divider {
+        border: none;
+        border-top: 1px solid #e9ecef;
+        margin: 1rem 0;
+    }
+    @@media (max-width: 575px) { .detail-grid { grid-template-columns: 1fr; } }
+
+    /* Modal registro de paciente */
+    .reg-section-title {
+        font-size: .78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: #6c757d;
+        margin: 1rem 0 .6rem;
+    }
+    .reg-section-title:first-child { margin-top: 0; }
+    #registerPatientModal .modal-body { padding: 1.25rem 1.5rem; }
+</style>
+
+<!-- Page Header -->
+<div class="page-header-custom mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="page-title mb-1">Gestión de Citas Médicas</h2>
+            <p class="text-muted mb-0" id="dashClinicName">Cargando...</p>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <input type="date" class="form-control" id="dashDate" style="width:auto" />
+            <a href="/Appointment/Wizard" class="btn btn-success">
+                <i class="fas fa-plus me-2"></i>Nueva Cita
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="stats-card-modern">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stats-label">TOTAL CITAS</div>
+                    <div class="stats-value" id="statTotal">—</div>
+                    <div class="stats-change text-muted" id="statDateLabel">—</div>
+                </div>
+                <div class="stats-icon bg-success-light">
+                    <i class="fas fa-calendar-check text-success"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="stats-card-modern">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stats-label">CONFIRMADAS</div>
+                    <div class="stats-value" id="statConfirmed">—</div>
+                    <div class="stats-change text-success">
+                        <i class="fas fa-check-circle"></i> <span id="statConfirmedPct">—</span>
+                    </div>
+                </div>
+                <div class="stats-icon bg-success-light">
+                    <i class="fas fa-user-check text-success"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="stats-card-modern">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stats-label">PENDIENTES</div>
+                    <div class="stats-value" id="statPending">—</div>
+                    <div class="stats-change text-warning">
+                        <i class="fas fa-clock"></i> Por confirmar
+                    </div>
+                </div>
+                <div class="stats-icon bg-warning-light">
+                    <i class="fas fa-hourglass-half text-warning"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="stats-card-modern">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stats-label">CANCELADAS</div>
+                    <div class="stats-value" id="statCancelled">—</div>
+                    <div class="stats-change text-danger">
+                        <i class="fas fa-times-circle"></i> Hoy
+                    </div>
+                </div>
+                <div class="stats-icon bg-danger-light">
+                    <i class="fas fa-calendar-times text-danger"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Appointments Table Card -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+
+        <div class="table-filters">
+            <ul class="nav nav-pills" id="statusTabs">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#" data-status="all">
+                        Todas <span class="badge" id="badgeAll">0</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-status="2">
+                        Confirmadas <span class="badge" id="badgeConfirmed">0</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-status="1">
+                        Pendientes <span class="badge" id="badgePending">0</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-status="3">
+                        Canceladas <span class="badge" id="badgeCancelled">0</span>
+                    </a>
+                </li>
+            </ul>
+            <div class="d-flex gap-2">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" class="form-control" id="dashSearch"
+                           placeholder="Buscar paciente, doctor, especialidad...">
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="dashLoading" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">Cargando citas...</p>
+        </div>
+
+        <!-- Table -->
+        <div id="dashTableWrap" class="table-responsive d-none">
+            <table class="table table-hover users-table">
+                <thead>
+                    <tr>
+                        <th>PACIENTE</th>
+                        <th>DOCTOR</th>
+                        <th>STATUS</th>
+                        <th>REGISTRO</th>
+                        <th>FECHA CITA</th>
+                        <th>HORA CITA</th>
+                        <th class="text-end">ACCIONES</th>
+                    </tr>
+                </thead>
+                <tbody id="dashBody"></tbody>
+            </table>
+        </div>
+
+        <!-- Empty state -->
+        <div id="dashEmpty" class="text-center py-5 d-none">
+            <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+            <p class="text-muted mb-0">No hay citas para mostrar.</p>
+        </div>
+
+        <!-- Pagination -->
+        <div class="table-pagination" id="dashPaginationWrap" style="display:none">
+            <div class="text-muted" id="dashPagInfo"></div>
+            <nav>
+                <ul class="pagination pagination-sm mb-0" id="dashPagination"></ul>
+            </nav>
+        </div>
+
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     Modal: Detalle de Cita
+══════════════════════════════════════════ -->
+<div class="modal fade" id="appointmentDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-file-medical me-2"></i>Detalle de Cita</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="appointmentDetailBody">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     Modal: Registrar Paciente
+══════════════════════════════════════════ -->
+<div class="modal fade" id="registerPatientModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-plus me-2"></i>
+                    Registrar Paciente — <span id="regPat_apptLabel"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+
+                <div id="regPat_loading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+
+                <form id="regPat_form" class="d-none" autocomplete="off">
+                    <input type="hidden" id="regPat_appointmentId" value="0">
+                    <input type="hidden" id="regPat_patientTypeId">
+                    <input type="hidden" id="regPat_patientId" value="0">
+
+                    <!-- ── Sección paciente (adulto) / menor ── -->
+                    <div class="reg-section-title">
+                        <i class="fas fa-user me-1"></i>
+                        <span id="regPat_sectionTitle">Datos del Paciente</span>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Nombre y Apellido <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control reg-text" id="regPat_name" maxlength="120">
+                        </div>
+                        <div class="col-sm-6" id="regPat_idNumberGroup">
+                            <label class="form-label">Cédula <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="regPat_idNumber" maxlength="9" inputmode="numeric">
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label">Sexo <span class="text-danger">*</span></label>
+                            <select class="form-select" id="regPat_sexId">
+                                <option value="">— Seleccione —</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label">Fecha de Nacimiento <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="regPat_birthdate">
+                        </div>
+                        <div class="col-sm-6" id="regPat_phoneGroup">
+                            <label class="form-label">Teléfono <span class="text-danger">*</span></label>
+                            <input type="tel" class="form-control reg-phone" id="regPat_phone" placeholder="Ej: 04141234567">
+                        </div>
+                        <div class="col-12" id="regPat_addressGroup">
+                            <label class="form-label">Dirección <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control reg-text" id="regPat_address" maxlength="150">
+                        </div>
+                        <div class="col-sm-6" id="regPat_stateGroup">
+                            <label class="form-label">Estado <span class="text-danger">*</span></label>
+                            <select class="form-select" id="regPat_stateId" onchange="loadRegMunicipalities(this.value, 0)">
+                                <option value="">— Seleccione el estado —</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-6" id="regPat_municipalityGroup">
+                            <label class="form-label">Municipio <span class="text-danger">*</span></label>
+                            <select class="form-select" id="regPat_municipalityId">
+                                <option value="">— Seleccione el municipio —</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- ── Sección representante (solo menores) ── -->
+                    <div id="regPat_guardianSection" class="d-none">
+                        <div class="reg-section-title mt-3">
+                            <i class="fas fa-user-shield me-1"></i> Datos del Representante
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Nombre y Apellido <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control reg-text" id="regPat_guardianName" maxlength="120">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label">Cédula</label>
+                                <input type="text" class="form-control" id="regPat_guardianIdNumber" maxlength="9" inputmode="numeric">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label">Parentesco <span class="text-danger">*</span></label>
+                                <select class="form-select" id="regPat_relationshipId">
+                                    <option value="">— Seleccione —</option>
+                                </select>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label">Sexo <span class="text-danger">*</span></label>
+                                <select class="form-select" id="regPat_guardianSexId">
+                                    <option value="">— Seleccione —</option>
+                                </select>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label">Fecha de Nacimiento <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="regPat_guardianBirthdate">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label">Teléfono <span class="text-danger">*</span></label>
+                                <input type="tel" class="form-control reg-phone" id="regPat_guardianPhone" placeholder="Ej: 04141234567">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Dirección <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control reg-text" id="regPat_guardianAddress" maxlength="150">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label">Estado <span class="text-danger">*</span></label>
+                                <select class="form-select" id="regPat_guardianStateId" onchange="loadRegGuardianMunicipalities(this.value, 0)">
+                                    <option value="">— Seleccione el estado —</option>
+                                </select>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label">Municipio <span class="text-danger">*</span></label>
+                                <select class="form-select" id="regPat_guardianMunicipalityId">
+                                    <option value="">— Seleccione el municipio —</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="regPat_errorMsg" class="alert alert-danger mt-3 d-none"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="regPat_saveBtn" onclick="prepareRegPatConfirm()">
+                    <i class="fas fa-save me-1"></i> Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Confirmación de registro ── -->
+<div class="modal fade" id="confirmRegPatientModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-question-circle me-2 text-warning"></i>Confirmar Registro</h5>
+            </div>
+            <div class="modal-body">
+                <p class="mb-1">¿Está seguro que desea registrar este paciente en el sistema?</p>
+                <p class="text-muted small mb-0">Una vez registrado, el paciente formará parte oficial del sistema y sus datos quedarán guardados permanentemente.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary"
+                        onclick="bootstrap.Modal.getInstance(document.getElementById('confirmRegPatientModal')).hide()">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="confirmRegPatBtn" onclick="confirmRegPatient()">
+                    <i class="fas fa-check me-1"></i> Sí, registrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Confirmar Eliminación de Cita -->
+<div class="modal fade" id="deleteAppointmentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Eliminar Cita</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Eliminar la cita de <strong id="deleteApptPatientName"></strong>?</p>
+                <p class="text-muted small mb-0">Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnConfirmDeleteAppt" onclick="deleteAppointment()">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="dashToast" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="dashToastMessage"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const DASH_PAGE_SIZE = 10;
+    const AVATAR_COLORS  = ['ff6b6b','4ecdc4','a29bfe','74b9ff','ffd93d','55efc4','fd79a8','e17055'];
+    const STATUS_CSS     = { 1: 'status-pending', 2: 'status-confirmed', 3: 'status-cancelled' };
+
+    const allStatuses          = @Html.Raw(JsonSerializer.Serialize(ViewBag.Statuses       as IEnumerable<Medycally.Models.AppointmentStatusModel> ?? new List<Medycally.Models.AppointmentStatusModel>()));
+    const allRegSexes          = @Html.Raw(JsonSerializer.Serialize(ViewBag.Sexes          as IEnumerable<Medycally.Models.SexModel>              ?? new List<Medycally.Models.SexModel>()));
+    const allRegRelationships  = @Html.Raw(JsonSerializer.Serialize(ViewBag.Relationships  as IEnumerable<Medycally.Models.RelationshipModel>     ?? new List<Medycally.Models.RelationshipModel>()));
+    const allRegStates         = @Html.Raw(JsonSerializer.Serialize(ViewBag.States         as IEnumerable<Medycally.Models.GeographyModel>        ?? new List<Medycally.Models.GeographyModel>()));
+    const allRegMunicipalities = @Html.Raw(JsonSerializer.Serialize(ViewBag.Municipalities as IEnumerable<Medycally.Models.GeographyModel>        ?? new List<Medycally.Models.GeographyModel>()));
+
+    let allAppointments           = [];
+    let filteredAppointments      = [];
+    let dashPage                  = 1;
+    let pendingDeleteAppointmentId = 0;
+    let activeStatus         = 'all';
+    let activeClinicId       = parseInt(localStorage.getItem('activeClinicId') || '1');
+
+    function todayStr() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function escHtml(t) {
+        const d = document.createElement('div');
+        d.textContent = t ?? '';
+        return d.innerHTML;
+    }
+
+    function formatDate(isoStr) {
+        if (!isoStr) return '—';
+        try {
+            const d = new Date(isoStr);
+            return d.toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' });
+        } catch { return isoStr; }
+    }
+
+    // ── Init ────────────────────────────────────────────────────────────────
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const dateInput = document.getElementById('dashDate');
+        dateInput.value = todayStr();
+        dateInput.addEventListener('change', loadAppointments);
+        document.getElementById('dashSearch').addEventListener('input', applyDashFilters);
+
+        document.getElementById('statusTabs').addEventListener('click', e => {
+            const link = e.target.closest('[data-status]');
+            if (!link) return;
+            e.preventDefault();
+            document.querySelectorAll('#statusTabs .nav-link').forEach(l => l.classList.remove('active'));
+            link.classList.add('active');
+            activeStatus = link.dataset.status;
+            dashPage = 1;
+            applyDashFilters();
+        });
+
+        // Sync clinic name label from localStorage cache
+        refreshClinicLabel();
+
+        // When user changes clinic from the layout modal
+        window.addEventListener('clinicChanged', e => {
+            activeClinicId = e.detail.clinicId;
+            document.getElementById('dashClinicName').textContent = e.detail.clinicName ?? `Clínica #${activeClinicId}`;
+            loadAppointments();
+        });
+
+        loadAppointments();
+    });
+
+    function refreshClinicLabel() {
+        const cached = JSON.parse(localStorage.getItem('medycallyClinicsV2') || 'null');
+        if (cached) {
+            const found = cached.find(c => c.clinicId === activeClinicId);
+            document.getElementById('dashClinicName').textContent =
+                found ? found.clinicName : `Clínica #${activeClinicId}`;
+        } else {
+            document.getElementById('dashClinicName').textContent = `Clínica #${activeClinicId}`;
+        }
+    }
+
+    // ── Load & render ────────────────────────────────────────────────────────
+
+    function loadAppointments() {
+        const date = document.getElementById('dashDate').value;
+        document.getElementById('dashLoading').classList.remove('d-none');
+        document.getElementById('dashTableWrap').classList.add('d-none');
+        document.getElementById('dashEmpty').classList.add('d-none');
+        document.getElementById('dashPaginationWrap').style.display = 'none';
+
+        fetch(`/Home/GetAppointments?clinicId=${activeClinicId}&date=${date}`)
+            .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.message ?? 'Error')))
+            .then(data => {
+                allAppointments = data;
+                updateStats();
+                dashPage = 1;
+                applyDashFilters();
+                document.getElementById('dashLoading').classList.add('d-none');
+            })
+            .catch(msg => {
+                document.getElementById('dashLoading').classList.add('d-none');
+                const empty = document.getElementById('dashEmpty');
+                empty.innerHTML = `<i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                    <p class="text-danger mb-0">${typeof msg === 'string' ? escHtml(msg) : 'Error al cargar las citas.'}</p>`;
+                empty.classList.remove('d-none');
+            });
+    }
+
+    function updateStats() {
+        const total     = allAppointments.length;
+        const confirmed = allAppointments.filter(a => a.appointmentStatusId === 2).length;
+        const pending   = allAppointments.filter(a => a.appointmentStatusId === 1).length;
+        const cancelled = allAppointments.filter(a => a.appointmentStatusId === 3).length;
+        const pct       = total > 0 ? Math.round(confirmed / total * 100) : 0;
+
+        document.getElementById('statTotal').textContent         = total;
+        document.getElementById('statConfirmed').textContent     = confirmed;
+        document.getElementById('statPending').textContent       = pending;
+        document.getElementById('statCancelled').textContent     = cancelled;
+        document.getElementById('statConfirmedPct').textContent  = `${pct}% confirmación`;
+        document.getElementById('badgeAll').textContent          = total;
+        document.getElementById('badgeConfirmed').textContent    = confirmed;
+        document.getElementById('badgePending').textContent      = pending;
+        document.getElementById('badgeCancelled').textContent    = cancelled;
+
+        const dateVal = document.getElementById('dashDate').value;
+        if (dateVal) {
+            const d = new Date(dateVal + 'T00:00:00');
+            document.getElementById('statDateLabel').textContent =
+                d.toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'long' });
+        }
+    }
+
+    function applyDashFilters() {
+        const q = (document.getElementById('dashSearch').value ?? '').trim().toLowerCase();
+        filteredAppointments = allAppointments.filter(a => {
+            if (activeStatus !== 'all' && a.appointmentStatusId !== parseInt(activeStatus)) return false;
+            if (!q) return true;
+            return (a.patientName   ?? '').toLowerCase().includes(q)
+                || (a.doctorName    ?? '').toLowerCase().includes(q)
+                || (a.specialtyName ?? '').toLowerCase().includes(q);
+        });
+        dashPage = 1;
+        renderDashTable();
+    }
+
+    function renderDashTable() {
+        const empty   = document.getElementById('dashEmpty');
+        const wrap    = document.getElementById('dashTableWrap');
+        const pagWrap = document.getElementById('dashPaginationWrap');
+
+        if (filteredAppointments.length === 0) {
+            wrap.classList.add('d-none');
+            empty.innerHTML = '<i class="fas fa-calendar-times fa-3x text-muted mb-3"></i><p class="text-muted mb-0">No hay citas para mostrar.</p>';
+            empty.classList.remove('d-none');
+            pagWrap.style.display = 'none';
+            return;
+        }
+
+        empty.classList.add('d-none');
+        wrap.classList.remove('d-none');
+
+        const start = (dashPage - 1) * DASH_PAGE_SIZE;
+        const page  = filteredAppointments.slice(start, start + DASH_PAGE_SIZE);
+
+        document.getElementById('dashBody').innerHTML = page.map(a => {
+            const color     = AVATAR_COLORS[a.appointmentId % AVATAR_COLORS.length];
+            const statusCss = STATUS_CSS[a.appointmentStatusId] ?? 'status-pending';
+            return `<tr>
+                <td>
+                    <div class="user-info">
+                        <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(a.patientName ?? '')}&background=${color}&color=fff"
+                             alt="${escHtml(a.patientName ?? '')}">
+                        <div>
+                            <div class="user-name">${escHtml(a.patientName ?? '—')}</div>
+                            <div class="user-email">${escHtml(a.specialtyName ?? '')}</div>
+                        </div>
+                    </div>
+                </td>
+                <td><span class="role-badge">${escHtml(a.doctorName ?? '—')}</span></td>
+                <td>
+                    <select class="status-select ${statusCss}"
+                            onchange="updateAppointmentStatus(${a.appointmentId}, this.value, this)">
+                        ${allStatuses.map(s => `<option value="${s.AppointmentStatusId}"${s.AppointmentStatusId === a.appointmentStatusId ? ' selected' : ''}>${escHtml(s.AppointmentStatusName ?? '')}</option>`).join('')}
+                    </select>
+                </td>
+                <td>
+                    ${a.isRegistered
+                        ? `<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="fas fa-check-circle me-1"></i>Registrado</span>`
+                        : `<span class="badge bg-warning-subtle text-warning border border-warning-subtle"><i class="fas fa-clock me-1"></i>Sin registro</span>`}
+                </td>
+                <td><span class="text-muted">${formatDate(a.appointmentDate)}</span></td>
+                <td><span class="text-muted fw-bold">${escHtml(a.appointmentTime ?? '—')}</span></td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn btn-sm btn-icon" title="Ver" onclick="openAppointmentDetail(${a.appointmentId})"><i class="far fa-eye"></i></button>
+                        <button class="btn btn-sm btn-icon" title="Registrar Paciente" onclick="openRegisterPatient(${a.appointmentId})"><i class="far fa-edit"></i></button>
+                        <button class="btn btn-sm btn-icon text-danger" title="Eliminar" onclick="confirmDeleteAppointment(${a.appointmentId},'${escHtml(a.patientName ?? '')}')"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+
+        renderDashPagination();
+    }
+
+    function renderDashPagination() {
+        const total      = filteredAppointments.length;
+        const totalPages = Math.max(1, Math.ceil(total / DASH_PAGE_SIZE));
+        const pag        = document.getElementById('dashPagination');
+        const info       = document.getElementById('dashPagInfo');
+        const wrap       = document.getElementById('dashPaginationWrap');
+
+        const start = (dashPage - 1) * DASH_PAGE_SIZE + 1;
+        const end   = Math.min(dashPage * DASH_PAGE_SIZE, total);
+        info.textContent = `Mostrando ${start}–${end} de ${total} citas`;
+        wrap.style.display = 'flex';
+
+        if (totalPages <= 1) { pag.innerHTML = ''; return; }
+
+        const pages  = new Set([1, totalPages]);
+        for (let i = Math.max(1, dashPage-2); i <= Math.min(totalPages, dashPage+2); i++) pages.add(i);
+        const sorted = [...pages].sort((a, b) => a - b);
+
+        let html = `<li class="page-item ${dashPage===1?'disabled':''}">
+            <a class="page-link" href="#" onclick="dashGoPage(${dashPage-1});return false;">
+                <i class="fas fa-chevron-left"></i></a></li>`;
+        let prev = 0;
+        for (const p of sorted) {
+            if (p-prev > 1) html += `<li class="page-item disabled"><span class="page-link">&hellip;</span></li>`;
+            html += `<li class="page-item ${p===dashPage?'active':''}">
+                <a class="page-link" href="#" onclick="dashGoPage(${p});return false;">${p}</a></li>`;
+            prev = p;
+        }
+        html += `<li class="page-item ${dashPage===totalPages?'disabled':''}">
+            <a class="page-link" href="#" onclick="dashGoPage(${dashPage+1});return false;">
+                <i class="fas fa-chevron-right"></i></a></li>`;
+        pag.innerHTML = html;
+    }
+
+    function dashGoPage(p) {
+        const totalPages = Math.max(1, Math.ceil(filteredAppointments.length / DASH_PAGE_SIZE));
+        if (p < 1 || p > totalPages) return;
+        dashPage = p;
+        renderDashTable();
+    }
+
+    function updateAppointmentStatus(appointmentId, newStatusId, selectEl) {
+        const newId  = parseInt(newStatusId);
+        const idx    = allAppointments.findIndex(a => a.appointmentId === appointmentId);
+        const prevId = idx !== -1 ? allAppointments[idx].appointmentStatusId : null;
+        selectEl.disabled = true;
+
+        fetch('/Home/UpdateAppointmentStatus', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ appointmentId, appointmentStatusId: newId })
+        })
+        .then(r => r.ok ? null : r.json().then(e => Promise.reject(e.message ?? 'Error')))
+        .then(() => {
+            if (idx !== -1) {
+                const status = allStatuses.find(s => s.AppointmentStatusId === newId);
+                allAppointments[idx].appointmentStatusId   = newId;
+                allAppointments[idx].appointmentStatusName = status?.AppointmentStatusName ?? '';
+            }
+            const newCss = STATUS_CSS[newId] ?? 'status-pending';
+            Object.values(STATUS_CSS).forEach(c => selectEl.classList.remove(c));
+            selectEl.classList.add(newCss);
+            selectEl.disabled = false;
+            updateStats();
+        })
+        .catch(msg => {
+            if (prevId !== null) selectEl.value = prevId;
+            selectEl.disabled = false;
+            alert(typeof msg === 'string' ? msg : 'Error al actualizar el estatus.');
+        });
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       REGISTRO DE PACIENTE
+    ══════════════════════════════════════════════════════════ */
+    (function initRegPatSelects() {
+        const sexOpts = '<option value="">— Seleccione —</option>' +
+            allRegSexes.map(s => `<option value="${s.SexId}">${escHtml(s.SexName ?? '')}</option>`).join('');
+        document.getElementById('regPat_sexId').innerHTML         = sexOpts;
+        document.getElementById('regPat_guardianSexId').innerHTML = sexOpts;
+
+        document.getElementById('regPat_relationshipId').innerHTML =
+            '<option value="">— Seleccione —</option>' +
+            allRegRelationships.map(r => `<option value="${r.RelationshipId}">${escHtml(r.RelationshipName ?? '')}</option>`).join('');
+
+        const stateOpts = '<option value="">— Seleccione el estado —</option>' +
+            allRegStates.map(s => `<option value="${s.StateId}">${escHtml(s.StateName ?? '')}</option>`).join('');
+        document.getElementById('regPat_stateId').innerHTML         = stateOpts;
+        document.getElementById('regPat_guardianStateId').innerHTML = stateOpts;
+    })();
+
+    function loadRegMunicipalities(stateId, preselectId) {
+        const sid  = parseInt(stateId) || 0;
+        const sel  = document.getElementById('regPat_municipalityId');
+        const opts = sid
+            ? allRegMunicipalities.filter(m => m.StateId === sid)
+                  .map(m => `<option value="${m.MunicipalityId}"${m.MunicipalityId === preselectId ? ' selected' : ''}>${escHtml(m.MunicipalityName ?? '')}</option>`)
+                  .join('')
+            : '';
+        sel.innerHTML = '<option value="">— Seleccione el municipio —</option>' + opts;
+    }
+
+    function loadRegGuardianMunicipalities(stateId, preselectId) {
+        const sid  = parseInt(stateId) || 0;
+        const sel  = document.getElementById('regPat_guardianMunicipalityId');
+        const opts = sid
+            ? allRegMunicipalities.filter(m => m.StateId === sid)
+                  .map(m => `<option value="${m.MunicipalityId}"${m.MunicipalityId === preselectId ? ' selected' : ''}>${escHtml(m.MunicipalityName ?? '')}</option>`)
+                  .join('')
+            : '';
+        sel.innerHTML = '<option value="">— Seleccione el municipio —</option>' + opts;
+    }
+
+    /* ── Sanitización de texto en el modal (mayúsculas, sin acentos excepto Ñ) ── */
+    (function bindRegPatInputs() {
+        const ACCENT = {
+            'á':'A','à':'A','ä':'A','â':'A','ã':'A','Á':'A','À':'A','Ä':'A','Â':'A','Ã':'A',
+            'é':'E','è':'E','ë':'E','ê':'E','É':'E','È':'E','Ë':'E','Ê':'E',
+            'í':'I','ì':'I','ï':'I','î':'I','Í':'I','Ì':'I','Ï':'I','Î':'I',
+            'ó':'O','ò':'O','ö':'O','ô':'O','õ':'O','Ó':'O','Ò':'O','Ö':'O','Ô':'O','Õ':'O',
+            'ú':'U','ù':'U','ü':'U','û':'U','Ú':'U','Ù':'U','Ü':'U','Û':'U',
+            'ñ':'Ñ'
+        };
+        function sanitize(val) {
+            return val.split('').map(c => ACCENT[c] ?? c).join('')
+                .toUpperCase().replace(/[^A-ZÑ0-9 .,\-#()/':]/g, '');
+        }
+        document.querySelectorAll('#regPat_form .reg-text').forEach(el => {
+            el.addEventListener('input', () => {
+                const p = el.selectionStart; el.value = sanitize(el.value);
+                try { el.setSelectionRange(p, p); } catch(_) {}
+            });
+            el.addEventListener('paste', e => {
+                e.preventDefault();
+                const raw = (e.clipboardData || window.clipboardData).getData('text') || '';
+                el.value = sanitize(el.value.slice(0, el.selectionStart) + raw + el.value.slice(el.selectionEnd));
+            });
+        });
+        document.querySelectorAll('#regPat_form .reg-phone').forEach(el => {
+            const clean = v => v.replace(/[^0-9]/g, '');
+            el.addEventListener('keypress', e => { if (!/\d/.test(e.key)) e.preventDefault(); });
+            el.addEventListener('input',    () => { el.value = clean(el.value); });
+            el.addEventListener('paste',    e => {
+                e.preventDefault();
+                el.value = clean((e.clipboardData || window.clipboardData).getData('text') || '');
+            });
+        });
+        ['regPat_idNumber', 'regPat_guardianIdNumber'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('keypress', e => { if (!/\d/.test(e.key)) e.preventDefault(); });
+            el.addEventListener('input',    () => { el.value = el.value.replace(/\D/g, '').slice(0, 9); });
+            el.addEventListener('paste',    e => {
+                e.preventDefault();
+                el.value = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 9);
+            });
+        });
+    })();
+
+    function openRegisterPatient(appointmentId) {
+        const loading = document.getElementById('regPat_loading');
+        const form    = document.getElementById('regPat_form');
+        const errMsg  = document.getElementById('regPat_errorMsg');
+        loading.classList.remove('d-none');
+        form.classList.add('d-none');
+        errMsg.classList.add('d-none');
+        document.getElementById('regPat_apptLabel').textContent = 'Cita #' + appointmentId;
+        document.getElementById('regPat_appointmentId').value   = appointmentId;
+        document.getElementById('regPat_saveBtn').disabled = false;
+
+        const modal = new bootstrap.Modal(document.getElementById('registerPatientModal'));
+        modal.show();
+
+        fetch(`/Home/GetAppointmentDetail?appointmentId=${appointmentId}`)
+            .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.message ?? 'Error')))
+            .then(d => {
+                const isMinor = d.patientTypeId === 2;
+
+                // Limpiar estados inválidos previos
+                document.querySelectorAll('#regPat_form .is-invalid').forEach(el => el.classList.remove('is-invalid'));
+
+                document.getElementById('regPat_patientTypeId').value = d.patientTypeId;
+                document.getElementById('regPat_patientId').value     = 0;
+
+                document.getElementById('regPat_sectionTitle').textContent =
+                    isMinor ? 'Datos del Menor' : 'Datos del Paciente';
+
+                document.getElementById('regPat_idNumberGroup').classList.toggle('d-none', isMinor);
+                document.getElementById('regPat_guardianSection').classList.toggle('d-none', !isMinor);
+                ['regPat_phoneGroup','regPat_addressGroup','regPat_stateGroup','regPat_municipalityGroup']
+                    .forEach(id => document.getElementById(id).classList.toggle('d-none', isMinor));
+
+                // Datos del paciente / menor
+                document.getElementById('regPat_name').value     = d.patientName ?? '';
+                document.getElementById('regPat_idNumber').value = isMinor ? '' : (d.patientIdNumber || '');
+                document.getElementById('regPat_sexId').value    = d.patientSexId || '';
+                document.getElementById('regPat_birthdate').value =
+                    d.patientBirthDate ? d.patientBirthDate.slice(0, 10) : '';
+                document.getElementById('regPat_phone').value   = (d.patientPhone   ?? '').replace(/\D/g, '');
+                document.getElementById('regPat_address').value = d.patientAddress  ?? '';
+                loadRegMunicipalities(d.patientStateId || 0, 0);
+                document.getElementById('regPat_stateId').value = d.patientStateId  || '';
+
+                if (isMinor) {
+                    document.getElementById('regPat_guardianName').value      = d.childGuardianName     ?? '';
+                    document.getElementById('regPat_guardianIdNumber').value  = d.childGuardianIdNumber || '';
+                    document.getElementById('regPat_guardianSexId').value     = d.childGuardianSexId    || '';
+                    document.getElementById('regPat_guardianBirthdate').value =
+                        d.childGuardianBirthDate ? d.childGuardianBirthDate.slice(0, 10) : '';
+                    document.getElementById('regPat_guardianPhone').value   = (d.childGuardianPhone   ?? '').replace(/\D/g, '');
+                    document.getElementById('regPat_guardianAddress').value = d.childGuardianAddress  ?? '';
+                    loadRegGuardianMunicipalities(d.childGuardianStateId || 0, 0);
+                    document.getElementById('regPat_guardianStateId').value = d.childGuardianStateId  || '';
+                    const relSel = document.getElementById('regPat_relationshipId');
+                    relSel.value = d.relationshipName
+                        ? (allRegRelationships.find(r => r.RelationshipName === d.relationshipName)?.RelationshipId ?? '') : '';
+                }
+
+                loading.classList.add('d-none');
+                form.classList.remove('d-none');
+            })
+            .catch(msg => {
+                loading.innerHTML =
+                    `<div class="alert alert-danger">${escHtml(typeof msg === 'string' ? msg : 'Error al cargar la cita.')}</div>`;
+            });
+    }
+
+    function regPatRequired(id, label) {
+        const el = document.getElementById(id);
+        const v  = el.value.trim();
+        if (!v) {
+            el.classList.add('is-invalid');
+            return null;
+        }
+        el.classList.remove('is-invalid');
+        return v;
+    }
+
+    function prepareRegPatConfirm() {
+        const isMinor = parseInt(document.getElementById('regPat_patientTypeId').value) === 2;
+        const errMsg  = document.getElementById('regPat_errorMsg');
+        errMsg.classList.add('d-none');
+
+        const name        = regPatRequired('regPat_name',           'Nombre');
+        const sexId       = regPatRequired('regPat_sexId',          'Sexo');
+        const birthdate   = regPatRequired('regPat_birthdate',      'Fecha de Nacimiento');
+        const phone       = isMinor ? true : regPatRequired('regPat_phone',          'Teléfono');
+        const address     = isMinor ? true : regPatRequired('regPat_address',        'Dirección');
+        const stateId     = isMinor ? true : regPatRequired('regPat_stateId',        'Estado');
+        const municipalId = isMinor ? true : regPatRequired('regPat_municipalityId', 'Municipio');
+        const idNumber    = isMinor ? true : regPatRequired('regPat_idNumber', 'Cédula');
+
+        let gName, gSex, gBirth, gPhone, gAddress, gState, gMun, relId;
+        if (isMinor) {
+            gName    = regPatRequired('regPat_guardianName',           'Nombre del Representante');
+            gSex     = regPatRequired('regPat_guardianSexId',          'Sexo del Representante');
+            gBirth   = regPatRequired('regPat_guardianBirthdate',      'Fecha de Nacimiento del Representante');
+            gPhone   = regPatRequired('regPat_guardianPhone',          'Teléfono del Representante');
+            gAddress = regPatRequired('regPat_guardianAddress',        'Dirección del Representante');
+            gState   = regPatRequired('regPat_guardianStateId',        'Estado del Representante');
+            gMun     = regPatRequired('regPat_guardianMunicipalityId', 'Municipio del Representante');
+            relId    = regPatRequired('regPat_relationshipId',         'Parentesco');
+        }
+
+        const patientOk  = name && sexId && birthdate && phone && address && stateId && municipalId && idNumber;
+        const guardianOk = !isMinor || (gName && gSex && gBirth && gPhone && gAddress && gState && gMun && relId);
+
+        if (!patientOk || !guardianOk) {
+            errMsg.textContent = 'Por favor complete todos los campos obligatorios.';
+            errMsg.classList.remove('d-none');
+            return;
+        }
+
+        new bootstrap.Modal(document.getElementById('confirmRegPatientModal')).show();
+    }
+
+    async function confirmRegPatient() {
+        const btn     = document.getElementById('confirmRegPatBtn');
+        const errMsg  = document.getElementById('regPat_errorMsg');
+        const isMinor = parseInt(document.getElementById('regPat_patientTypeId').value) === 2;
+        btn.disabled  = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Guardando...';
+
+        const g = id => document.getElementById(id);
+        const intVal  = id => parseInt(g(id).value)              || 0;
+        const strVal  = id => g(id).value.trim();
+        const phoneOf = id => parseInt(g(id).value.replace(/\D/g, '')) || 0;
+
+        const apptId = parseInt(g('regPat_appointmentId').value) || 0;
+
+        const payload = {
+            appointmentId: apptId,
+            patient: {
+                patientId:        parseInt(g('regPat_patientId').value) || 0,
+                patientIdNumber:  isMinor ? null : (parseInt(g('regPat_idNumber').value) || null),
+                patientName:      strVal('regPat_name'),
+                sexId:            intVal('regPat_sexId'),
+                patientBirthdate: strVal('regPat_birthdate'),
+                patientAddress:   isMinor ? null : strVal('regPat_address'),
+                municipalityId:   isMinor ? 0    : intVal('regPat_municipalityId'),
+                patientMainPhone: isMinor ? 0    : phoneOf('regPat_phone')
+            },
+            guardian: isMinor ? {
+                patientId:        0,
+                patientIdNumber:  parseInt(g('regPat_guardianIdNumber').value) || null,
+                patientName:      strVal('regPat_guardianName'),
+                sexId:            intVal('regPat_guardianSexId'),
+                patientBirthdate: strVal('regPat_guardianBirthdate'),
+                patientAddress:   strVal('regPat_guardianAddress'),
+                municipalityId:   intVal('regPat_guardianMunicipalityId'),
+                patientMainPhone: phoneOf('regPat_guardianPhone')
+            } : null,
+            relationshipId: isMinor ? intVal('regPat_relationshipId') : 0
+        };
+
+        try {
+            const resp = await fetch('/Home/RegisterPatient', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(payload)
+            });
+            const result = await resp.json();
+            bootstrap.Modal.getInstance(document.getElementById('confirmRegPatientModal')).hide();
+
+            if (resp.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('registerPatientModal')).hide();
+                // Marcar la cita como registrada en la lista local
+                if (apptId > 0) {
+                    const idx = allAppointments.findIndex(a => a.appointmentId === apptId);
+                    if (idx !== -1) {
+                        allAppointments[idx].isRegistered = true;
+                        renderDashTable();
+                    }
+                }
+                showDashToast('Paciente registrado exitosamente.', true);
+            } else {
+                errMsg.textContent = result.message ?? 'Error al registrar el paciente.';
+                errMsg.classList.remove('d-none');
+            }
+        } catch {
+            errMsg.textContent = 'Error de conexión. Intente nuevamente.';
+            errMsg.classList.remove('d-none');
+        } finally {
+            btn.disabled  = false;
+            btn.innerHTML = '<i class="fas fa-check me-1"></i> Sí, registrar';
+        }
+    }
+
+    function showDashToast(message, success) {
+        const el = document.getElementById('dashToast');
+        el.classList.remove('bg-success', 'bg-danger');
+        el.classList.add(success ? 'bg-success' : 'bg-danger');
+        document.getElementById('dashToastMessage').textContent = message;
+        new bootstrap.Toast(el, { delay: 3500 }).show();
+    }
+
+    function confirmDeleteAppointment(appointmentId, patientName) {
+        pendingDeleteAppointmentId = appointmentId;
+        document.getElementById('deleteApptPatientName').textContent = patientName || ('Cita #' + appointmentId);
+        new bootstrap.Modal(document.getElementById('deleteAppointmentModal')).show();
+    }
+
+    function deleteAppointment() {
+        const btn = document.getElementById('btnConfirmDeleteAppt');
+        btn.disabled = true;
+        fetch('/Home/DeleteAppointment', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(pendingDeleteAppointmentId)
+        })
+        .then(r => {
+            if (!r.ok) return r.json().then(e => Promise.reject(e.message ?? 'Error'));
+            bootstrap.Modal.getInstance(document.getElementById('deleteAppointmentModal')).hide();
+            const idx = allAppointments.findIndex(a => a.appointmentId === pendingDeleteAppointmentId);
+            if (idx >= 0) allAppointments.splice(idx, 1);
+            applyDashFilters();
+            showDashToast('Cita eliminada correctamente.', true);
+        })
+        .catch(msg => showDashToast(typeof msg === 'string' ? msg : 'Error al eliminar la cita.', false))
+        .finally(() => { btn.disabled = false; });
+    }
+
+    function openAppointmentDetail(appointmentId) {
+        const body  = document.getElementById('appointmentDetailBody');
+        const modal = new bootstrap.Modal(document.getElementById('appointmentDetailModal'));
+        body.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>';
+        modal.show();
+
+        fetch(`/Home/GetAppointmentDetail?appointmentId=${appointmentId}`)
+            .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.message ?? 'Error')))
+            .then(d => { body.innerHTML = buildDetailHtml(d); })
+            .catch(msg => {
+                body.innerHTML = `<div class="alert alert-danger">${escHtml(typeof msg === 'string' ? msg : 'Error al cargar la cita.')}</div>`;
+            });
+    }
+
+    function buildDetailHtml(d) {
+        const isMinor   = d.patientTypeId === 2;
+        const fmt       = v => escHtml(v ?? '—');
+        const fmtDate   = v => v ? new Date(v).toLocaleDateString('es-VE', { day:'2-digit', month:'2-digit', year:'numeric' }) : '—';
+        const fmtNum    = v => (v && v !== 0) ? String(v) : '—';
+        const calcAgeFrom = dateStr => {
+            if (!dateStr) return null;
+            const birth = new Date(dateStr), today = new Date();
+            let age = today.getFullYear() - birth.getFullYear();
+            if (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate())) age--;
+            return age;
+        };
+        const fmtAge = (storedAge, birthDate) => {
+            if (storedAge > 0) return storedAge + ' años';
+            const calc = calcAgeFrom(birthDate);
+            return calc !== null ? calc + ' años' : '—';
+        };
+        const STATUS_LABELS = { 1: 'Pendiente', 2: 'Confirmada', 3: 'Cancelada' };
+        const STATUS_BADGE  = { 1: 'warning', 2: 'success', 3: 'danger' };
+
+        let html = `
+        <div class="detail-section-title">Información de la Cita</div>
+        <div class="detail-grid">
+            <span class="label">N° de Cita</span>   <span class="value">#${d.appointmentId}</span>
+            <span class="label">Clínica</span>       <span class="value">${fmt(d.clinicName)}</span>
+            <span class="label">Especialidad</span>  <span class="value">${fmt(d.specialtyName)}</span>
+            <span class="label">Médico</span>        <span class="value">${fmt(d.doctorName)}</span>
+            <span class="label">Fecha</span>         <span class="value">${fmtDate(d.appointmentDate)}</span>
+            <span class="label">Hora</span>          <span class="value">${fmt(d.appointmentTime)}</span>
+            <span class="label">Motivo</span>        <span class="value">${fmt(d.reasonName)}</span>
+            <span class="label">Síntomas</span>      <span class="value">${fmt(d.symptoms)}</span>
+            <span class="label">Estatus</span>       <span class="value"><span class="badge bg-${STATUS_BADGE[d.appointmentStatusId] ?? 'secondary'}">${STATUS_LABELS[d.appointmentStatusId] ?? fmt(d.appointmentStatusName)}</span></span>
+        </div>
+        <hr class="detail-divider">`;
+
+        if (isMinor) {
+            html += `
+        <div class="detail-section-title"><i class="fas fa-child me-1"></i>Datos del Menor</div>
+        <div class="detail-grid">
+            <span class="label">Nombre</span>            <span class="value">${fmt(d.patientName)}</span>
+            <span class="label">Sexo</span>              <span class="value">${fmt(d.patientSexName)}</span>
+            <span class="label">Edad</span>              <span class="value">${fmtAge(d.patientAge, d.patientBirthDate)}</span>
+            <span class="label">Fecha de Nacimiento</span><span class="value">${fmtDate(d.patientBirthDate)}</span>
+        </div>
+        <hr class="detail-divider">
+        <div class="detail-section-title"><i class="fas fa-user-shield me-1"></i>Datos del Representante</div>
+        <div class="detail-grid">
+            <span class="label">Nombre</span>            <span class="value">${fmt(d.childGuardianName)}</span>
+            <span class="label">Cédula</span>            <span class="value">${fmtNum(d.childGuardianIdNumber)}</span>
+            <span class="label">Parentesco</span>        <span class="value">${fmt(d.relationshipName)}</span>
+            <span class="label">Sexo</span>              <span class="value">${fmt(d.childGuardianSexName)}</span>
+            <span class="label">Fecha de Nacimiento</span><span class="value">${fmtDate(d.childGuardianBirthDate)}</span>
+            <span class="label">Teléfono</span>          <span class="value">${fmt(d.childGuardianPhone)}</span>
+            <span class="label">Dirección</span>         <span class="value">${fmt(d.childGuardianAddress)}</span>
+            <span class="label">Estado</span>            <span class="value">${fmt(d.childGuardianStateName)}</span>
+        </div>`;
+        } else {
+            html += `
+        <div class="detail-section-title"><i class="fas fa-user me-1"></i>Datos del Paciente</div>
+        <div class="detail-grid">
+            <span class="label">Nombre</span>            <span class="value">${fmt(d.patientName)}</span>
+            <span class="label">Cédula</span>            <span class="value">${fmtNum(d.patientIdNumber)}</span>
+            <span class="label">Sexo</span>              <span class="value">${fmt(d.patientSexName)}</span>
+            <span class="label">Edad</span>              <span class="value">${fmtAge(d.patientAge, d.patientBirthDate)}</span>
+            <span class="label">Fecha de Nacimiento</span><span class="value">${fmtDate(d.patientBirthDate)}</span>
+            <span class="label">Teléfono</span>          <span class="value">${fmt(d.patientPhone)}</span>
+            <span class="label">Dirección</span>         <span class="value">${fmt(d.patientAddress)}</span>
+            <span class="label">Estado</span>            <span class="value">${fmt(d.patientStateName)}</span>
+        </div>`;
+        }
+
+        return html;
+    }
+</script>
+}

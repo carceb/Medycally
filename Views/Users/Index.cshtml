@@ -1,0 +1,318 @@
+@{
+    ViewData["Title"] = "People Directory";
+}
+
+<!-- Page Header -->
+<div class="page-header-custom mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="page-title mb-1">People Directory</h2>
+            <p class="text-muted mb-0">Centralized user operations, access status, and lifecycle management</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary">
+                <i class="fas fa-file-export me-2"></i>Export
+            </button>
+            <button class="btn btn-success">
+                <i class="fas fa-plus me-2"></i>Add User
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="stats-card-modern">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stats-label">TOTAL USERS</div>
+                    <div class="stats-value">268</div>
+                    <div class="stats-change text-success">
+                        <i class="fas fa-arrow-up"></i> +18 this month
+                    </div>
+                </div>
+                <div class="stats-icon bg-success-light">
+                    <i class="fas fa-users text-success"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="stats-card-modern">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stats-label">ACTIVE</div>
+                    <div class="stats-value">186</div>
+                    <div class="stats-change text-success">
+                        <i class="fas fa-arrow-up"></i> 75% engagement
+                    </div>
+                </div>
+                <div class="stats-icon bg-success-light">
+                    <i class="fas fa-check-circle text-success"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="stats-card-modern">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stats-label">PENDING</div>
+                    <div class="stats-value">24</div>
+                    <div class="stats-change text-warning">
+                        <i class="fas fa-clock"></i> Needs onboarding
+                    </div>
+                </div>
+                <div class="stats-icon bg-warning-light">
+                    <i class="fas fa-hourglass-half text-warning"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="stats-card-modern">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stats-label">INACTIVE</div>
+                    <div class="stats-value">38</div>
+                    <div class="stats-change text-danger">
+                        <i class="fas fa-exclamation-circle"></i> Follow-up required
+                    </div>
+                </div>
+                <div class="stats-icon bg-danger-light">
+                    <i class="fas fa-user-slash text-danger"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Users Table Card -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <!-- Filters -->
+        <div class="table-filters">
+            <ul class="nav nav-pills">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#">All <span class="badge">268</span></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Active <span class="badge">18</span></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Pending <span class="badge">2</span></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Inactive <span class="badge">18</span></a>
+                </li>
+            </ul>
+            <div class="d-flex gap-2">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" class="form-control" placeholder="Search users, email, role...">
+                </div>
+                <button class="btn btn-outline-secondary">
+                    <i class="fas fa-sliders-h me-2"></i>Role
+                </button>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-responsive">
+            <table class="table table-hover users-table">
+                <thead>
+                    <tr>
+                        <th>USER</th>
+                        <th>ROLE</th>
+                        <th>STATUS</th>
+                        <th>LAST ACTIVE</th>
+                        <th>JOINED</th>
+                        <th class="text-end">ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <div class="user-info">
+                                <img src="https://ui-avatars.com/api/?name=Sarah+Johnson&background=ff6b6b&color=fff" alt="Sarah Johnson">
+                                <div>
+                                    <div class="user-name">Sarah Johnson</div>
+                                    <div class="user-email">sarah.johnson@email.com</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="role-badge role-admin"><i class="fas fa-shield-alt me-1"></i>Admin</span></td>
+                        <td><span class="status-badge status-active"><i class="fas fa-circle me-1"></i>Active</span></td>
+                        <td><span class="text-muted">Just now</span></td>
+                        <td><span class="text-muted">Jan 15, 2024</span></td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn btn-sm btn-icon"><i class="far fa-eye"></i></button>
+                                <button class="btn btn-sm btn-icon"><i class="far fa-edit"></i></button>
+                                <button class="btn btn-sm btn-icon"><i class="far fa-trash-alt"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="user-info">
+                                <img src="https://ui-avatars.com/api/?name=Michael+Chen&background=4ecdc4&color=fff" alt="Michael Chen">
+                                <div>
+                                    <div class="user-name">Michael Chen</div>
+                                    <div class="user-email">michael.chen@email.com</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="role-badge role-manager"><i class="fas fa-user-tie me-1"></i>Manager</span></td>
+                        <td><span class="status-badge status-active"><i class="fas fa-circle me-1"></i>Active</span></td>
+                        <td><span class="text-muted">5 min ago</span></td>
+                        <td><span class="text-muted">Feb 3, 2024</span></td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn btn-sm btn-icon"><i class="far fa-eye"></i></button>
+                                <button class="btn btn-sm btn-icon"><i class="far fa-edit"></i></button>
+                                <button class="btn btn-sm btn-icon"><i class="far fa-trash-alt"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="user-info">
+                                <img src="https://ui-avatars.com/api/?name=Emily+Rodriguez&background=a29bfe&color=fff" alt="Emily Rodriguez">
+                                <div>
+                                    <div class="user-name">Emily Rodriguez</div>
+                                    <div class="user-email">emily.rodriguez@email.com</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="role-badge role-user"><i class="fas fa-user me-1"></i>User</span></td>
+                        <td><span class="status-badge status-active"><i class="fas fa-circle me-1"></i>Active</span></td>
+                        <td><span class="text-muted">2 hours ago</span></td>
+                        <td><span class="text-muted">Mar 12, 2024</span></td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn btn-sm btn-icon"><i class="far fa-eye"></i></button>
+                                <button class="btn btn-sm btn-icon"><i class="far fa-edit"></i></button>
+                                <button class="btn btn-sm btn-icon"><i class="far fa-trash-alt"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="user-info">
+                                <img src="https://ui-avatars.com/api/?name=David+Kim&background=74b9ff&color=fff" alt="David Kim">
+                                <div>
+                                    <div class="user-name">David Kim</div>
+                                    <div class="user-email">david.kim@email.com</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="role-badge role-user"><i class="fas fa-user me-1"></i>User</span></td>
+                        <td><span class="status-badge status-inactive"><i class="fas fa-circle me-1"></i>Inactive</span></td>
+                        <td><span class="text-muted">3 days ago</span></td>
+                        <td><span class="text-muted">Jan 08, 2024</span></td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn btn-sm btn-icon"><i class="far fa-eye"></i></button>
+                                <button class="btn btn-sm btn-icon"><i class="far fa-edit"></i></button>
+                                <button class="btn btn-sm btn-icon"><i class="far fa-trash-alt"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="user-info">
+                                <img src="https://ui-avatars.com/api/?name=Jessica+Taylor&background=ffeaa7&color=333" alt="Jessica Taylor">
+                                <div>
+                                    <div class="user-name">Jessica Taylor</div>
+                                    <div class="user-email">jessica.taylor@email.com</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="role-badge role-manager"><i class="fas fa-user-tie me-1"></i>Manager</span></td>
+                        <td><span class="status-badge status-active"><i class="fas fa-circle me-1"></i>Active</span></td>
+                        <td><span class="text-muted">1 hour ago</span></td>
+                        <td><span class="text-muted">Dec 5, 2023</span></td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn btn-sm btn-icon"><i class="far fa-eye"></i></button>
+                                <button class="btn btn-sm btn-icon"><i class="far fa-edit"></i></button>
+                                <button class="btn btn-sm btn-icon"><i class="far fa-trash-alt"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="user-info">
+                                <img src="https://ui-avatars.com/api/?name=Robert+Martinez&background=55efc4&color=333" alt="Robert Martinez">
+                                <div>
+                                    <div class="user-name">Robert Martinez</div>
+                                    <div class="user-email">robert.martinez@email.com</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="role-badge role-user"><i class="fas fa-user me-1"></i>User</span></td>
+                        <td><span class="status-badge status-active"><i class="fas fa-circle me-1"></i>Active</span></td>
+                        <td><span class="text-muted">30 min ago</span></td>
+                        <td><span class="text-muted">Apr 18, 2024</span></td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn btn-sm btn-icon"><i class="far fa-eye"></i></button>
+                                <button class="btn btn-sm btn-icon"><i class="far fa-edit"></i></button>
+                                <button class="btn btn-sm btn-icon"><i class="far fa-trash-alt"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="user-info">
+                                <img src="https://ui-avatars.com/api/?name=Amanda+Wilson&background=fd79a8&color=fff" alt="Amanda Wilson">
+                                <div>
+                                    <div class="user-name">Amanda Wilson</div>
+                                    <div class="user-email">amanda.wilson@email.com</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="role-badge role-user"><i class="fas fa-user me-1"></i>User</span></td>
+                        <td><span class="status-badge status-active"><i class="fas fa-circle me-1"></i>Active</span></td>
+                        <td><span class="text-muted">45 min ago</span></td>
+                        <td><span class="text-muted">Mar 22, 2024</span></td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn btn-sm btn-icon"><i class="far fa-eye"></i></button>
+                                <button class="btn btn-sm btn-icon"><i class="far fa-edit"></i></button>
+                                <button class="btn btn-sm btn-icon"><i class="far fa-trash-alt"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="table-pagination">
+            <div class="text-muted">
+                Showing 1 to 7 of 268 entries
+            </div>
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item disabled">
+                        <a class="page-link" href="#"><i class="fas fa-chevron-left"></i></a>
+                    </li>
+                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                    <li class="page-item"><a class="page-link" href="#">2</a></li>
+                    <li class="page-item"><a class="page-link" href="#">3</a></li>
+                    <li class="page-item"><a class="page-link" href="#">...</a></li>
+                    <li class="page-item"><a class="page-link" href="#">39</a></li>
+                    <li class="page-item">
+                        <a class="page-link" href="#"><i class="fas fa-chevron-right"></i></a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>

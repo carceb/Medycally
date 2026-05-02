@@ -1,0 +1,1850 @@
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Registrar Cita - Medycally</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        :root {
+            --primary:   #10b981;
+            --primary-d: #059669;
+            --primary-dd:#047857;
+            --dark:      #1e293b;
+            --muted:     #6b7280;
+            --border:    #e5e7eb;
+            --bg:        #f0fdf4;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f8fafc 100%);
+            min-height: 100vh;
+        }
+
+        /* ── PAGE LAYOUT ── */
+        .wz-page { display: flex; flex-direction: column; min-height: 100vh; }
+
+        /* ── HEADER ── */
+        .wz-header {
+            background: #fff;
+            border-bottom: 1px solid var(--border);
+            padding: .875rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,.05);
+            position: sticky; top: 0; z-index: 100;
+        }
+        .wz-brand {
+            color: #064e3b;
+            text-decoration: none;
+            font-size: 1.25rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .wz-brand i { color: var(--primary); font-size: 1.35rem; }
+        .wz-brand:hover { color: #064e3b; }
+
+        /* ── MAIN ── */
+        .wz-main {
+            flex: 1;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 2rem 1rem 3rem;
+        }
+
+        /* ── CARD ── */
+        .wz-card {
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 4px 6px rgba(0,0,0,.04), 0 10px 40px rgba(0,0,0,.08);
+            width: 100%;
+            max-width: 600px;
+            overflow: hidden;
+            transition: max-width .3s ease;
+        }
+        .wz-card.wide { max-width: 900px; }
+
+        /* ── PROGRESS BAR ── */
+        .wz-progress {
+            height: 5px;
+            background: #e5e7eb;
+        }
+        .wz-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--primary-d));
+            transition: width .5s cubic-bezier(.4,0,.2,1);
+            border-radius: 0 3px 3px 0;
+        }
+
+        /* ── STEPS ── */
+        .wz-step { display: none; padding: 2rem; }
+        .wz-step.active {
+            display: block;
+            animation: fadeStep .22s ease both;
+        }
+
+        @@keyframes fadeStep {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0);   }
+        }
+
+        /* ── TYPOGRAPHY ── */
+        .step-title {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: .65rem;
+        }
+        .step-title i { color: var(--primary); }
+        .step-sub {
+            font-size: .9rem;
+            color: #374151;
+            font-weight: 500;
+            margin-bottom: 1.25rem;
+        }
+
+        /* ── FORM CONTROLS ── */
+        .form-label {
+            font-weight: 600;
+            color: #374151;
+            font-size: .85rem;
+            margin-bottom: .35rem;
+        }
+        .form-control, .form-select {
+            border: 1.5px solid var(--border);
+            border-radius: 9px;
+            padding: .6rem 1rem;
+            font-size: .9rem;
+            color: var(--dark);
+            transition: border-color .2s, box-shadow .2s;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(16,185,129,.15);
+            outline: none;
+        }
+        .form-control.is-invalid, .form-select.is-invalid {
+            border-color: #ef4444 !important;
+        }
+        textarea.form-control { resize: vertical; min-height: 90px; }
+
+        /* ── BUTTONS ── */
+        .btn-wz-next {
+            background: linear-gradient(135deg, var(--primary), var(--primary-d));
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: .7rem 1.75rem;
+            font-weight: 600;
+            font-size: .9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: .45rem;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        .btn-wz-next:hover {
+            background: linear-gradient(135deg, var(--primary-d), var(--primary-dd));
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px rgba(16,185,129,.35);
+            color: #fff;
+        }
+        .btn-wz-back {
+            background: #fff;
+            color: var(--muted);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            padding: .7rem 1.4rem;
+            font-weight: 500;
+            font-size: .88rem;
+            display: inline-flex;
+            align-items: center;
+            gap: .45rem;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        .btn-wz-back:hover {
+            background: #f9fafb;
+            border-color: #d1d5db;
+            color: #374151;
+        }
+        .btn-wz-select {
+            background: linear-gradient(135deg, var(--primary), var(--primary-d));
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: .45rem 1.1rem;
+            font-weight: 600;
+            font-size: .8rem;
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            cursor: pointer;
+            transition: all .2s;
+            white-space: nowrap;
+        }
+        .btn-wz-select:hover {
+            background: linear-gradient(135deg, var(--primary-d), var(--primary-dd));
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(16,185,129,.3);
+        }
+
+        /* ── STEP NAV ── */
+        .step-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1.75rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #f3f4f6;
+        }
+        .step-nav.end { justify-content: flex-end; }
+
+        /* ── RADIO OPTIONS ── */
+        .wz-radio-group { display: flex; gap: 1rem; margin: .75rem 0 1rem; }
+        .wz-radio-opt {
+            flex: 1;
+            border: 2px solid var(--border);
+            border-radius: 13px;
+            padding: 1rem 1.15rem;
+            cursor: pointer;
+            transition: all .2s;
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            font-weight: 500;
+            color: #374151;
+            user-select: none;
+        }
+        .wz-radio-opt:hover { border-color: var(--primary); background: #f0fdf4; }
+        .wz-radio-opt.selected {
+            border-color: var(--primary);
+            background: #f0fdf4;
+            color: #064e3b;
+        }
+        .wz-radio-opt input[type="radio"] {
+            accent-color: var(--primary);
+            width: 17px; height: 17px;
+            flex-shrink: 0;
+        }
+
+        /* ── CLINIC CARD ── */
+        #clinicsContainer { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin: 1rem 0; }
+        #clinicsContainer.single { grid-template-columns: 1fr; max-width: 300px; margin: 1rem auto; }
+        .clinic-wrap { perspective: 1200px; cursor: pointer; }
+        .clinic-inner {
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow:
+                0 2px 4px  rgba(0,0,0,.07),
+                0 8px 24px rgba(0,0,0,.11),
+                0 24px 48px rgba(0,0,0,.07);
+            transition: transform .4s ease, box-shadow .4s ease;
+            transform-style: preserve-3d;
+            background: #fff;
+        }
+        .clinic-wrap:hover .clinic-inner {
+            transform: perspective(1200px) rotateX(4deg) rotateY(-2deg) translateY(-5px);
+            box-shadow:
+                0 8px 16px  rgba(0,0,0,.1),
+                0 24px 52px rgba(0,0,0,.14),
+                0 48px 80px rgba(0,0,0,.07);
+        }
+        .clinic-img-area {
+            width: 100%; height: 210px;
+            overflow: hidden;
+            background: linear-gradient(180deg, #e0f2fe 0%, #bae6fd 100%);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .clinic-name-area {
+            padding: 1.2rem 1.5rem 1.4rem;
+            text-align: center;
+            background: #fff;
+        }
+        .clinic-name {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 1.55rem;
+            font-weight: 700;
+            color: var(--dark);
+            letter-spacing: .3px;
+        }
+        .clinic-tagline {
+            font-size: .75rem;
+            color: var(--muted);
+            margin-top: .25rem;
+            font-weight: 400;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+        .clinic-hint {
+            display: flex; align-items: center; justify-content: center;
+            gap: .5rem; font-size: .8rem; color: var(--primary); font-weight: 500;
+            margin-top: .85rem;
+            animation: blink 2s ease-in-out infinite;
+        }
+        @@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+        /* ── PATIENT BADGE ── */
+        .patient-badge {
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+            border: 1px solid #bbf7d0;
+            border-radius: 12px;
+            padding: .9rem 1.2rem;
+            margin-bottom: 1.4rem;
+            display: flex; align-items: center; gap: .75rem;
+        }
+        .patient-badge i { color: var(--primary); font-size: 1.6rem; flex-shrink: 0; }
+        .patient-badge .pb-label { font-size: .7rem; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
+        .patient-badge .pb-name  { font-weight: 700; color: #064e3b; font-size: 1rem; margin-bottom: .2rem; }
+        .patient-badge .pb-meta  { font-size: .8rem; color: #374151; display: flex; flex-wrap: wrap; gap: .5rem; }
+        .patient-badge .pb-chip  { background: #fff; border: 1px solid #bbf7d0; border-radius: 20px; padding: .1rem .55rem; font-size: .75rem; color: #065f46; font-weight: 500; }
+
+        /* ── APPOINTMENT SLOTS ── */
+        .slot-item {
+            border: 1.5px solid var(--border);
+            border-radius: 13px;
+            padding: .9rem 1.1rem;
+            margin-bottom: .7rem;
+            display: flex; align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            transition: all .2s;
+        }
+        .slot-item:hover {
+            border-color: var(--primary);
+            background: #f0fdf4;
+            box-shadow: 0 2px 10px rgba(16,185,129,.1);
+        }
+        .slot-doctor { font-weight: 600; color: var(--dark); font-size: .88rem; }
+        .slot-meta   { font-size: .78rem; color: var(--muted); margin-top: .2rem; }
+        .slot-badge  {
+            display: inline-flex; align-items: center; gap: .25rem;
+            font-size: .72rem; font-weight: 600;
+            padding: .25rem .75rem; border-radius: 20px;
+            white-space: nowrap;
+        }
+        .slot-badge.morning   { background: #fef3c7; color: #d97706; }
+        .slot-badge.afternoon { background: #dbeafe; color: #2563eb; }
+
+        /* ── CONFIRMATION ── */
+        .confirm-check {
+            width: 76px; height: 76px;
+            background: #d1fae5;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 1.5rem;
+        }
+        .confirm-check i { font-size: 2rem; color: var(--primary); }
+        .confirm-table { font-size: .85rem; border-left: 4px solid var(--primary); }
+        .confirm-table .k { font-weight: 600; color: #374151; }
+        .confirm-table .v { color: var(--dark); }
+
+        /* ── FOOTER ── */
+        .wz-footer {
+            background: #fff;
+            border-top: 1px solid var(--border);
+            padding: .9rem 2rem;
+            text-align: center;
+            font-size: .78rem;
+            color: #9ca3af;
+        }
+
+        /* ── MOTIVO COMBO ── */
+        .reason-combo { position: relative; }
+        #reasonSearch { padding-right: 2.5rem; }
+        .reason-dropdown {
+            display: none;
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0; right: 0;
+            background: #fff;
+            border: 1.5px solid var(--primary);
+            border-radius: 9px;
+            box-shadow: 0 4px 20px rgba(0,0,0,.13);
+            z-index: 300;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+        .reason-dropdown.open { display: block; }
+        .reason-option {
+            padding: .5rem 1rem;
+            font-size: .88rem;
+            color: var(--dark);
+            cursor: pointer;
+            transition: background .12s;
+        }
+        .reason-option:hover { background: #f0fdf4; color: #064e3b; }
+        .reason-option.selected { background: #dcfce7; color: #064e3b; font-weight: 600; }
+        .reason-no-results { padding: .55rem 1rem; font-size: .84rem; color: var(--muted); font-style: italic; }
+
+        @@media (max-width: 576px) {
+            .wz-radio-group { flex-direction: column; }
+            .wz-main { padding: 1rem .5rem 2rem; }
+            .wz-step { padding: 1.5rem 1.25rem; }
+            .step-title { font-size: 1.15rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="wz-page">
+
+    <!-- ╔══════════════════════════════╗ -->
+    <!-- ║          HEADER              ║ -->
+    <!-- ╚══════════════════════════════╝ -->
+    <header class="wz-header">
+            <a href="@Url.Action("Landing", "Home")" class="wz-brand">
+            <i class="fas fa-heartbeat"></i>
+            <span>Medycally</span>
+        </a>
+        <span class="d-none d-sm-flex align-items-center gap-2 text-muted" style="font-size:.82rem;">
+            <i class="fas fa-lock text-success"></i> Conexión segura
+        </span>
+    </header>
+
+    <!-- ╔══════════════════════════════╗ -->
+    <!-- ║            MAIN              ║ -->
+    <!-- ╚══════════════════════════════╝ -->
+    <main class="wz-main">
+        <div class="wz-card">
+
+            <!-- Progress bar -->
+            <div class="wz-progress">
+                <div class="wz-progress-fill" id="progressFill" style="width:12%"></div>
+            </div>
+
+            <!-- ══════════════════════════════════════════
+                 PASO 1 — Seleccionar especialidad
+            ══════════════════════════════════════════ -->
+            <div id="step-1" class="wz-step active">
+                <h2 class="step-title">
+                    <i class="fas fa-calendar-plus"></i> Registrar Cita
+                </h2>
+                <div class="mb-3">
+                    <label class="form-label" for="specialtySelect">
+                        <i class="fas fa-stethoscope me-1 text-success"></i>
+                        Seleccione la especialidad
+                    </label>
+                    <select class="form-select form-select-lg" id="specialtySelect">
+                        <option value="">Cargando especialidades...</option>
+                    </select>
+                </div>
+                <div class="step-nav end">
+                    <button type="button" class="btn-wz-next" id="btnS1Next">
+                        Siguiente <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════════
+                 PASO 2 — Tarjeta de la clínica
+            ══════════════════════════════════════════ -->
+            <div id="step-2" class="wz-step">
+                <h2 class="step-title">
+                    <i class="fas fa-hospital"></i> Clínicas Disponibles
+                </h2>
+                <p class="step-sub">Haga clic en una clínica para seleccionarla y continuar</p>
+
+                <div id="clinicsContainer"></div>
+
+                <div class="clinic-hint">
+                    <i class="fas fa-hand-pointer"></i>
+                    Haga clic en la clínica para continuar
+                </div>
+
+                <div class="step-nav">
+                    <button type="button" class="btn-wz-back" onclick="document.querySelector('.wz-card').classList.remove('wide'); goBack('step-1')">
+                        <i class="fas fa-arrow-left"></i> Regresar
+                    </button>
+                </div>
+            </div>
+
+            <!-- SVG clínica reutilizable (oculto) -->
+            <template id="clinicSvgTemplate">
+                <svg viewBox="0 0 500 220" xmlns="http://www.w3.org/2000/svg"
+                     width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+                    <defs>
+                        <linearGradient id="gSky" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%"   stop-color="#bae6fd"/>
+                            <stop offset="100%" stop-color="#e0f2fe"/>
+                        </linearGradient>
+                        <linearGradient id="gBldg" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%"   stop-color="#ffffff"/>
+                            <stop offset="100%" stop-color="#f0fdf4"/>
+                        </linearGradient>
+                        <linearGradient id="gRoof" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%"   stop-color="#10b981"/>
+                            <stop offset="100%" stop-color="#059669"/>
+                        </linearGradient>
+                    </defs>
+                    <rect width="500" height="220" fill="url(#gSky)"/>
+                    <ellipse cx="80"  cy="38" rx="42" ry="20" fill="white" opacity=".82"/>
+                    <ellipse cx="112" cy="32" rx="32" ry="18" fill="white" opacity=".82"/>
+                    <ellipse cx="58"  cy="44" rx="26" ry="14" fill="white" opacity=".82"/>
+                    <ellipse cx="380" cy="28" rx="38" ry="18" fill="white" opacity=".7"/>
+                    <ellipse cx="415" cy="22" rx="28" ry="15" fill="white" opacity=".7"/>
+                    <rect x="0" y="188" width="500" height="32" fill="#dcfce7"/>
+                    <rect x="0" y="188" width="500" height="3"  fill="#10b981" opacity=".25"/>
+                    <rect x="148" y="72" width="204" height="116" fill="url(#gBldg)" stroke="#e5e7eb" stroke-width="1.2"/>
+                    <rect x="138" y="62" width="224" height="13" fill="url(#gRoof)" rx="3"/>
+                    <rect x="165" y="88" width="36" height="28" fill="#bae6fd" rx="3" stroke="#93c5fd" stroke-width=".8"/>
+                    <line x1="183" y1="88" x2="183" y2="116" stroke="#93c5fd" stroke-width=".6"/>
+                    <line x1="165" y1="102" x2="201" y2="102" stroke="#93c5fd" stroke-width=".6"/>
+                    <rect x="217" y="88" width="36" height="28" fill="#bae6fd" rx="3" stroke="#93c5fd" stroke-width=".8"/>
+                    <line x1="235" y1="88" x2="235" y2="116" stroke="#93c5fd" stroke-width=".6"/>
+                    <line x1="217" y1="102" x2="253" y2="102" stroke="#93c5fd" stroke-width=".6"/>
+                    <rect x="269" y="88" width="36" height="28" fill="#bae6fd" rx="3" stroke="#93c5fd" stroke-width=".8"/>
+                    <line x1="287" y1="88" x2="287" y2="116" stroke="#93c5fd" stroke-width=".6"/>
+                    <line x1="269" y1="102" x2="305" y2="102" stroke="#93c5fd" stroke-width=".6"/>
+                    <rect x="165" y="130" width="36" height="28" fill="#bae6fd" rx="3" stroke="#93c5fd" stroke-width=".8"/>
+                    <line x1="183" y1="130" x2="183" y2="158" stroke="#93c5fd" stroke-width=".6"/>
+                    <line x1="165" y1="144" x2="201" y2="144" stroke="#93c5fd" stroke-width=".6"/>
+                    <rect x="217" y="130" width="36" height="28" fill="#bae6fd" rx="3" stroke="#93c5fd" stroke-width=".8"/>
+                    <line x1="235" y1="130" x2="235" y2="158" stroke="#93c5fd" stroke-width=".6"/>
+                    <line x1="217" y1="144" x2="253" y2="144" stroke="#93c5fd" stroke-width=".6"/>
+                    <rect x="269" y="130" width="36" height="28" fill="#bae6fd" rx="3" stroke="#93c5fd" stroke-width=".8"/>
+                    <line x1="287" y1="130" x2="287" y2="158" stroke="#93c5fd" stroke-width=".6"/>
+                    <line x1="269" y1="144" x2="305" y2="144" stroke="#93c5fd" stroke-width=".6"/>
+                    <rect x="214" y="160" width="72" height="28" fill="#059669" rx="3 3 0 0"/>
+                    <rect x="219" y="164" width="27" height="24" fill="#bae6fd" rx="1.5"/>
+                    <rect x="254" y="164" width="27" height="24" fill="#bae6fd" rx="1.5"/>
+                    <line x1="232" y1="164" x2="232" y2="188" stroke="#7dd3fc" stroke-width=".7"/>
+                    <line x1="267" y1="164" x2="267" y2="188" stroke="#7dd3fc" stroke-width=".7"/>
+                    <rect x="206" y="184" width="88" height="5" fill="#d1fae5" rx="1.5"/>
+                    <rect x="62" y="98" width="86" height="90" fill="url(#gBldg)" stroke="#e5e7eb" stroke-width="1"/>
+                    <rect x="57" y="90" width="96" height="11" fill="url(#gRoof)" rx="2"/>
+                    <rect x="74" y="112" width="25" height="20" fill="#bae6fd" rx="2" stroke="#93c5fd" stroke-width=".7"/>
+                    <rect x="107" y="112" width="25" height="20" fill="#bae6fd" rx="2" stroke="#93c5fd" stroke-width=".7"/>
+                    <rect x="74" y="142" width="25" height="20" fill="#bae6fd" rx="2" stroke="#93c5fd" stroke-width=".7"/>
+                    <rect x="107" y="142" width="25" height="20" fill="#bae6fd" rx="2" stroke="#93c5fd" stroke-width=".7"/>
+                    <rect x="352" y="98" width="86" height="90" fill="url(#gBldg)" stroke="#e5e7eb" stroke-width="1"/>
+                    <rect x="347" y="90" width="96" height="11" fill="url(#gRoof)" rx="2"/>
+                    <rect x="363" y="112" width="25" height="20" fill="#bae6fd" rx="2" stroke="#93c5fd" stroke-width=".7"/>
+                    <rect x="396" y="112" width="25" height="20" fill="#bae6fd" rx="2" stroke="#93c5fd" stroke-width=".7"/>
+                    <rect x="363" y="142" width="25" height="20" fill="#bae6fd" rx="2" stroke="#93c5fd" stroke-width=".7"/>
+                    <rect x="396" y="142" width="25" height="20" fill="#bae6fd" rx="2" stroke="#93c5fd" stroke-width=".7"/>
+                    <rect x="242" y="18" width="16" height="36" fill="#ef4444" rx="3"/>
+                    <rect x="230" y="29" width="40" height="14" fill="#ef4444" rx="3"/>
+                    <line x1="250" y1="10" x2="250" y2="18" stroke="#9ca3af" stroke-width="2.5"/>
+                    <polygon points="250,10 265,14 250,18" fill="#10b981"/>
+                    <circle cx="32"  cy="172" r="22" fill="#4ade80"/>
+                    <circle cx="23"  cy="166" r="16" fill="#16a34a"/>
+                    <rect   x="29"   y="188" width="6" height="13" fill="#854d0e"/>
+                    <circle cx="468" cy="172" r="20" fill="#4ade80"/>
+                    <circle cx="477" cy="167" r="15" fill="#16a34a"/>
+                    <rect   x="465" y="188" width="6" height="13" fill="#854d0e"/>
+                    <rect x="232" y="188" width="36" height="20" fill="#d1fae5" opacity=".7" rx="1"/>
+                </svg>
+            </template>
+
+            <!-- ══════════════════════════════════════════
+                 PASO 3 — ¿Paciente registrado?
+            ══════════════════════════════════════════ -->
+            <div id="step-3" class="wz-step">
+                <h2 class="step-title">
+                    <i class="fas fa-user-check"></i> Verificación
+                </h2>
+                <p class="step-sub">¿Ya ha utilizado nuestros servicios anteriormente?</p>
+
+                <div class="wz-radio-group" id="grpExisting">
+                    <label class="wz-radio-opt" for="rdoYes">
+                        <input type="radio" id="rdoYes" name="existingPt" value="yes">
+                        <i class="fas fa-check-circle text-success fs-5"></i>
+                        <span>Sí</span>
+                    </label>
+                    <label class="wz-radio-opt" for="rdoNo">
+                        <input type="radio" id="rdoNo" name="existingPt" value="no">
+                        <i class="fas fa-plus-circle text-primary fs-5"></i>
+                        <span>No</span>
+                    </label>
+                </div>
+
+                <div class="step-nav">
+                    <button type="button" class="btn-wz-back" onclick="goBack('step-4a')">
+                        <i class="fas fa-arrow-left"></i> Regresar
+                    </button>
+                    <button type="button" class="btn-wz-next" id="btnS3Next">
+                        Siguiente <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════════
+                 PASO 4a — Adulto o Menor (ruta: No)
+            ══════════════════════════════════════════ -->
+            <div id="step-4a" class="wz-step">
+                <h2 class="step-title">
+                    <i class="fas fa-users"></i> Tipo de Paciente
+                </h2>
+                <p class="step-sub">¿La cita es para un adulto o un menor de edad?</p>
+
+                <div class="wz-radio-group" id="grpPatType">
+                    <label class="wz-radio-opt" for="rdoAdult">
+                        <input type="radio" id="rdoAdult" name="patType" value="adult">
+                        <i class="fas fa-user text-primary fs-5"></i>
+                        <span>Adulto</span>
+                    </label>
+                    <label class="wz-radio-opt" for="rdoMinor">
+                        <input type="radio" id="rdoMinor" name="patType" value="minor">
+                        <i class="fas fa-child text-warning fs-5"></i>
+                        <span>Menor de edad</span>
+                    </label>
+                </div>
+
+                <div class="step-nav">
+                    <button type="button" class="btn-wz-back" onclick="goBack('step-2')">
+                        <i class="fas fa-arrow-left"></i> Regresar
+                    </button>
+                    <button type="button" class="btn-wz-next" id="btnS4aNext">
+                        Siguiente <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════════
+                 PASO 4b — Cédula existente (ruta: Sí)
+            ══════════════════════════════════════════ -->
+            <div id="step-4b" class="wz-step">
+                <h2 class="step-title">
+                    <i class="fas fa-id-card"></i> Identificación
+                </h2>
+                <p class="step-sub">Indique su cédula de identidad para recuperar sus datos</p>
+
+                <div class="mb-3">
+                    <label class="form-label" for="existingIdNumber">
+                        <i class="fas fa-id-card me-1 text-success"></i> Cédula de Identidad
+                    </label>
+                    <input type="text" class="form-control form-control-lg"
+                           id="existingIdNumber" maxlength="9" inputmode="numeric">
+                    <div id="idNumberError" class="text-danger mt-1" style="font-size:.85rem"></div>
+                </div>
+
+                <div class="step-nav">
+                    <button type="button" class="btn-wz-back" onclick="goBack('step-3')">
+                        <i class="fas fa-arrow-left"></i> Regresar
+                    </button>
+                    <button type="button" class="btn-wz-next" id="btnS4bNext">
+                        Siguiente <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════════
+                 PASO 4c — Menores del representante
+            ══════════════════════════════════════════ -->
+            <div id="step-4c" class="wz-step">
+                <h2 class="step-title">
+                    <i class="fas fa-child"></i> Datos del Menor
+                </h2>
+
+                <div class="patient-badge mb-3">
+                    <i class="fas fa-user-shield"></i>
+                    <div style="min-width:0;flex:1">
+                        <div class="pb-label">Representante</div>
+                        <div class="pb-name" id="bannerGuardianName">—</div>
+                        <div class="pb-meta">
+                            <span class="pb-chip"><i class="fas fa-id-card me-1"></i><span id="bannerGuardianId">—</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="step-sub">Seleccione el menor o registre uno nuevo</p>
+
+                <div id="minorsList"></div>
+
+                <div class="mt-3 pt-3" style="border-top:1px dashed #e5e7eb;">
+                    <button type="button" class="btn-wz-next w-100 justify-content-center" id="btnAddNewMinor"
+                            style="font-size:.88rem;padding:.65rem 1rem;">
+                        <i class="fas fa-user-plus me-1"></i> Agregar Nuevo Menor
+                    </button>
+                </div>
+
+                <div class="step-nav">
+                    <button type="button" class="btn-wz-back" onclick="goBack('step-4b')">
+                        <i class="fas fa-arrow-left"></i> Regresar
+                    </button>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════════
+                 PASO 5a — Datos adulto nuevo
+            ══════════════════════════════════════════ -->
+            <div id="step-5a" class="wz-step">
+                <h2 class="step-title">
+                    <i class="fas fa-user-plus"></i> Datos del Paciente
+                </h2>
+                <p class="step-sub">Indique los datos del paciente</p>
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label" for="adultIdNumber">Cédula</label>
+                        <input type="text" class="form-control" id="adultIdNumber" maxlength="9" inputmode="numeric">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="adultName">Nombre y Apellido</label>
+                        <input type="text" class="form-control" id="adultName" placeholder="Nombre completo">
+                    </div>
+                    <div class="col-sm-4">
+                        <label class="form-label" for="adultSex">Sexo</label>
+                        <select class="form-select" id="adultSex">
+                            <option value="">—</option>
+                        </select>
+                    </div>
+                    <div class="col-sm-8">
+                        <label class="form-label" for="adultBirthDate">Fecha de Nacimiento</label>
+                        <input type="date" class="form-control" id="adultBirthDate">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="adultPhone">Teléfono <span class="text-danger">*</span></label>
+                        <input type="tel" class="form-control" id="adultPhone" placeholder="Ej: 0414-1234567">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="adultAddress">Dirección</label>
+                        <input type="text" class="form-control" id="adultAddress" placeholder="Dirección completa">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="adultState">Estado</label>
+                        <select class="form-select" id="adultState">
+                            <option value="">— Seleccione el estado —</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="step-nav">
+                    <button type="button" class="btn-wz-back" onclick="goBack('step-3')">
+                        <i class="fas fa-arrow-left"></i> Regresar
+                    </button>
+                    <button type="button" class="btn-wz-next" id="btnS5aNext">
+                        Actualizar <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════════
+                 PASO 5b — Datos menor nuevo
+            ══════════════════════════════════════════ -->
+            <div id="step-5b" class="wz-step">
+                <h2 class="step-title">
+                    <i class="fas fa-child"></i> Datos del Menor
+                </h2>
+                <p class="step-sub">Indique los datos del menor de edad</p>
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label" for="minorName">Nombre y Apellido del Menor</label>
+                        <input type="text" class="form-control" id="minorName" placeholder="Nombre completo del menor">
+                    </div>
+                    <div class="col-sm-4">
+                        <label class="form-label" for="minorSex">Sexo</label>
+                        <select class="form-select" id="minorSex">
+                            <option value="">—</option>
+                        </select>
+                    </div>
+                    <div class="col-sm-8">
+                        <label class="form-label" for="minorBirthDate">Fecha de Nacimiento</label>
+                        <input type="date" class="form-control" id="minorBirthDate">
+                    </div>
+                </div>
+
+                <hr class="my-3">
+                <p class="fw-semibold text-secondary mb-2"><i class="fas fa-user-shield me-1"></i> Datos del Representante</p>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label" for="guardianIdNumber">Cédula</label>
+                        <input type="text" class="form-control" id="guardianIdNumber" maxlength="9" inputmode="numeric">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="guardianName">Nombre del Representante</label>
+                        <input type="text" class="form-control" id="guardianName" placeholder="Nombre completo del representante">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="guardianAddress">Dirección</label>
+                        <input type="text" class="form-control" id="guardianAddress" placeholder="Dirección completa">
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="guardianRelationship">Parentesco</label>
+                        <select class="form-select" id="guardianRelationship">
+                            <option value="">— Seleccione —</option>
+                        </select>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="guardianSex">Sexo</label>
+                        <select class="form-select" id="guardianSex">
+                            <option value="">—</option>
+                        </select>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="guardianBirthDate">Fecha de Nacimiento</label>
+                        <input type="date" class="form-control" id="guardianBirthDate">
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="guardianPhone">Teléfono</label>
+                        <input type="tel" class="form-control" id="guardianPhone" placeholder="Ej: 0414-1234567">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="guardianState">Estado</label>
+                        <select class="form-select" id="guardianState">
+                            <option value="">— Seleccione el estado —</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="step-nav">
+                    <button type="button" class="btn-wz-back" id="btnS5bBack">
+                        <i class="fas fa-arrow-left"></i> Regresar
+                    </button>
+                    <button type="button" class="btn-wz-next" id="btnS5bNext">
+                        Siguiente <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════════
+                 PASO 6 — Responsable + Médico + Servicio
+            ══════════════════════════════════════════ -->
+            <div id="step-6" class="wz-step">
+
+                <!-- Badge nombre paciente (visible si ruta "Sí") -->
+                <div id="patientBadge" class="patient-badge d-none">
+                    <i class="fas fa-user-circle"></i>
+                    <div style="min-width:0;flex:1">
+                        <div class="pb-label">Paciente</div>
+                        <div class="pb-name" id="patientBadgeName">—</div>
+                        <div class="pb-meta">
+                            <span class="pb-chip"><i class="fas fa-id-card me-1"></i><span id="pbIdNumber">—</span></span>
+                            <span class="pb-chip"><i class="fas fa-birthday-cake me-1"></i><span id="pbAge">—</span> años</span>
+                            <span class="pb-chip"><i class="fas fa-venus-mars me-1"></i><span id="pbSex">—</span></span>
+                        </div>
+                        <div id="guardianSection" class="d-none" style="margin-top:.6rem;padding-top:.6rem;border-top:1px dashed #bbf7d0">
+                            <div class="pb-label">Responsable / Tutor</div>
+                            <div class="pb-name" id="pbGuardianName">—</div>
+                            <div class="pb-meta">
+                                <span class="pb-chip"><i class="fas fa-id-card me-1"></i><span id="pbGuardianId">—</span></span>
+                                <span class="pb-chip"><i class="fas fa-link me-1"></i><span id="pbRelationship">—</span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 class="step-title">
+                    <i class="fas fa-clipboard-list"></i> Responsable del Pago y Motivo de la Consulta
+                </h2>
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label" for="selPayer">
+                            <i class="fas fa-wallet me-1 text-success"></i> Responsable del Pago
+                        </label>
+                        <select class="form-select" id="selPayer">
+                            <option value="">— Seleccione —</option>
+                            <option>Particular</option>
+                            <option>Seguros Caracas</option>
+                            <option>Seguros La Venezolana</option>
+                            <option>Seguros Mercantil</option>
+                            <option>Seguros Banesco</option>
+                            <option>Mapfre Venezuela</option>
+                            <option>Seguros Horizonte</option>
+                            <option>Seguros Universitas</option>
+                            <option>Seguros del Orinoco</option>
+                            <option>Seguros BBVA Provincial</option>
+                            <option>Seguros Catatumbo</option>
+                            <option>Seguros Ávila</option>
+                            <option>Multinacional de Seguros</option>
+                            <option>Seguros Pirámide</option>
+                            <option>Seguros El Nuevo Mundo</option>
+                            <option>Seguros La Previsora</option>
+                            <option>Seguros Constitución</option>
+                            <option>Seguros Canarias</option>
+                            <option>Seguros Victoria</option>
+                            <option>Pan American Life</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="reasonSearch">
+                            <i class="fas fa-question-circle me-1 text-success"></i> Motivo de la Consulta
+                        </label>
+                        <div class="reason-combo" id="reasonCombo">
+                            <div class="position-relative">
+                                <input type="text" class="form-control" id="reasonSearch"
+                                       placeholder="Seleccione o busque un motivo..."
+                                       autocomplete="off">
+                                <i class="fas fa-chevron-down position-absolute" id="reasonChevron"
+                                   style="right:.85rem;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;font-size:.75rem;transition:transform .2s;"></i>
+                            </div>
+                            <div class="reason-dropdown" id="reasonDropdown"></div>
+                        </div>
+                        <input type="hidden" id="selReason">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="txtSymptoms">
+                            <i class="fas fa-comment-medical me-1 text-success"></i> Síntomas
+                        </label>
+                        <textarea class="form-control" id="txtSymptoms"
+                                  placeholder="Describa brevemente los síntomas del paciente..."></textarea>
+                    </div>
+                </div>
+
+                <div class="step-nav">
+                    <button type="button" class="btn-wz-back" id="btnS6Back">
+                        <i class="fas fa-arrow-left"></i> Regresar
+                    </button>
+                    <button type="button" class="btn-wz-next" id="btnS6Next">
+                        Siguiente <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════════
+                 PASO 7 — Seleccionar fecha de la cita
+            ══════════════════════════════════════════ -->
+            <div id="step-7" class="wz-step">
+                <h2 class="step-title">
+                    <i class="fas fa-calendar-check"></i> Seleccione la Fecha de la Cita
+                </h2>
+                <p class="step-sub">Elija el horario que mejor se adapte a usted</p>
+
+                <div id="slotsList"></div>
+
+                <div class="step-nav">
+                    <button type="button" class="btn-wz-back" onclick="goBack('step-6')">
+                        <i class="fas fa-arrow-left"></i> Regresar
+                    </button>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════════
+                 PASO 8 — Confirmación
+            ══════════════════════════════════════════ -->
+            <div id="step-8" class="wz-step">
+                <div class="text-center py-2">
+                    <h2 style="font-size:1.45rem;font-weight:700;color:#1e293b;margin-bottom:1rem;">
+                        <i class="fas fa-calendar-check text-success me-2"></i>Datos de la Cita
+                    </h2>
+                    <div id="confirmDetails"
+                         class="confirm-table text-start bg-light rounded p-3 mb-3"></div>
+                    <div id="confirmResult" class="mb-3"></div>
+                    <div class="d-flex gap-2 justify-content-center flex-wrap">
+                        <button type="button" class="btn-wz-back" onclick="goBack('step-7')">
+                            <i class="fas fa-arrow-left"></i> Regresar
+                        </button>
+                        <button type="button" class="btn-wz-next" id="btnRegisterAppointment">
+                            <i class="fas fa-save me-2"></i> Registrar Cita
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- .wz-card -->
+    </main>
+
+    <footer class="wz-footer">
+        &copy; 2026 Medycally &mdash; Todos los derechos reservados
+    </footer>
+</div><!-- .wz-page -->
+
+<!-- Modal — Confirmación de registro -->
+<div class="modal fade" id="modalConfirmSave" tabindex="-1" aria-labelledby="modalConfirmSaveLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius:1rem;">
+            <div class="modal-header border-0 pb-0">
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width:2.4rem;height:2.4rem;background:#dcfce7;border-radius:.6rem;display:flex;align-items:center;justify-content:center;">
+                        <i class="fas fa-calendar-check text-success"></i>
+                    </div>
+                    <h5 class="modal-title fw-700 mb-0" id="modalConfirmSaveLabel" style="font-weight:700;color:#1e293b;">
+                        Confirmar Registro
+                    </h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body pt-2 pb-1">
+                <p class="text-secondary mb-0" style="font-size:.95rem;">
+                    ¿Desea registrar la cita con los datos indicados?
+                </p>
+            </div>
+            <div class="modal-footer border-0 pt-2 gap-2">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4"
+                        data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-success rounded-pill px-4 fw-semibold" id="btnConfirmSave">
+                    <i class="fas fa-save me-1"></i> Sí, registrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+/* ================================================================
+   DATOS DEL WIZARD
+================================================================ */
+
+/* ================================================================
+   ESTADO GLOBAL
+================================================================ */
+const state = {
+    specialtyId:        null,
+    specialty:          '',
+    clinicId:           null,
+    clinicName:         '',
+    isExisting:         null,   // 'yes' | 'no'
+    patientType:        null,   // 'adult' | 'minor'
+    patientName:        '',
+    idNumber:           '',
+    guardianPatientId:  null,
+    step6BackTarget:    'step-5a',
+    step5bBackTarget:   'step-3'
+};
+
+const PROGRESS = {
+    'step-1': 12, 'step-2': 24, 'step-4a': 38,
+    'step-3': 50, 'step-4b': 50, 'step-4c': 57,
+    'step-5a': 64, 'step-5b': 64,
+    'step-6': 78, 'step-7': 90, 'step-8': 100
+};
+
+let currentStep = 'step-1';
+
+/* ================================================================
+   NAVEGACIÓN
+================================================================ */
+function goToStep(next) {
+    document.getElementById('progressFill').style.width = PROGRESS[next] + '%';
+    document.getElementById(currentStep).classList.remove('active');
+    document.getElementById(next).classList.add('active');
+    currentStep = next;
+}
+
+function goBack(target) { goToStep(target); }
+
+/* ================================================================
+   HELPERS — validación
+================================================================ */
+function markInvalid(id) {
+    const el = document.getElementById(id);
+    el.classList.add('is-invalid');
+    el.addEventListener('input', () => el.classList.remove('is-invalid'), { once: true });
+    el.addEventListener('change', () => el.classList.remove('is-invalid'), { once: true });
+    return false;
+}
+function reqVal(id) {
+    const val = document.getElementById(id).value.trim();
+    if (!val) { markInvalid(id); return null; }
+    return val;
+}
+
+/* ================================================================
+   HELPERS — poblar selects
+================================================================ */
+function populateSelect(selectId, items, placeholder) {
+    const sel = document.getElementById(selectId);
+    sel.innerHTML = `<option value="">${placeholder}</option>`;
+    items.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = item;
+        sel.appendChild(opt);
+    });
+}
+
+
+/* ================================================================
+   RADIO BUTTONS — feedback visual
+================================================================ */
+function bindRadioGroup(name) {
+    document.querySelectorAll(`input[name="${name}"]`).forEach(r => {
+        r.addEventListener('change', function () {
+            document.querySelectorAll(`input[name="${name}"]`).forEach(x =>
+                x.closest('.wz-radio-opt').classList.remove('selected'));
+            this.closest('.wz-radio-opt').classList.add('selected');
+        });
+    });
+}
+bindRadioGroup('existingPt');
+bindRadioGroup('patType');
+
+/* ── Campos cédula: solo números, máx 9 dígitos ── */
+['existingIdNumber', 'adultIdNumber', 'guardianIdNumber'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('keypress', e => { if (!/\d/.test(e.key)) e.preventDefault(); });
+    el.addEventListener('input',    () => { el.value = el.value.replace(/\D/g, '').slice(0, 9); });
+    el.addEventListener('paste',    e => {
+        e.preventDefault();
+        const clean = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 9);
+        el.value = clean;
+    });
+});
+
+/* ── Campos de texto: mayúsculas, sin acentos (solo Ñ), sin caracteres especiales ── */
+(function () {
+    const ACCENT = {
+        'á':'A','à':'A','ä':'A','â':'A','ã':'A','Á':'A','À':'A','Ä':'A','Â':'A','Ã':'A',
+        'é':'E','è':'E','ë':'E','ê':'E','É':'E','È':'E','Ë':'E','Ê':'E',
+        'í':'I','ì':'I','ï':'I','î':'I','Í':'I','Ì':'I','Ï':'I','Î':'I',
+        'ó':'O','ò':'O','ö':'O','ô':'O','õ':'O','Ó':'O','Ò':'O','Ö':'O','Ô':'O','Õ':'O',
+        'ú':'U','ù':'U','ü':'U','û':'U','Ú':'U','Ù':'U','Ü':'U','Û':'U',
+        'ñ':'Ñ'
+    };
+
+    function sanitize(val) {
+        return val
+            .split('').map(c => ACCENT[c] ?? c).join('')
+            .toUpperCase()
+            .replace(/[^A-ZÑ0-9 .,\-#()/':]/g, '');
+    }
+
+    function bindText(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', () => {
+            const pos = el.selectionStart;
+            el.value = sanitize(el.value);
+            try { el.setSelectionRange(pos, pos); } catch (_) {}
+        });
+        el.addEventListener('paste', e => {
+            e.preventDefault();
+            const raw  = (e.clipboardData || window.clipboardData).getData('text') || '';
+            const pre  = el.value.slice(0, el.selectionStart);
+            const post = el.value.slice(el.selectionEnd);
+            el.value   = sanitize(pre + raw + post);
+        });
+    }
+
+    ['adultName', 'adultAddress', 'minorName', 'guardianName', 'guardianAddress', 'txtSymptoms']
+        .forEach(bindText);
+
+    /* ── Campos teléfono: solo dígitos y guiones ── */
+    function bindPhone(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const clean = v => v.replace(/[^0-9\-]/g, '');
+        el.addEventListener('keypress', e => { if (!/[\d\-]/.test(e.key)) e.preventDefault(); });
+        el.addEventListener('input',    () => { el.value = clean(el.value); });
+        el.addEventListener('paste',    e => {
+            e.preventDefault();
+            el.value = clean((e.clipboardData || window.clipboardData).getData('text') || '');
+        });
+    }
+
+    ['adultPhone', 'guardianPhone'].forEach(bindPhone);
+})();
+
+/* ================================================================
+   CARGA INICIAL — Especialidades y Motivos desde BD
+================================================================ */
+(async function loadSpecialties() {
+    const sel = document.getElementById('specialtySelect');
+    try {
+        const resp = await fetch('/Appointment/GetActiveSpecialties');
+        const data = await resp.json();
+        sel.innerHTML = '<option value="">— Seleccione una especialidad —</option>';
+        data.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value       = s.specialtyId;
+            opt.textContent = s.specialtyName;
+            sel.appendChild(opt);
+        });
+    } catch {
+        sel.innerHTML = '<option value="">Error al cargar especialidades</option>';
+    }
+})();
+
+let allReasons = [];
+let selectedReasonId = null;
+
+function renderReasonOptions(filter) {
+    const dropdown = document.getElementById('reasonDropdown');
+    const q = (filter || '').toLowerCase().trim();
+    const list = q ? allReasons.filter(r => r.reasonName.toLowerCase().includes(q.toLowerCase())) : allReasons;
+    if (!list.length) {
+        dropdown.innerHTML = '<div class="reason-no-results"><i class="fas fa-search me-1"></i>Sin resultados</div>';
+        return;
+    }
+    dropdown.innerHTML = list.map(r =>
+        `<div class="reason-option${String(r.reasonId) === String(selectedReasonId) ? ' selected' : ''}" data-id="${r.reasonId}" data-name="${r.reasonName.replace(/"/g, '&quot;')}">${r.reasonName}</div>`
+    ).join('');
+}
+
+function openReasonDropdown() {
+    document.getElementById('reasonDropdown').classList.add('open');
+    document.getElementById('reasonChevron').style.transform = 'translateY(-50%) rotate(180deg)';
+    renderReasonOptions(document.getElementById('reasonSearch').value);
+}
+
+function closeReasonDropdown(revert) {
+    document.getElementById('reasonDropdown').classList.remove('open');
+    document.getElementById('reasonChevron').style.transform = 'translateY(-50%)';
+    if (revert && !selectedReasonId) document.getElementById('reasonSearch').value = '';
+}
+
+document.getElementById('reasonSearch').addEventListener('focus', openReasonDropdown);
+
+document.getElementById('reasonSearch').addEventListener('input', function () {
+    if (!document.getElementById('reasonDropdown').classList.contains('open')) openReasonDropdown();
+    renderReasonOptions(this.value);
+    selectedReasonId = null;
+    document.getElementById('selReason').value = '';
+});
+
+document.getElementById('reasonDropdown').addEventListener('mousedown', function (e) {
+    const opt = e.target.closest('.reason-option');
+    if (!opt) return;
+    e.preventDefault();
+    selectedReasonId = opt.dataset.id;
+    document.getElementById('selReason').value = opt.dataset.id;
+    document.getElementById('reasonSearch').value = opt.dataset.name;
+    document.getElementById('reasonSearch').classList.remove('is-invalid');
+    closeReasonDropdown(false);
+});
+
+document.getElementById('reasonSearch').addEventListener('blur', function () {
+    closeReasonDropdown(true);
+});
+
+document.addEventListener('click', function (e) {
+    if (!document.getElementById('reasonCombo').contains(e.target)) {
+        closeReasonDropdown(true);
+    }
+});
+
+async function loadReasons(specialtyId) {
+    try {
+        allReasons = [];
+        const resp = await fetch(`/Appointment/GetReasons?specialtyId=${specialtyId}`);
+        allReasons = await resp.json();
+    } catch {
+        document.getElementById('reasonSearch').placeholder = 'Error al cargar motivos';
+    }
+}
+
+(async function loadRelationship() {
+    const sel = document.getElementById('guardianRelationship');
+    try {
+        const resp = await fetch('@Url.Action("GetAllRelationship", "Appointment")');
+        const data = await resp.json();
+        sel.innerHTML = '<option value="">— Seleccione —</option>' +
+            data.map(r => `<option value="${r.relationshipId}">${r.relationshipName}</option>`).join('');
+    } catch {
+        sel.innerHTML = '<option value="">Error al cargar</option>';
+    }
+})();
+
+(async function loadSex() {
+    const url = '@Url.Action("GetAllSex", "Appointment")';
+    try {
+        const resp = await fetch(url);
+        const data = await resp.json();
+        const opts = '<option value="">—</option>' +
+            data.map(s => `<option value="${s.sexId}">${s.sexName}</option>`).join('');
+        document.getElementById('adultSex').innerHTML    = opts;
+        document.getElementById('minorSex').innerHTML    = opts;
+        document.getElementById('guardianSex').innerHTML = opts;
+    } catch {
+        const err = '<option value="">Error al cargar</option>';
+        document.getElementById('adultSex').innerHTML    = err;
+        document.getElementById('minorSex').innerHTML    = err;
+        document.getElementById('guardianSex').innerHTML = err;
+    }
+})();
+
+(async function loadStates() {
+    const url = '@Url.Action("GetAllStates", "Appointment")';
+    try {
+        const resp = await fetch(url);
+        const data = await resp.json();
+        const opts = '<option value="">— Seleccione el estado —</option>' +
+            data.map(s => `<option value="${s.stateId}">${s.stateName}</option>`).join('');
+        document.getElementById('adultState').innerHTML = opts;
+        document.getElementById('guardianState').innerHTML = opts;
+    } catch {
+        const err = '<option value="">Error al cargar estados</option>';
+        document.getElementById('adultState').innerHTML = err;
+        document.getElementById('guardianState').innerHTML = err;
+    }
+})();
+
+/* ================================================================
+   PASO 1 — Especialidad
+================================================================ */
+document.getElementById('btnS1Next').addEventListener('click', async function () {
+    const select = document.getElementById('specialtySelect');
+    const sp = select.value;
+    if (!sp) { markInvalid('specialtySelect'); return; }
+    state.specialtyId = sp;
+    state.specialty   = select.options[select.selectedIndex].text;
+    await Promise.all([loadClinics(sp), loadReasons(sp)]);
+    goToStep('step-2');
+});
+
+/* ================================================================
+   PASO 2 — Carga y selección de clínica
+================================================================ */
+async function loadClinics(specialtyId) {
+    const container = document.getElementById('clinicsContainer');
+    const wzCard    = document.querySelector('.wz-card');
+
+    container.innerHTML = '<p class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin me-2"></i>Cargando clínicas...</p>';
+
+    const resp    = await fetch(`/Appointment/GetClinicsBySpecialty?specialtyId=${specialtyId}`);
+    const clinics = await resp.json();
+
+    if (!clinics.length) {
+        wzCard.classList.remove('wide');
+        container.innerHTML = '<p class="text-center text-muted py-3">No hay clínicas disponibles para esta especialidad.</p>';
+        return;
+    }
+
+    wzCard.classList.toggle('wide', clinics.length > 1);
+    container.classList.toggle('single', clinics.length === 1);
+
+    const svgContent = document.getElementById('clinicSvgTemplate').innerHTML;
+    container.innerHTML = clinics.map(c => `
+        <div class="clinic-wrap" data-clinic-id="${c.clinicId}" data-clinic-name="${c.clinicName ?? ''}">
+            <div class="clinic-inner">
+                <div class="clinic-img-area">${svgContent}</div>
+                <div class="clinic-name-area">
+                    <div class="clinic-name">${c.clinicName ?? '—'}</div>
+                    <div class="clinic-tagline">
+                        ${c.clinicAddress ?? ''}
+                        ${c.clinicAddress && c.clinicPhones ? '&bull;' : ''}
+                        ${c.clinicPhones ?? ''}
+                        ${(c.clinicAddress || c.clinicPhones) && c.stateName ? '&bull;' : ''}
+                        ${c.stateName ?? ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+document.getElementById('clinicsContainer').addEventListener('click', function (e) {
+    const card = e.target.closest('.clinic-wrap');
+    if (!card) return;
+    state.clinicId   = card.dataset.clinicId;
+    state.clinicName = card.dataset.clinicName;
+    goToStep('step-4a');
+});
+
+/* ================================================================
+   PASO 3 — Paciente existente
+================================================================ */
+document.getElementById('btnS3Next').addEventListener('click', function () {
+    const sel = document.querySelector('input[name="existingPt"]:checked');
+    if (!sel) {
+        document.getElementById('grpExisting').style.outline = '2px solid #ef4444';
+        document.getElementById('grpExisting').style.borderRadius = '13px';
+        setTimeout(() => {
+            document.getElementById('grpExisting').style.outline = '';
+        }, 1800);
+        return;
+    }
+    document.getElementById('grpExisting').style.outline = '';
+    state.isExisting = sel.value;
+    if (sel.value === 'yes') {
+        goToStep('step-4b');
+    } else if (state.patientType === 'adult') {
+        goToStep('step-5a');
+    } else {
+        state.step5bBackTarget = 'step-3';
+        goToStep('step-5b');
+    }
+});
+
+/* ================================================================
+   PASO 4a — Adulto / Menor (ahora es el paso 3 en el flujo)
+================================================================ */
+document.getElementById('btnS4aNext').addEventListener('click', function () {
+    const sel = document.querySelector('input[name="patType"]:checked');
+    if (!sel) {
+        document.getElementById('grpPatType').style.outline = '2px solid #ef4444';
+        document.getElementById('grpPatType').style.borderRadius = '13px';
+        setTimeout(() => { document.getElementById('grpPatType').style.outline = ''; }, 1800);
+        return;
+    }
+    document.getElementById('grpPatType').style.outline = '';
+    state.patientType = sel.value;
+    goToStep('step-3');
+});
+
+/* ================================================================
+   PASO 4b — Cédula paciente existente
+================================================================ */
+document.getElementById('btnS4bNext').addEventListener('click', async function () {
+    const raw = document.getElementById('existingIdNumber').value.trim();
+    if (!raw) { markInvalid('existingIdNumber'); return; }
+
+    const idNumber = raw.replace(/\D/g, '');
+    if (!idNumber) { markInvalid('existingIdNumber'); return; }
+
+    const btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Buscando...';
+
+    const errEl = document.getElementById('idNumberError');
+
+    try {
+        const resp = await fetch(`/Appointment/GetPatientByIdNumber?idNumber=${idNumber}&patientType=${state.patientType}`);
+        const data = await resp.json();
+
+        if (!data.found) {
+            document.getElementById('existingIdNumber').classList.add('is-invalid');
+            if (errEl) errEl.textContent = 'No se encontró ningún paciente con esa cédula.';
+            return;
+        }
+
+        document.getElementById('existingIdNumber').classList.remove('is-invalid');
+        if (errEl) errEl.textContent = '';
+
+        state.patientId              = data.patientId;
+        state.patientName            = data.patientName;
+        state.idNumber                 = data.patientIdNumber;
+        state.age                    = data.age;
+        state.sexId                  = data.sexId;
+        state.childGuardianIdNumber  = data.childGuardianIdNumber;
+        state.childGuardianName      = data.childGuardianName;
+        state.relationshipId         = data.relationshipId;
+        state.step6BackTarget           = 'step-4b';
+
+        document.getElementById('patientBadgeName').textContent = data.patientName;
+        document.getElementById('pbIdNumber').textContent         = data.patientIdNumber;
+        document.getElementById('pbAge').textContent            = data.age;
+        document.getElementById('pbSex').textContent            = data.sexText;
+
+        if (state.patientType === 'minor') {
+            // Pre-llenamos todos los campos del representante en step-5b
+            document.getElementById('guardianIdNumber').value  = idNumber;
+            document.getElementById('guardianName').value      = (data.childGuardianName && data.childGuardianName !== '—') ? data.childGuardianName : '';
+            document.getElementById('guardianAddress').value   = data.childGuardianAddress  || '';
+            document.getElementById('guardianPhone').value     = data.childGuardianPhone    || '';
+            document.getElementById('guardianBirthDate').value = data.childGuardianBirthDate || '';
+            if (data.childGuardianSexId)   document.getElementById('guardianSex').value   = data.childGuardianSexId;
+            if (data.childGuardianStateId) document.getElementById('guardianState').value  = data.childGuardianStateId;
+            state.childGuardianIdNumber = data.childGuardianIdNumber;
+            state.childGuardianName     = data.childGuardianName;
+            state.guardianPatientId     = data.guardianPatientId;
+            state.relationshipId        = data.relationshipId;
+
+            // Buscar menores registrados del representante
+            let minors = [];
+            try {
+                const minorsResp = await fetch(`/Appointment/GetMinorsByGuardian?guardianPatientId=${data.guardianPatientId}`);
+                minors = await minorsResp.json();
+            } catch { /* lista vacía */ }
+
+            if (Array.isArray(minors) && minors.length > 0) {
+                document.getElementById('bannerGuardianName').textContent = data.childGuardianName || '—';
+                document.getElementById('bannerGuardianId').textContent   = idNumber;
+                renderMinorsList(minors);
+                goToStep('step-4c');
+            } else {
+                state.isExisting       = 'no';
+                state.step6BackTarget  = 'step-5b';
+                state.step5bBackTarget = 'step-4b';
+                document.getElementById('patientBadge').classList.add('d-none');
+                goToStep('step-5b');
+            }
+        } else {
+            document.getElementById('guardianSection').classList.add('d-none');
+            document.getElementById('patientBadge').classList.remove('d-none');
+            goToStep('step-6');
+        }
+    } catch {
+        if (errEl) errEl.textContent = 'Error al consultar. Intente nuevamente.';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Siguiente <i class="fas fa-arrow-right"></i>';
+    }
+});
+
+/* ================================================================
+   PASO 5a — Datos adulto
+================================================================ */
+document.getElementById('btnS5aNext').addEventListener('click', function () {
+    const ced    = reqVal('adultIdNumber');
+    const nombre = reqVal('adultName');
+    const phone  = reqVal('adultPhone');
+    if (!ced || !nombre || !phone) return;
+
+    state.idNumber    = ced;
+    state.patientName = nombre;
+    state.step6BackTarget = 'step-5a';
+
+    document.getElementById('patientBadge').classList.add('d-none');
+    goToStep('step-6');
+});
+
+/* ================================================================
+   PASO 4c — Menores del representante
+================================================================ */
+function renderMinorsList(minors) {
+    window._minors = minors;
+    const container = document.getElementById('minorsList');
+    container.innerHTML = minors.map((m, idx) => `
+        <div class="slot-item">
+            <div style="flex:1;min-width:0;">
+                <div class="slot-doctor">
+                    <i class="fas fa-child text-warning me-1"></i>${m.patientName || '—'}
+                </div>
+                <div class="slot-meta">
+                    ${m.patientIdNumber ? '<i class="fas fa-id-card me-1"></i>' + m.patientIdNumber + '&nbsp;&bull;&nbsp;' : ''}
+                    <i class="fas fa-venus-mars me-1"></i>${m.sexName || '—'}
+                    ${m.relationshipName ? '&nbsp;&bull;&nbsp;<i class="fas fa-link me-1"></i>' + m.relationshipName : ''}
+                </div>
+            </div>
+            <button class="btn-wz-select" onclick="selectMinor(${idx})">
+                <i class="fas fa-check"></i> Seleccionar
+            </button>
+        </div>
+    `).join('');
+}
+
+function selectMinor(idx) {
+    const m = window._minors[idx];
+    state.patientId       = m.patientId;
+    state.patientName     = m.patientName || '—';
+    state.age             = 0;
+    state.sexId           = 0;
+    state.isExisting      = 'yes';
+    state.step6BackTarget = 'step-4c';
+
+    document.getElementById('patientBadgeName').textContent = m.patientName || '—';
+    document.getElementById('pbIdNumber').textContent       = m.patientIdNumber || '—';
+    document.getElementById('pbAge').textContent            = '—';
+    document.getElementById('pbSex').textContent            = m.sexName || '—';
+    document.getElementById('guardianSection').classList.remove('d-none');
+    document.getElementById('pbGuardianName').textContent   = state.childGuardianName || '—';
+    document.getElementById('pbGuardianId').textContent     = state.childGuardianIdNumber || '—';
+    document.getElementById('pbRelationship').textContent   = m.relationshipName || '—';
+    document.getElementById('patientBadge').classList.remove('d-none');
+
+    goToStep('step-6');
+}
+
+document.getElementById('btnAddNewMinor').addEventListener('click', function () {
+    state.isExisting       = 'no';
+    state.patientId        = null;
+    state.step6BackTarget  = 'step-5b';
+    state.step5bBackTarget = 'step-4c';
+    document.getElementById('patientBadge').classList.add('d-none');
+    goToStep('step-5b');
+});
+
+/* ================================================================
+   PASO 5b — Datos menor
+================================================================ */
+document.getElementById('btnS5bBack').addEventListener('click', function () {
+    goBack(state.step5bBackTarget || 'step-3');
+});
+
+document.getElementById('btnS5bNext').addEventListener('click', function () {
+    const nombre = reqVal('minorName');
+    if (!nombre) return;
+
+    state.idNumber      = document.getElementById('guardianIdNumber').value.trim();
+    state.patientName = nombre;
+    state.step6BackTarget = 'step-5b';
+
+    document.getElementById('patientBadge').classList.add('d-none');
+    goToStep('step-6');
+});
+
+/* ================================================================
+   PASO 6 — Responsable + Médico + Servicio
+================================================================ */
+document.getElementById('btnS6Back').addEventListener('click', function () {
+    goBack(state.step6BackTarget);
+});
+
+document.getElementById('btnS6Next').addEventListener('click', function () {
+    const payer  = reqVal('selPayer');
+    const reason = document.getElementById('selReason').value;
+    if (!payer) return;
+    if (!reason) { markInvalid('reasonSearch'); return; }
+
+    goToStep('step-7');
+    renderSlots();
+});
+
+/* ================================================================
+   PASO 7 — Slots de cita
+================================================================ */
+async function renderSlots() {
+    const container = document.getElementById('slotsList');
+    container.innerHTML = '<p class="text-muted text-center py-3"><i class="fas fa-spinner fa-spin me-2"></i>Cargando horarios...</p>';
+
+    let schedules;
+    try {
+        const resp = await fetch(`/Appointment/GetScheduleByClinicAndSpecialty?clinicId=${state.clinicId}&specialtyId=${state.specialtyId}`);
+        schedules = await resp.json();
+    } catch {
+        container.innerHTML = '<p class="text-danger text-center py-3">Error al cargar los horarios.</p>';
+        return;
+    }
+
+    if (!schedules.length) {
+        container.innerHTML = '<p class="text-muted text-center py-3">No hay horarios disponibles para esta clínica y especialidad.</p>';
+        return;
+    }
+
+    // SQL Server DayOfWeek: 1=domingo, 2=lunes, ..., 7=sábado → JS getDay(): 0=domingo, ..., 6=sábado
+    const now = new Date();
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+
+    window._slots = [];
+    container.innerHTML = '';
+
+    schedules.forEach((s, idx) => {
+        const targetJsDay = s.dayOfWeek;
+        const d = new Date(today);
+        // Si hoy es el día del horario, verificar si la hora de inicio ya pasó
+        if (d.getDay() === targetJsDay) {
+            const startHourToday = parseInt(s.startTime);
+            const startMinToday = parseInt((s.startTime.split(':')[1]) || '0');
+            const scheduleMinutes = startHourToday * 60 + startMinToday;
+            const nowMinutes = now.getHours() * 60 + now.getMinutes();
+            // Si el horario ya pasó, ir a la próxima semana
+            if (nowMinutes >= scheduleMinutes) {
+                d.setDate(d.getDate() + 7);
+            }
+        } else {
+            // Buscar el próximo día que coincida (partiendo de mañana)
+            d.setDate(d.getDate() + 1);
+            while (d.getDay() !== targetJsDay) d.setDate(d.getDate() + 1);
+        }
+
+        const startHour = parseInt(s.startTime);
+        const isMorning = startHour < 12;
+        const slot = {
+            doctor            : s.doctorName || '—',
+            day               : s.dayName,
+            date              : `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`,
+            dateISO           : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,
+            startTime         : s.startTime,
+            shift             : isMorning ? 'Mañana' : 'Tarde',
+            time              : `${s.startTimeFormatted} – ${s.endTimeFormatted}`,
+            specialtyDoctorId : s.specialtyDoctorId
+        };
+        window._slots.push(slot);
+
+        const div = document.createElement('div');
+        div.className = 'slot-item';
+        div.innerHTML = `
+            <div style="flex:1;min-width:0;">
+                <div class="slot-doctor">
+                    <i class="fas fa-user-md text-success me-1"></i>${slot.doctor}
+                </div>
+                <div class="slot-meta">
+                    <i class="fas fa-calendar-alt me-1"></i>${slot.day}, ${slot.date}
+                    &nbsp;&bull;&nbsp;
+                    <i class="fas fa-clock me-1"></i>${slot.time}
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                <span class="slot-badge ${isMorning ? 'morning' : 'afternoon'}">
+                    <i class="fas ${isMorning ? 'fa-sun' : 'fa-moon'}"></i> ${slot.shift}
+                </span>
+                <button class="btn-wz-select" onclick="selectSlot(${idx})">
+                    <i class="fas fa-check"></i> Seleccionar
+                </button>
+            </div>`;
+        container.appendChild(div);
+    });
+}
+
+function calcAge(dateStr) {
+    const birth = new Date(dateStr);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age < 0 ? 0 : age;
+}
+
+function selectSlot(idx) {
+    const s = window._slots[idx];
+    state.selectedSlot = s;
+    document.getElementById('confirmDetails').innerHTML = `
+        <div class="row g-2 py-1">
+            <div class="col-5 k">Especialidad</div><div class="col-7 v">${state.specialty}</div>
+            <div class="col-5 k">Clínica</div><div class="col-7 v">${state.clinicName}</div>
+            <div class="col-5 k">Paciente</div><div class="col-7 v">${state.patientName || state.idNumber || '—'}</div>
+            <div class="col-5 k">Médico</div><div class="col-7 v">${s.doctor}</div>
+            <div class="col-5 k">Fecha</div><div class="col-7 v">${s.day}, ${s.date}</div>
+            <div class="col-5 k">Horario</div><div class="col-7 v">${s.time} (${s.shift})</div>
+            <div class="col-5 k">Responsable</div><div class="col-7 v">${document.getElementById('selPayer').value}</div>
+            <div class="col-5 k">Motivo</div><div class="col-7 v">${document.getElementById('reasonSearch').value || '—'}</div>
+        </div>`;
+    document.getElementById('confirmResult').innerHTML = '';
+    document.getElementById('btnRegisterAppointment').disabled = false;
+    document.getElementById('btnRegisterAppointment').innerHTML = '<i class="fas fa-save me-2"></i> Registrar Cita';
+    goToStep('step-8');
+}
+
+/* ================================================================
+   PASO 8 — Registrar Cita
+================================================================ */
+document.getElementById('btnRegisterAppointment').addEventListener('click', function () {
+    new bootstrap.Modal(document.getElementById('modalConfirmSave')).show();
+});
+
+document.getElementById('btnConfirmSave').addEventListener('click', async function () {
+    const btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Guardando...';
+
+    const isMinor    = state.patientType === 'minor';
+    const isExisting = state.isExisting  === 'yes';
+    const slot       = state.selectedSlot;
+
+    const symptoms = document.getElementById('txtSymptoms').value.trim() || '';
+    const reasonId = parseInt(document.getElementById('selReason').value) || 0;
+
+    const payload = {
+        appointmentId       : 0,
+        clinicId            : parseInt(state.clinicId),
+        patientTypeId       : isMinor ? 2 : 1,
+        specialtyDoctorId   : slot.specialtyDoctorId,
+        appointmentDate     : slot.dateISO + 'T' + slot.startTime,
+        symptoms,
+        reasonId,
+        appointmentStatusId : 0
+    };
+
+    if (isExisting) {
+        payload.patientId               = parseInt(state.patientId) > 0 ? parseInt(state.patientId) : null;
+        payload.patientName             = state.patientName;
+        payload.patientAge              = parseInt(state.age) || 0;
+        payload.sexId                   = parseInt(state.sexId) || 0;
+        payload.patientPhone            = null;
+        payload.patientAddress          = null;
+        payload.patientStateId          = 0;
+        payload.patientBirthDate        = null;
+        if (isMinor) {
+            payload.patientIdNumber         = 0;
+            payload.childGuardianIdNumber   = parseInt(state.childGuardianIdNumber) || 0;
+            payload.childGuardianName       = state.childGuardianName || 'N/A';
+            payload.relationshipId          = parseInt(state.relationshipId) || 1;
+            payload.childGuardianPhone      = null;
+            payload.childGuardianAddress    = null;
+            payload.childGuardianStateId    = 0;
+            payload.childGuardianBirthDate  = null;
+            payload.childGuardianSexId      = 0;
+        } else {
+            payload.patientIdNumber         = parseInt(state.idNumber) || 0;
+            payload.childGuardianIdNumber   = 0;
+            payload.childGuardianName       = 'N/A';
+            payload.relationshipId          = 1;
+            payload.childGuardianPhone      = null;
+            payload.childGuardianAddress    = null;
+            payload.childGuardianStateId    = 0;
+            payload.childGuardianBirthDate  = null;
+            payload.childGuardianSexId      = 0;
+        }
+    } else if (isMinor) {
+        const minorBirthDate = document.getElementById('minorBirthDate').value;
+        const rFecha = document.getElementById('guardianBirthDate').value;
+        payload.patientName             = document.getElementById('minorName').value;
+        payload.patientIdNumber         = 0;
+        payload.patientAge              = minorBirthDate ? calcAge(minorBirthDate) : (rFecha ? calcAge(rFecha) : 0);
+        payload.sexId                   = parseInt(document.getElementById('minorSex').value) || 0;
+        payload.patientPhone            = null;
+        payload.patientAddress          = null;
+        payload.patientStateId          = 0;
+        payload.patientBirthDate        = minorBirthDate || null;
+        payload.childGuardianIdNumber   = parseInt(document.getElementById('guardianIdNumber').value) || 0;
+        payload.childGuardianName       = document.getElementById('guardianName').value || 'N/A';
+        payload.relationshipId          = parseInt(document.getElementById('guardianRelationship').value) || 1;
+        payload.childGuardianPhone      = document.getElementById('guardianPhone').value || null;
+        payload.childGuardianAddress    = document.getElementById('guardianAddress').value || null;
+        payload.childGuardianStateId    = parseInt(document.getElementById('guardianState').value) || 0;
+        payload.childGuardianBirthDate  = rFecha || null;
+        payload.childGuardianSexId      = parseInt(document.getElementById('guardianSex').value) || 0;
+    } else {
+        const adultBirthDate = document.getElementById('adultBirthDate').value;
+        payload.patientName             = document.getElementById('adultName').value;
+        payload.patientIdNumber         = parseInt(document.getElementById('adultIdNumber').value) || 0;
+        payload.patientAge              = adultBirthDate ? calcAge(adultBirthDate) : 0;
+        payload.sexId                   = parseInt(document.getElementById('adultSex').value) || 0;
+        payload.patientPhone            = document.getElementById('adultPhone').value || null;
+        payload.patientAddress          = document.getElementById('adultAddress').value || null;
+        payload.patientStateId          = parseInt(document.getElementById('adultState').value) || 0;
+        payload.patientBirthDate        = adultBirthDate || null;
+        payload.childGuardianIdNumber   = 0;
+        payload.childGuardianName       = 'N/A';
+        payload.relationshipId          = 1;
+        payload.childGuardianPhone      = null;
+        payload.childGuardianAddress    = null;
+        payload.childGuardianStateId    = 0;
+        payload.childGuardianBirthDate  = null;
+        payload.childGuardianSexId      = 0;
+    }
+
+    try {
+        const resp = await fetch('@Url.Action("Save", "Appointment")', {
+            method  : 'POST',
+            headers : { 'Content-Type': 'application/json' },
+            body    : JSON.stringify(payload)
+        });
+        const result = await resp.json();
+
+        bootstrap.Modal.getInstance(document.getElementById('modalConfirmSave')).hide();
+
+        if (result.success) {
+            document.getElementById('confirmResult').innerHTML =
+                `<div class="alert alert-success d-flex align-items-center gap-2 mb-2">
+                    <i class="fas fa-check-circle fs-5"></i>
+                    <span>Cita registrada exitosamente. N° <strong>${result.appointmentId}</strong></span>
+                </div>
+                <div class="d-flex gap-2 justify-content-center flex-wrap">
+                    <button type="button" class="btn-wz-next" onclick="goToStep('step-1')">
+                        <i class="fas fa-arrow-left me-1"></i> Volver al Principio
+                    </button>
+                    <a href="@Url.Action("Landing","Home")" class="btn btn-outline-success rounded-pill px-4 fw-semibold" style="text-decoration:none;">
+                        <i class="fas fa-globe me-1"></i> Mostrar sitio Web
+                    </a>
+                </div>`;
+            document.getElementById('btnRegisterAppointment').classList.add('d-none');
+        } else {
+            document.getElementById('confirmResult').innerHTML =
+                `<div class="alert alert-danger d-flex align-items-center gap-2 mb-0">
+                    <i class="fas fa-exclamation-circle fs-5"></i>
+                    <span>Error al registrar: ${result.error || 'Intente nuevamente.'}</span>
+                </div>`;
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save me-1"></i> Sí, registrar';
+        }
+    } catch {
+        bootstrap.Modal.getInstance(document.getElementById('modalConfirmSave')).hide();
+        document.getElementById('confirmResult').innerHTML =
+            `<div class="alert alert-danger d-flex align-items-center gap-2 mb-0">
+                <i class="fas fa-exclamation-circle fs-5"></i>
+                <span>Error de conexión. Intente nuevamente.</span>
+            </div>`;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save me-1"></i> Sí, registrar';
+    }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,979 @@
+@model List<Medycally.Models.PatientModel>
+@{
+    ViewData["Title"] = "Pacientes";
+    var sexes          = ViewBag.Sexes          as List<Medycally.Models.SexModel>          ?? [];
+    var states         = ViewBag.States         as List<Medycally.Models.GeographyModel>    ?? [];
+    var municipalities = ViewBag.Municipalities as List<Medycally.Models.GeographyModel>    ?? [];
+    var relationships  = ViewBag.Relationships  as List<Medycally.Models.RelationshipModel> ?? [];
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">Pacientes</h4>
+    <button class="btn btn-primary" onclick="openModal()">
+        <i class="fas fa-plus me-1"></i> Nuevo Paciente
+    </button>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+
+        <div class="row mb-3">
+            <div class="col-md-5">
+                <div class="input-group">
+                    <span class="input-group-text text-muted"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="searchInput"
+                           placeholder="Buscar por nombre, cédula, teléfono..."
+                           oninput="applyFilters()" />
+                    <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()" title="Limpiar">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Nombre</th>
+                        <th>Cédula</th>
+                        <th>Edad</th>
+                        <th>Teléfono</th>
+                        <th>Estado</th>
+                        <th>Familia</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="patientBody"></tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <small class="text-muted" id="paginationInfo"></small>
+            <nav>
+                <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
+            </nav>
+        </div>
+
+    </div>
+</div>
+
+<!-- Add / Edit Patient Modal -->
+<div class="modal fade" id="patientModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Nuevo Paciente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="patientId" value="0" />
+
+                <h6 class="text-muted mb-3">Datos Personales</h6>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-8">
+                        <label class="form-label">Nombre completo <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control pat-text" id="patientName" maxlength="150" />
+                        <div class="invalid-feedback" id="nameError"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Sexo <span class="text-danger">*</span></label>
+                        <select class="form-select" id="patientSexId">
+                            <option value="0">— Seleccionar —</option>
+                            @foreach (var s in sexes)
+                            {
+                                <option value="@s.SexId">@s.SexName</option>
+                            }
+                        </select>
+                        <div class="invalid-feedback" id="sexError"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Cédula</label>
+                        <input type="text" class="form-control" id="patientIdNumber" maxlength="9" inputmode="numeric" placeholder="Sin cédula si es menor" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Fecha de nacimiento <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="patientBirthdate" />
+                        <div class="invalid-feedback" id="birthdateError"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Teléfono <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="patientMainPhone" maxlength="15" inputmode="numeric" />
+                        <div class="invalid-feedback" id="phoneError"></div>
+                    </div>
+                </div>
+
+                <h6 class="text-muted mb-3">Ubicación</h6>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Estado</label>
+                        <select class="form-select" id="patientStateId" onchange="loadMunicipalities(this.value, 0)">
+                            <option value="0">— Seleccionar —</option>
+                            @foreach (var st in states)
+                            {
+                                <option value="@st.StateId">@st.StateName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Municipio</label>
+                        <select class="form-select" id="patientMunicipalityId">
+                            <option value="0">— Seleccionar estado primero —</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Dirección</label>
+                        <input type="text" class="form-control pat-text" id="patientAddress" maxlength="300" />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSave" onclick="savePatient()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Patient Detail Modal (Grupo Familiar + Historia Médica) -->
+<div class="modal fade" id="detailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detailModalTitle">Paciente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+
+                <ul class="nav nav-tabs mb-3" id="detailTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="tab-family-btn" data-bs-toggle="tab"
+                                data-bs-target="#tabFamily" type="button" role="tab">
+                            <i class="fas fa-users me-1"></i> Grupo Familiar
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-history-btn" data-bs-toggle="tab"
+                                data-bs-target="#tabHistory" type="button" role="tab">
+                            <i class="fas fa-file-medical me-1"></i> Historia Médica
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+
+                    <!-- Grupo Familiar -->
+                    <div class="tab-pane fade show active" id="tabFamily" role="tabpanel">
+
+                        <div id="familyLoading" class="text-center py-3">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                            <p class="text-muted small mt-2 mb-0">Cargando grupo familiar...</p>
+                        </div>
+
+                        <div id="familyContent" class="d-none">
+
+                            <h6 class="text-muted mb-2">
+                                <i class="fas fa-shield-alt me-1 text-primary"></i> Representantes
+                            </h6>
+                            <div id="guardianList" class="mb-3"></div>
+
+                            <h6 class="text-muted mb-2">
+                                <i class="fas fa-child me-1 text-success"></i> Dependientes
+                            </h6>
+                            <div id="dependentList" class="mb-3"></div>
+
+                            <hr />
+
+                            <h6 class="text-muted mb-2">
+                                <i class="fas fa-link me-1"></i> Vincular representante
+                            </h6>
+                            <div class="row g-2 align-items-start">
+                                <div class="col-md-5">
+                                    <input type="text" class="form-control form-control-sm" id="guardianCedulaInput"
+                                           placeholder="Cédula del representante" inputmode="numeric" maxlength="9" />
+                                </div>
+                                <div class="col-md-auto">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="searchGuardian()">
+                                        <i class="fas fa-search me-1"></i>Buscar
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="guardianSearchError" class="text-danger small mt-1 d-none"></div>
+
+                            <div id="guardianFoundCard" class="card card-body py-2 px-3 bg-light mt-2 d-none">
+                                <span class="fw-semibold" id="guardianFoundName"></span>
+                                <div class="row g-2 mt-1 align-items-center">
+                                    <div class="col-md-6">
+                                        <select class="form-select form-select-sm" id="guardianRelationshipId">
+                                            <option value="0">— Parentesco —</option>
+                                            @foreach (var r in relationships)
+                                            {
+                                                <option value="@r.RelationshipId">@r.RelationshipName</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-auto">
+                                        <button class="btn btn-sm btn-success" onclick="linkGuardian()">
+                                            <i class="fas fa-link me-1"></i>Vincular
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="createGuardianForm" class="card card-body bg-light mt-2 d-none">
+                                <p class="small text-muted mb-2">Complete los datos para registrarlo como representante:</p>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <input type="text" class="form-control form-control-sm guardian-text" id="newGuardianName"
+                                               placeholder="Nombre completo *" maxlength="150" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <select class="form-select form-select-sm" id="newGuardianSexId">
+                                            <option value="0">— Sexo * —</option>
+                                            @foreach (var s in sexes)
+                                            {
+                                                <option value="@s.SexId">@s.SexName</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="date" class="form-control form-control-sm" id="newGuardianBirthdate" />
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="text" class="form-control form-control-sm" id="newGuardianPhone"
+                                               placeholder="Teléfono" maxlength="15" inputmode="numeric" />
+                                    </div>
+                                    <div class="col-md-4">
+                                        <select class="form-select form-select-sm" id="newGuardianRelationshipId">
+                                            <option value="0">— Parentesco * —</option>
+                                            @foreach (var r in relationships)
+                                            {
+                                                <option value="@r.RelationshipId">@r.RelationshipName</option>
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+                                <div id="createGuardianError" class="text-danger small mt-1 d-none"></div>
+                                <div class="mt-2">
+                                    <button class="btn btn-sm btn-success" onclick="createAndLinkGuardian()">
+                                        <i class="fas fa-user-plus me-1"></i>Crear y vincular
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary ms-1" onclick="cancelCreateGuardian()">Cancelar</button>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div id="familyError" class="alert alert-danger d-none"></div>
+                    </div>
+
+                    <!-- Historia Médica -->
+                    <div class="tab-pane fade" id="tabHistory" role="tabpanel">
+                        <div class="text-center py-5">
+                            <i class="fas fa-file-medical fa-3x text-muted mb-3 d-block"></i>
+                            <p class="fw-semibold text-muted mb-1">Historia Médica</p>
+                            <p class="text-muted small mb-0">Esta funcionalidad estará disponible próximamente.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Eliminar Paciente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Eliminar a <strong id="deleteName"></strong>?</p>
+                <p class="text-muted small mb-0">Se eliminarán también todos sus vínculos familiares.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnDelete" onclick="deletePatient()">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="toast" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMessage"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const patientModal = new bootstrap.Modal(document.getElementById('patientModal'));
+    const detailModal  = new bootstrap.Modal(document.getElementById('detailModal'));
+    const deleteModal  = new bootstrap.Modal(document.getElementById('deleteModal'));
+    const toast        = new bootstrap.Toast(document.getElementById('toast'), { delay: 3500 });
+
+    let pendingDeleteId         = 0;
+    let currentDetailPatientId  = 0;
+    let guardianFoundPatientId  = 0;
+    let filteredPatients        = [];
+    let currentPage             = 1;
+    const PAGE_SIZE             = 10;
+
+    const allPatients      = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+    const allSexes         = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(sexes));
+    const allStates        = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(states));
+    const allMunicipalities= @Html.Raw(System.Text.Json.JsonSerializer.Serialize(municipalities));
+
+    // ── Table ────────────────────────────────────────────────────────────────
+
+    function renderTable() {
+        const tbody = document.getElementById('patientBody');
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const page  = filteredPatients.slice(start, start + PAGE_SIZE);
+
+        if (filteredPatients.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">No se encontraron pacientes.</td></tr>';
+            renderPagination();
+            return;
+        }
+
+        tbody.innerHTML = page.map(p => {
+            const nameEscaped = (p.PatientName ?? '').replace(/'/g, "\\'");
+            const cedula  = p.PatientIdNumber ? p.PatientIdNumber : '—';
+            const age     = p.Age > 0 ? p.Age + ' años' : (p.Age === 0 ? '< 1 año' : '—');
+            const phone   = p.PatientMainPhone ? String(p.PatientMainPhone) : '—';
+            const state   = escapeHtml(p.StateName ?? '—');
+            const family  = p.FamilyCount > 0
+                ? `<span class="badge bg-info text-dark"><i class="fas fa-users me-1"></i>${p.FamilyCount}</span>`
+                : '<span class="text-muted small">—</span>';
+            return `<tr data-id="${p.PatientId}">
+                <td>${p.PatientId}</td>
+                <td>${escapeHtml(p.PatientName ?? '')}</td>
+                <td>${cedula}</td>
+                <td>${age}</td>
+                <td>${phone}</td>
+                <td>${state}</td>
+                <td>${family}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editPatient(${p.PatientId})" title="Editar"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-outline-info me-1" onclick="openDetailModal(${p.PatientId},'${nameEscaped}')" title="Grupo Familiar / Historia"><i class="fas fa-folder-open"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(${p.PatientId},'${nameEscaped}')" title="Eliminar"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>`;
+        }).join('');
+
+        renderPagination();
+    }
+
+    function renderPagination() {
+        const total      = filteredPatients.length;
+        const totalPages = Math.ceil(total / PAGE_SIZE);
+        const pag        = document.getElementById('pagination');
+        const info       = document.getElementById('paginationInfo');
+
+        if (total === 0) { info.textContent = ''; pag.innerHTML = ''; return; }
+
+        const start = (currentPage - 1) * PAGE_SIZE + 1;
+        const end   = Math.min(currentPage * PAGE_SIZE, total);
+        info.textContent = `Mostrando ${start}–${end} de ${total}`;
+
+        if (totalPages <= 1) { pag.innerHTML = ''; return; }
+
+        const pages  = new Set([1, totalPages]);
+        for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) pages.add(i);
+        const sorted = [...pages].sort((a, b) => a - b);
+
+        let html = `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage - 1});return false;">&lsaquo;</a></li>`;
+        let prev = 0;
+        for (const p of sorted) {
+            if (p - prev > 1) html += `<li class="page-item disabled"><span class="page-link">&hellip;</span></li>`;
+            html += `<li class="page-item ${p === currentPage ? 'active' : ''}">
+                <a class="page-link" href="#" onclick="goToPage(${p});return false;">${p}</a></li>`;
+            prev = p;
+        }
+        html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage + 1});return false;">&rsaquo;</a></li>`;
+        pag.innerHTML = html;
+    }
+
+    function goToPage(page) {
+        const totalPages = Math.max(1, Math.ceil(filteredPatients.length / PAGE_SIZE));
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        renderTable();
+    }
+
+    function applyFilters() {
+        const q = (document.getElementById('searchInput').value ?? '').trim().toLowerCase();
+        filteredPatients = q
+            ? allPatients.filter(p => {
+                const name  = (p.PatientName ?? '').toLowerCase();
+                const id    = p.PatientIdNumber ? String(p.PatientIdNumber) : '';
+                const phone = p.PatientMainPhone ? String(p.PatientMainPhone) : '';
+                const state = (p.StateName ?? '').toLowerCase();
+                return name.includes(q) || id.includes(q) || phone.includes(q) || state.includes(q);
+            })
+            : [...allPatients];
+        currentPage = 1;
+        renderTable();
+    }
+
+    function clearSearch() {
+        document.getElementById('searchInput').value = '';
+        applyFilters();
+    }
+
+    function showToast(message, success) {
+        const el = document.getElementById('toast');
+        el.classList.remove('bg-success', 'bg-danger');
+        el.classList.add(success ? 'bg-success' : 'bg-danger');
+        document.getElementById('toastMessage').textContent = message;
+        toast.show();
+    }
+
+    function escapeHtml(text) {
+        const d = document.createElement('div');
+        d.textContent = text ?? '';
+        return d.innerHTML;
+    }
+
+    // ── Patient modal ────────────────────────────────────────────────────────
+
+    function clearModalValidation() {
+        ['patientName','patientSexId','patientBirthdate','patientMainPhone'].forEach(id => {
+            document.getElementById(id).classList.remove('is-invalid');
+        });
+    }
+
+    function openModal() {
+        document.getElementById('patientId').value               = '0';
+        document.getElementById('patientName').value             = '';
+        document.getElementById('patientSexId').value            = '0';
+        document.getElementById('patientIdNumber').value         = '';
+        document.getElementById('patientBirthdate').value        = '';
+        document.getElementById('patientMainPhone').value        = '';
+        document.getElementById('patientStateId').value          = '0';
+        document.getElementById('patientMunicipalityId').innerHTML = '<option value="0">— Seleccionar estado primero —</option>';
+        document.getElementById('patientAddress').value          = '';
+        document.getElementById('modalTitle').textContent        = 'Nuevo Paciente';
+        clearModalValidation();
+        patientModal.show();
+        setTimeout(() => document.getElementById('patientName').focus(), 300);
+    }
+
+    function editPatient(id) {
+        const p = allPatients.find(x => x.PatientId === id);
+        if (!p) return;
+        document.getElementById('patientId').value        = p.PatientId;
+        document.getElementById('patientName').value      = p.PatientName ?? '';
+        document.getElementById('patientSexId').value     = p.SexId ?? 0;
+        document.getElementById('patientIdNumber').value  = p.PatientIdNumber ?? '';
+        document.getElementById('patientBirthdate').value = formatDateForInput(p.PatientBirthdate);
+        document.getElementById('patientMainPhone').value = p.PatientMainPhone ? String(p.PatientMainPhone) : '';
+        document.getElementById('patientStateId').value   = p.StateId ?? 0;
+        loadMunicipalities(p.StateId ?? 0, p.MunicipalityId ?? 0);
+        document.getElementById('patientAddress').value   = p.PatientAddress ?? '';
+        document.getElementById('modalTitle').textContent = 'Editar Paciente';
+        clearModalValidation();
+        patientModal.show();
+    }
+
+    function formatDateForInput(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return '';
+        return d.toISOString().slice(0, 10);
+    }
+
+    function calcAge(dateStr) {
+        if (!dateStr) return 0;
+        const birth = new Date(dateStr);
+        if (isNaN(birth.getTime())) return 0;
+        const today = new Date();
+        let age = today.getFullYear() - birth.getFullYear();
+        if (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate())) age--;
+        return Math.max(age, 0);
+    }
+
+    function loadMunicipalities(stateId, preselectId = 0) {
+        const sel = document.getElementById('patientMunicipalityId');
+        const sid = parseInt(stateId) || 0;
+        if (sid === 0) {
+            sel.innerHTML = '<option value="0">— Seleccionar estado primero —</option>';
+            return;
+        }
+        const filtered = allMunicipalities.filter(m => m.StateId === sid);
+        sel.innerHTML = '<option value="0">— Seleccionar —</option>';
+        filtered.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value       = m.MunicipalityId;
+            opt.textContent = m.MunicipalityName;
+            if (m.MunicipalityId === preselectId) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    }
+
+    function savePatient() {
+        let valid = true;
+
+        const name = document.getElementById('patientName').value.trim();
+        if (!name) {
+            document.getElementById('patientName').classList.add('is-invalid');
+            document.getElementById('nameError').textContent = 'El nombre es requerido.';
+            valid = false;
+        } else {
+            document.getElementById('patientName').classList.remove('is-invalid');
+        }
+
+        const sexId = parseInt(document.getElementById('patientSexId').value) || 0;
+        if (sexId === 0) {
+            document.getElementById('patientSexId').classList.add('is-invalid');
+            document.getElementById('sexError').textContent = 'Seleccione el sexo.';
+            valid = false;
+        } else {
+            document.getElementById('patientSexId').classList.remove('is-invalid');
+        }
+
+        const birthdate = document.getElementById('patientBirthdate').value;
+        if (!birthdate) {
+            document.getElementById('patientBirthdate').classList.add('is-invalid');
+            document.getElementById('birthdateError').textContent = 'La fecha de nacimiento es requerida.';
+            valid = false;
+        } else {
+            document.getElementById('patientBirthdate').classList.remove('is-invalid');
+        }
+
+        const phoneRaw = document.getElementById('patientMainPhone').value.trim();
+        if (!phoneRaw) {
+            document.getElementById('patientMainPhone').classList.add('is-invalid');
+            document.getElementById('phoneError').textContent = 'El teléfono es requerido.';
+            valid = false;
+        } else {
+            document.getElementById('patientMainPhone').classList.remove('is-invalid');
+        }
+
+        if (!valid) return;
+
+        const id         = parseInt(document.getElementById('patientId').value);
+        const stateId    = parseInt(document.getElementById('patientStateId').value) || 0;
+        const muniId     = parseInt(document.getElementById('patientMunicipalityId').value) || 0;
+        const idNumStr   = document.getElementById('patientIdNumber').value.trim();
+        const stateEntry = allStates.find(s => s.StateId === stateId);
+        const muniSel    = document.getElementById('patientMunicipalityId');
+        const muniName   = muniSel.options[muniSel.selectedIndex]?.text ?? null;
+        const sexEntry   = allSexes.find(s => s.SexId === sexId);
+
+        const payload = {
+            patientId:        id,
+            patientName:      name,
+            sexId:            sexId,
+            patientIdNumber:  idNumStr ? parseInt(idNumStr) : null,
+            patientBirthdate: birthdate,
+            patientMainPhone: parseInt(phoneRaw) || 0,
+            municipalityId:   muniId,
+            patientAddress:   document.getElementById('patientAddress').value.trim() || null,
+        };
+
+        document.getElementById('btnSave').disabled = true;
+
+        fetch('/Patient/Save', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload)
+        })
+        .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)))
+        .then(data => {
+            patientModal.hide();
+
+            const newId  = id === 0 ? data.patientId : id;
+            const newDoc = {
+                PatientId:        newId,
+                PatientName:      name,
+                SexId:            sexId,
+                SexName:          sexEntry?.SexName ?? null,
+                PatientIdNumber:  payload.patientIdNumber,
+                PatientBirthdate: birthdate,
+                Age:              calcAge(birthdate),
+                PatientMainPhone: payload.patientMainPhone,
+                MunicipalityId:   muniId,
+                MunicipalityName: muniId > 0 ? (muniName !== '— Seleccionar —' ? muniName : null) : null,
+                StateId:          stateId,
+                StateName:        stateEntry?.StateName ?? null,
+                PatientAddress:   payload.patientAddress,
+                FamilyCount:      id === 0 ? 0 : (allPatients.find(x => x.PatientId === id)?.FamilyCount ?? 0),
+            };
+
+            if (id === 0) {
+                allPatients.push(newDoc);
+            } else {
+                const idx = allPatients.findIndex(x => x.PatientId === id);
+                if (idx >= 0) allPatients[idx] = newDoc;
+            }
+
+            applyFilters();
+            showToast(id === 0 ? 'Paciente registrado correctamente.' : 'Paciente actualizado correctamente.', true);
+        })
+        .catch(err => showToast(err?.message ?? 'Error al guardar el paciente.', false))
+        .finally(() => { document.getElementById('btnSave').disabled = false; });
+    }
+
+    // ── Family + History modal ───────────────────────────────────────────────
+
+    function openDetailModal(patientId, patientName) {
+        currentDetailPatientId = patientId;
+        guardianFoundPatientId = 0;
+        document.getElementById('detailModalTitle').textContent = patientName;
+        document.getElementById('familyLoading').classList.remove('d-none');
+        document.getElementById('familyContent').classList.add('d-none');
+        document.getElementById('familyError').classList.add('d-none');
+        document.getElementById('guardianCedulaInput').value = '';
+        document.getElementById('guardianFoundCard').classList.add('d-none');
+        document.getElementById('guardianSearchError').classList.add('d-none');
+        document.getElementById('createGuardianForm').classList.add('d-none');
+        // Reset to family tab
+        document.getElementById('tab-family-btn').click();
+        detailModal.show();
+        loadFamily(patientId);
+    }
+
+    function loadFamily(patientId) {
+        fetch(`/Patient/GetFamily?patientId=${patientId}`)
+            .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.message ?? 'Error al cargar.')))
+            .then(data => {
+                renderFamily(data);
+                document.getElementById('familyLoading').classList.add('d-none');
+                document.getElementById('familyContent').classList.remove('d-none');
+            })
+            .catch(msg => {
+                document.getElementById('familyLoading').classList.add('d-none');
+                const err = document.getElementById('familyError');
+                err.textContent = typeof msg === 'string' ? msg : 'Error al cargar el grupo familiar.';
+                err.classList.remove('d-none');
+            });
+    }
+
+    function renderFamily(members) {
+        const guardians  = members.filter(m => (m.role ?? m.Role) === 'guardian');
+        const dependents = members.filter(m => (m.role ?? m.Role) === 'dependent');
+
+        document.getElementById('guardianList').innerHTML  = renderMemberList(guardians, 'guardian');
+        document.getElementById('dependentList').innerHTML = renderMemberList(dependents, 'dependent');
+    }
+
+    function renderMemberList(members, role) {
+        if (members.length === 0) {
+            return `<p class="text-muted small mb-0">Ninguno registrado.</p>`;
+        }
+        return members.map(m => {
+            const idNum   = m.patientIdNumber  ?? m.PatientIdNumber;
+            const name    = m.patientName      ?? m.PatientName      ?? '';
+            const relName = m.relationshipName ?? m.RelationshipName ?? null;
+            const pid     = m.patientId        ?? m.PatientId;
+            const cedula  = idNum   ? `Cédula: ${idNum}` : 'Sin cédula';
+            const rel     = relName ? ` — ${escapeHtml(relName)}` : '';
+            const removeBtn = role === 'guardian'
+                ? `<button class="btn btn-sm btn-outline-danger py-0" onclick="removeGuardian(${currentDetailPatientId},${pid})" title="Desvincular"><i class="fas fa-unlink"></i></button>`
+                : '';
+            return `<div class="d-flex justify-content-between align-items-center border rounded px-3 py-2 mb-2 bg-white">
+                <div>
+                    <span class="fw-semibold">${escapeHtml(name)}</span>${rel}
+                    <small class="text-muted d-block">${cedula}</small>
+                </div>
+                ${removeBtn}
+            </div>`;
+        }).join('');
+    }
+
+    function searchGuardian() {
+        const cedulaStr = document.getElementById('guardianCedulaInput').value.trim();
+        const errEl     = document.getElementById('guardianSearchError');
+        const cardEl    = document.getElementById('guardianFoundCard');
+
+        errEl.classList.add('d-none');
+        cardEl.classList.add('d-none');
+        document.getElementById('createGuardianForm').classList.add('d-none');
+        guardianFoundPatientId = 0;
+
+        if (!cedulaStr || !/^\d+$/.test(cedulaStr)) {
+            errEl.textContent = 'Ingrese una cédula válida.';
+            errEl.classList.remove('d-none');
+            return;
+        }
+
+        fetch(`/Patient/GetByCedula?cedula=${cedulaStr}`)
+            .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.message ?? 'No encontrado.')))
+            .then(data => {
+                guardianFoundPatientId = data.PatientId ?? data.patientId;
+                document.getElementById('guardianFoundName').textContent =
+                    (data.PatientName ?? data.patientName ?? '') +
+                    (data.PatientIdNumber ?? data.patientIdNumber ? ` — Cédula ${data.PatientIdNumber ?? data.patientIdNumber}` : '');
+                document.getElementById('guardianRelationshipId').value = '0';
+                cardEl.classList.remove('d-none');
+            })
+            .catch(() => {
+                errEl.textContent = 'No se encontró ningún paciente con esa cédula. Complete los datos para registrarlo como representante:';
+                errEl.classList.remove('d-none');
+                document.getElementById('newGuardianName').value             = '';
+                document.getElementById('newGuardianSexId').value            = '0';
+                document.getElementById('newGuardianBirthdate').value        = '';
+                document.getElementById('newGuardianPhone').value            = '';
+                document.getElementById('newGuardianRelationshipId').value   = '0';
+                document.getElementById('createGuardianError').classList.add('d-none');
+                document.getElementById('createGuardianForm').classList.remove('d-none');
+            });
+    }
+
+    function linkGuardian() {
+        if (!guardianFoundPatientId) return;
+        const relId = parseInt(document.getElementById('guardianRelationshipId').value) || 0;
+        if (relId === 0) {
+            showToast('Seleccione el parentesco antes de vincular.', false);
+            return;
+        }
+
+        fetch('/Patient/SaveGuardian', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+                patientId:         currentDetailPatientId,
+                guardianPatientId: guardianFoundPatientId,
+                relationshipId:    relId
+            })
+        })
+        .then(r => { if (!r.ok) return Promise.reject(); })
+        .then(() => {
+            document.getElementById('guardianFoundCard').classList.add('d-none');
+            document.getElementById('createGuardianForm').classList.add('d-none');
+            document.getElementById('guardianCedulaInput').value = '';
+            guardianFoundPatientId = 0;
+            // Refresh family list
+            document.getElementById('familyLoading').classList.remove('d-none');
+            document.getElementById('familyContent').classList.add('d-none');
+            loadFamily(currentDetailPatientId);
+            // Update FamilyCount in allPatients
+            const p = allPatients.find(x => x.PatientId === currentDetailPatientId);
+            if (p) p.FamilyCount = (p.FamilyCount || 0) + 1;
+            applyFilters();
+            showToast('Representante vinculado correctamente.', true);
+        })
+        .catch(() => showToast('Error al vincular el representante.', false));
+    }
+
+    function removeGuardian(patientId, guardianId) {
+        fetch('/Patient/RemoveGuardian', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ patientId, guardianPatientId: guardianId })
+        })
+        .then(r => { if (!r.ok) return Promise.reject(); })
+        .then(() => {
+            document.getElementById('familyLoading').classList.remove('d-none');
+            document.getElementById('familyContent').classList.add('d-none');
+            loadFamily(currentDetailPatientId);
+            const p = allPatients.find(x => x.PatientId === currentDetailPatientId);
+            if (p && p.FamilyCount > 0) p.FamilyCount--;
+            applyFilters();
+            showToast('Vínculo eliminado correctamente.', true);
+        })
+        .catch(() => showToast('Error al eliminar el vínculo.', false));
+    }
+
+    // ── Delete ───────────────────────────────────────────────────────────────
+
+    function confirmDelete(id, name) {
+        pendingDeleteId = id;
+        document.getElementById('deleteName').textContent = name;
+        deleteModal.show();
+    }
+
+    function deletePatient() {
+        document.getElementById('btnDelete').disabled = true;
+        fetch('/Patient/Delete', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(pendingDeleteId)
+        })
+        .then(r => {
+            if (!r.ok) return Promise.reject();
+            deleteModal.hide();
+            const idx = allPatients.findIndex(x => x.PatientId === pendingDeleteId);
+            if (idx >= 0) allPatients.splice(idx, 1);
+            applyFilters();
+            showToast('Paciente eliminado correctamente.', true);
+        })
+        .catch(() => showToast('Error al eliminar el paciente.', false))
+        .finally(() => { document.getElementById('btnDelete').disabled = false; });
+    }
+
+    // ── Guardian creation ────────────────────────────────────────────────────
+
+    function cancelCreateGuardian() {
+        document.getElementById('createGuardianForm').classList.add('d-none');
+        document.getElementById('guardianSearchError').classList.add('d-none');
+    }
+
+    function createAndLinkGuardian() {
+        const name  = document.getElementById('newGuardianName').value.trim();
+        const sexId = parseInt(document.getElementById('newGuardianSexId').value) || 0;
+        const relId = parseInt(document.getElementById('newGuardianRelationshipId').value) || 0;
+        const errEl = document.getElementById('createGuardianError');
+        errEl.classList.add('d-none');
+
+        if (!name)     { errEl.textContent = 'El nombre es requerido.';   errEl.classList.remove('d-none'); return; }
+        if (sexId === 0){ errEl.textContent = 'Seleccione el sexo.';       errEl.classList.remove('d-none'); return; }
+        if (relId === 0){ errEl.textContent = 'Seleccione el parentesco.'; errEl.classList.remove('d-none'); return; }
+
+        const cedulaStr = document.getElementById('guardianCedulaInput').value.trim();
+        const birthdate = document.getElementById('newGuardianBirthdate').value || null;
+        const phoneRaw  = document.getElementById('newGuardianPhone').value.trim();
+
+        const savePayload = {
+            patientId:        0,
+            patientName:      name,
+            sexId:            sexId,
+            patientIdNumber:  cedulaStr ? parseInt(cedulaStr) : null,
+            patientBirthdate: birthdate,
+            patientMainPhone: phoneRaw ? parseInt(phoneRaw) : 0,
+            municipalityId:   0,
+            patientAddress:   null,
+            isGuardianOnly:   true
+        };
+
+        fetch('/Patient/Save', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(savePayload)
+        })
+        .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)))
+        .then(data => {
+            const newId = data.patientId ?? data.PatientId;
+            return fetch('/Patient/SaveGuardian', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({
+                    patientId:         currentDetailPatientId,
+                    guardianPatientId: newId,
+                    relationshipId:    relId
+                })
+            }).then(r => { if (!r.ok) return Promise.reject('Error al vincular.'); });
+        })
+        .then(() => {
+            document.getElementById('createGuardianForm').classList.add('d-none');
+            document.getElementById('guardianSearchError').classList.add('d-none');
+            document.getElementById('guardianCedulaInput').value = '';
+            document.getElementById('familyLoading').classList.remove('d-none');
+            document.getElementById('familyContent').classList.add('d-none');
+            loadFamily(currentDetailPatientId);
+            const p = allPatients.find(x => x.PatientId === currentDetailPatientId);
+            if (p) p.FamilyCount = (p.FamilyCount || 0) + 1;
+            applyFilters();
+            showToast('Representante creado y vinculado correctamente.', true);
+        })
+        .catch(err => {
+            errEl.textContent = typeof err === 'string' ? err : (err?.message ?? 'Error al crear el representante.');
+            errEl.classList.remove('d-none');
+        });
+    }
+
+    // ── Input behavior ───────────────────────────────────────────────────────
+
+    // Uppercase for .pat-text fields
+    (function () {
+        const accentMap = { 'á':'A','é':'E','í':'I','ó':'O','ú':'U','ü':'U','ñ':'Ñ','Á':'A','É':'E','Í':'I','Ó':'O','Ú':'U','Ü':'U' };
+        function up(str) {
+            return str.replace(/[áéíóúüñÁÉÍÓÚÜ]/g, c => accentMap[c] || c).toUpperCase();
+        }
+        document.querySelectorAll('#patientModal .pat-text').forEach(el => {
+            el.addEventListener('input', function () {
+                const pos = this.selectionStart;
+                this.value = up(this.value);
+                this.setSelectionRange(pos, pos);
+            });
+            el.addEventListener('paste', function (e) {
+                e.preventDefault();
+                const text = (e.clipboardData || window.clipboardData).getData('text');
+                const pos = this.selectionStart, end = this.selectionEnd;
+                this.value = up(this.value.slice(0, pos) + text + this.value.slice(end));
+                const newPos = pos + text.length;
+                this.setSelectionRange(newPos, newPos);
+            });
+        });
+    })();
+
+    // Cedula: digits only, max 9
+    (function () {
+        ['patientIdNumber','guardianCedulaInput'].forEach(elId => {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            el.addEventListener('keydown', function (e) {
+                if (['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'].includes(e.key)) return;
+                if (e.ctrlKey || e.metaKey) return;
+                if (!/^\d$/.test(e.key)) e.preventDefault();
+            });
+            el.addEventListener('input', function () {
+                this.value = this.value.replace(/\D/g, '').slice(0, 9);
+            });
+        });
+    })();
+
+    // Uppercase for .guardian-text fields
+    (function () {
+        const accentMap = { 'á':'A','é':'E','í':'I','ó':'O','ú':'U','ü':'U','ñ':'Ñ','Á':'A','É':'E','Í':'I','Ó':'O','Ú':'U','Ü':'U' };
+        function up(str) { return str.replace(/[áéíóúüñÁÉÍÓÚÜ]/g, c => accentMap[c] || c).toUpperCase(); }
+        document.querySelectorAll('#detailModal .guardian-text').forEach(el => {
+            el.addEventListener('input', function () {
+                const pos = this.selectionStart;
+                this.value = up(this.value);
+                this.setSelectionRange(pos, pos);
+            });
+            el.addEventListener('paste', function (e) {
+                e.preventDefault();
+                const text = (e.clipboardData || window.clipboardData).getData('text');
+                const pos = this.selectionStart, end = this.selectionEnd;
+                this.value = up(this.value.slice(0, pos) + text + this.value.slice(end));
+                const newPos = pos + text.length;
+                this.setSelectionRange(newPos, newPos);
+            });
+        });
+    })();
+
+    // newGuardianPhone: digits only
+    (function () {
+        const el = document.getElementById('newGuardianPhone');
+        if (!el) return;
+        el.addEventListener('keydown', function (e) {
+            if (['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'].includes(e.key)) return;
+            if (e.ctrlKey || e.metaKey) return;
+            if (!/^\d$/.test(e.key)) e.preventDefault();
+        });
+        el.addEventListener('input', function () { this.value = this.value.replace(/\D/g, ''); });
+    })();
+
+    // Phone: digits only
+    (function () {
+        const el = document.getElementById('patientMainPhone');
+        el.addEventListener('keydown', function (e) {
+            if (['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'].includes(e.key)) return;
+            if (e.ctrlKey || e.metaKey) return;
+            if (!/^\d$/.test(e.key)) e.preventDefault();
+        });
+        el.addEventListener('input', function () {
+            this.value = this.value.replace(/\D/g, '');
+        });
+    })();
+
+    applyFilters();
+</script>
+}

@@ -1,0 +1,17 @@
+@model List<Medycally.Models.NavigationModuleModel>
+@{
+    var currentPath = ViewData["CurrentPath"] as string ?? "";
+}
+
+@foreach (var module in Model)
+{
+    var isActive = !string.IsNullOrEmpty(module.ModuleUrl)
+        && currentPath.StartsWith(module.ModuleUrl, StringComparison.OrdinalIgnoreCase);
+
+    <li class="sidebar-item">
+        <a href="@module.ModuleUrl" class="sidebar-link @(isActive ? "active" : "")">
+            <i class="fas @module.ModuleIcon"></i>
+            <span>@module.ModuleName</span>
+        </a>
+    </li>
+}

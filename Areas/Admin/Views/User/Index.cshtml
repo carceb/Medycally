@@ -1,0 +1,453 @@
+@model List<Medycally.Models.AdminUserModel>
+@{
+    ViewData["Title"] = "Usuarios";
+    var roles   = ViewBag.Roles   as List<Medycally.Models.SecurityRoleModel> ?? [];
+    var doctors = ViewBag.Doctors as List<Medycally.Models.DoctorModel>       ?? [];
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">Usuarios del Sistema</h4>
+    <button class="btn btn-primary" onclick="openModal()">
+        <i class="fas fa-plus me-1"></i> Nuevo Usuario
+    </button>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+
+        <div class="row mb-3">
+            <div class="col-md-5">
+                <div class="input-group">
+                    <span class="input-group-text text-muted"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="searchInput"
+                           placeholder="Buscar por nombre, correo, cédula, rol..."
+                           oninput="applyFilters()" />
+                    <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()" title="Limpiar">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 users-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Usuario</th>
+                        <th>Cédula</th>
+                        <th>Rol</th>
+                        <th>Estatus</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="userBody"></tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <small class="text-muted" id="paginationInfo"></small>
+            <nav>
+                <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
+            </nav>
+        </div>
+
+    </div>
+</div>
+
+<!-- Save Modal -->
+<div class="modal fade" id="userModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Nuevo Usuario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="securityUserId" value="0" />
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label">Nombre completo <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="userName" maxlength="150" />
+                        <div class="invalid-feedback" id="nameError"></div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Correo electrónico <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="userEmail" maxlength="150" />
+                        <div class="invalid-feedback" id="emailError"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Cédula</label>
+                        <input type="number" class="form-control" id="userIdNumber" min="0" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Rol</label>
+                        <select class="form-select" id="securityRoleId" onchange="onRoleChange()">
+                            @foreach (var r in roles)
+                            {
+                                <option value="@r.SecurityRoleId" data-level="@r.RoleLevel">@r.RoleName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Estatus</label>
+                        <select class="form-select" id="userStatusId">
+                            <option value="1">Activo</option>
+                            <option value="2">Inactivo</option>
+                        </select>
+                    </div>
+                    <div class="col-12" id="doctorRow" style="display:none">
+                        <label class="form-label">Médico vinculado</label>
+                        <select class="form-select" id="doctorId">
+                            <option value="">— Sin médico —</option>
+                            @foreach (var doc in doctors)
+                            {
+                                <option value="@doc.DoctorId">@doc.DoctorName</option>
+                            }
+                        </select>
+                        <div class="form-text">Vincula este usuario con su registro de médico para filtrar su cola de atención.</div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" id="userPassword" maxlength="100"
+                               autocomplete="new-password" />
+                        <div class="invalid-feedback" id="passwordError"></div>
+                        <div class="form-text" id="passwordHint">Dejar en blanco para no cambiar la contraseña.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSave" onclick="saveUser()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Eliminar Usuario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Eliminar a <strong id="deleteName"></strong>?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnDelete" onclick="deleteUser()">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="toast" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMessage"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const userModal   = new bootstrap.Modal(document.getElementById('userModal'));
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    const toast       = new bootstrap.Toast(document.getElementById('toast'), { delay: 3500 });
+
+    let pendingDeleteId = 0;
+    let filteredUsers   = [];
+    let currentPage     = 1;
+    const PAGE_SIZE     = 10;
+
+    const allUsers   = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+    const allRoles   = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(roles));
+    const allDoctors = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(doctors));
+
+    function roleBadgeClass(roleName) {
+        const lower = (roleName ?? '').toLowerCase();
+        if (lower.includes('admin')) return 'role-admin';
+        if (lower.includes('manager') || lower.includes('gerente')) return 'role-manager';
+        return 'role-user';
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('userBody');
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const page  = filteredUsers.slice(start, start + PAGE_SIZE);
+
+        if (filteredUsers.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No se encontraron usuarios.</td></tr>';
+            renderPagination();
+            return;
+        }
+
+        tbody.innerHTML = page.map(u => {
+            const escaped     = (u.UserName ?? '').replace(/'/g, "\\'");
+            const initials    = encodeURIComponent(u.UserName ?? 'U');
+            const badgeClass  = roleBadgeClass(u.RoleName);
+            const statusClass = u.StatusId === 1 ? 'status-active' : 'status-inactive';
+            const statusLabel = u.StatusId === 1 ? 'Activo' : 'Inactivo';
+            return `<tr data-id="${u.SecurityUserId}">
+                <td>${u.SecurityUserId}</td>
+                <td>
+                    <div class="user-info">
+                        <img src="https://ui-avatars.com/api/?name=${initials}&background=10b981&color=fff" alt="${escapeHtml(u.UserName ?? '')}">
+                        <div>
+                            <div class="user-name">${escapeHtml(u.UserName ?? '')}</div>
+                            <div class="user-email">${escapeHtml(u.UserEmail ?? '')}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>${u.UserIdNumber > 0 ? u.UserIdNumber : '—'}</td>
+                <td><span class="role-badge ${badgeClass}">${escapeHtml(u.RoleName ?? '—')}</span></td>
+                <td><span class="status-badge ${statusClass}"><i class="fas fa-circle"></i> ${statusLabel}</span></td>
+                <td class="text-end">
+                    <div class="action-buttons">
+                        <button class="btn-icon" onclick="editUser(${u.SecurityUserId})" title="Editar"><i class="fas fa-edit"></i></button>
+                        <button class="btn-icon" onclick="confirmDelete(${u.SecurityUserId},'${escaped}')" title="Eliminar"><i class="fas fa-trash text-danger"></i></button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+
+        renderPagination();
+    }
+
+    function renderPagination() {
+        const total      = filteredUsers.length;
+        const totalPages = Math.ceil(total / PAGE_SIZE);
+        const pag        = document.getElementById('pagination');
+        const info       = document.getElementById('paginationInfo');
+
+        if (total === 0) { info.textContent = ''; pag.innerHTML = ''; return; }
+
+        const start = (currentPage - 1) * PAGE_SIZE + 1;
+        const end   = Math.min(currentPage * PAGE_SIZE, total);
+        info.textContent = `Mostrando ${start}–${end} de ${total}`;
+
+        if (totalPages <= 1) { pag.innerHTML = ''; return; }
+
+        const pages  = new Set([1, totalPages]);
+        for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) pages.add(i);
+        const sorted = [...pages].sort((a, b) => a - b);
+
+        let html = `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage - 1});return false;">&lsaquo;</a></li>`;
+        let prev = 0;
+        for (const p of sorted) {
+            if (p - prev > 1) html += `<li class="page-item disabled"><span class="page-link">&hellip;</span></li>`;
+            html += `<li class="page-item ${p === currentPage ? 'active' : ''}">
+                <a class="page-link" href="#" onclick="goToPage(${p});return false;">${p}</a></li>`;
+            prev = p;
+        }
+        html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage + 1});return false;">&rsaquo;</a></li>`;
+
+        pag.innerHTML = html;
+    }
+
+    function goToPage(page) {
+        const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        renderTable();
+    }
+
+    function applyFilters() {
+        const q = (document.getElementById('searchInput').value ?? '').trim().toLowerCase();
+        filteredUsers = q
+            ? allUsers.filter(u => {
+                const name   = (u.UserName ?? '').toLowerCase();
+                const email  = (u.UserEmail ?? '').toLowerCase();
+                const idNum  = u.UserIdNumber > 0 ? String(u.UserIdNumber) : '';
+                const role   = (u.RoleName ?? '').toLowerCase();
+                const stat   = u.StatusId === 1 ? 'activo' : 'inactivo';
+                return name.includes(q) || email.includes(q) || idNum.includes(q) ||
+                       role.includes(q) || stat.includes(q);
+            })
+            : [...allUsers];
+        currentPage = 1;
+        renderTable();
+    }
+
+    function clearSearch() {
+        document.getElementById('searchInput').value = '';
+        applyFilters();
+    }
+
+    function showToast(message, success) {
+        const el = document.getElementById('toast');
+        el.classList.remove('bg-success', 'bg-danger');
+        el.classList.add(success ? 'bg-success' : 'bg-danger');
+        document.getElementById('toastMessage').textContent = message;
+        toast.show();
+    }
+
+    function onRoleChange() {
+        const sel   = document.getElementById('securityRoleId');
+        const level = parseInt(sel.options[sel.selectedIndex]?.dataset.level ?? '0');
+        document.getElementById('doctorRow').style.display = level === 5 ? '' : 'none';
+        if (level !== 5) document.getElementById('doctorId').value = '';
+    }
+
+    function openModal() {
+        document.getElementById('securityUserId').value = '0';
+        document.getElementById('userName').value       = '';
+        document.getElementById('userEmail').value      = '';
+        document.getElementById('userIdNumber').value   = '';
+        document.getElementById('securityRoleId').value = document.getElementById('securityRoleId').options[0]?.value ?? '';
+        document.getElementById('userStatusId').value   = '1';
+        document.getElementById('userPassword').value   = '';
+        document.getElementById('doctorId').value       = '';
+        document.getElementById('modalTitle').textContent    = 'Nuevo Usuario';
+        document.getElementById('passwordHint').textContent  = '';
+        onRoleChange();
+        clearValidation();
+        userModal.show();
+        setTimeout(() => document.getElementById('userName').focus(), 300);
+    }
+
+    function editUser(id) {
+        const u = allUsers.find(x => x.SecurityUserId === id);
+        if (!u) return;
+        document.getElementById('securityUserId').value = u.SecurityUserId;
+        document.getElementById('userName').value       = u.UserName ?? '';
+        document.getElementById('userEmail').value      = u.UserEmail ?? '';
+        document.getElementById('userIdNumber').value   = u.UserIdNumber > 0 ? u.UserIdNumber : '';
+        document.getElementById('securityRoleId').value = u.SecurityRoleId;
+        document.getElementById('userStatusId').value   = u.StatusId;
+        document.getElementById('userPassword').value   = '';
+        document.getElementById('doctorId').value       = u.DoctorId ?? '';
+        document.getElementById('modalTitle').textContent    = 'Editar Usuario';
+        document.getElementById('passwordHint').textContent  = 'Dejar en blanco para no cambiar la contraseña.';
+        onRoleChange();
+        clearValidation();
+        userModal.show();
+    }
+
+    function clearValidation() {
+        ['userName', 'userEmail', 'userPassword'].forEach(id => {
+            document.getElementById(id).classList.remove('is-invalid');
+        });
+    }
+
+    function saveUser() {
+        clearValidation();
+        const id       = parseInt(document.getElementById('securityUserId').value);
+        const name     = document.getElementById('userName').value.trim();
+        const email    = document.getElementById('userEmail').value.trim();
+        const password = document.getElementById('userPassword').value;
+        let valid = true;
+
+        if (!name) {
+            document.getElementById('userName').classList.add('is-invalid');
+            document.getElementById('nameError').textContent = 'El nombre es requerido.';
+            valid = false;
+        }
+        if (!email) {
+            document.getElementById('userEmail').classList.add('is-invalid');
+            document.getElementById('emailError').textContent = 'El correo es requerido.';
+            valid = false;
+        }
+        if (id === 0 && !password) {
+            document.getElementById('userPassword').classList.add('is-invalid');
+            document.getElementById('passwordError').textContent = 'La contraseña es requerida para nuevos usuarios.';
+            valid = false;
+        }
+        if (!valid) return;
+
+        const roleId   = parseInt(document.getElementById('securityRoleId').value);
+        const statusId = parseInt(document.getElementById('userStatusId').value);
+
+        const doctorIdRaw = document.getElementById('doctorId').value;
+        const payload = {
+            securityUserId: id,
+            userName:       name,
+            userEmail:      email,
+            userIdNumber:   parseInt(document.getElementById('userIdNumber').value) || 0,
+            securityRoleId: roleId,
+            statusId:       statusId,
+            userPassword:   password || null,
+            doctorId:       doctorIdRaw ? parseInt(doctorIdRaw) : null,
+        };
+
+        document.getElementById('btnSave').disabled = true;
+
+        fetch('/Admin/User/Save', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload)
+        })
+        .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)))
+        .then(data => {
+            userModal.hide();
+
+            const newId      = id === 0 ? data.securityUserId : id;
+            const roleEntry  = allRoles.find(r => r.SecurityRoleId === roleId);
+
+            const docEntry = allDoctors.find(d => d.DoctorId === payload.doctorId);
+            const newDoc = {
+                SecurityUserId: newId,
+                UserName:       name,
+                UserEmail:      email,
+                UserIdNumber:   payload.userIdNumber,
+                SecurityRoleId: roleId,
+                RoleName:       roleEntry?.RoleName ?? null,
+                StatusId:       statusId,
+                DoctorId:       payload.doctorId ?? null,
+                DoctorName:     docEntry?.DoctorName ?? null,
+            };
+
+            if (id === 0) {
+                allUsers.push(newDoc);
+            } else {
+                const idx = allUsers.findIndex(x => x.SecurityUserId === id);
+                if (idx >= 0) allUsers[idx] = newDoc;
+            }
+
+            applyFilters();
+            showToast(id === 0 ? 'Usuario creado correctamente.' : 'Usuario actualizado correctamente.', true);
+        })
+        .catch(err => showToast(err?.message ?? 'Error al guardar el usuario.', false))
+        .finally(() => { document.getElementById('btnSave').disabled = false; });
+    }
+
+    function confirmDelete(id, name) {
+        pendingDeleteId = id;
+        document.getElementById('deleteName').textContent = name;
+        deleteModal.show();
+    }
+
+    function deleteUser() {
+        document.getElementById('btnDelete').disabled = true;
+        fetch('/Admin/User/Delete', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(pendingDeleteId)
+        })
+        .then(r => {
+            if (!r.ok) return Promise.reject();
+            deleteModal.hide();
+            const idx = allUsers.findIndex(x => x.SecurityUserId === pendingDeleteId);
+            if (idx >= 0) allUsers.splice(idx, 1);
+            applyFilters();
+            showToast('Usuario eliminado correctamente.', true);
+        })
+        .catch(() => showToast('Error al eliminar el usuario.', false))
+        .finally(() => { document.getElementById('btnDelete').disabled = false; });
+    }
+
+    function escapeHtml(text) {
+        const d = document.createElement('div');
+        d.textContent = text ?? '';
+        return d.innerHTML;
+    }
+
+    applyFilters();
+</script>
+}

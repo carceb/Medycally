@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Medycally</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/admin.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="wrapper">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <a href="/" class="sidebar-brand">
+                    <i class="fas fa-heartbeat"></i>
+                    <span>Medycally</span>
+                </a>
+            </div>
+
+            @{
+                var currentPath  = Context.Request.Path.Value ?? "";
+                var isAdminActive = currentPath.StartsWith("/Admin", StringComparison.OrdinalIgnoreCase);
+            }
+            <ul class="sidebar-nav">
+                @await Component.InvokeAsync("Sidebar")
+
+                <li class="sidebar-item">
+                    <a class="sidebar-link sidebar-link-parent @(isAdminActive ? "active" : "")"
+                       data-bs-toggle="collapse" data-bs-target="#adminMenu"
+                       href="#" role="button"
+                       aria-expanded="@(isAdminActive ? "true" : "false")">
+                        <i class="fas fa-cog"></i>
+                        <span>ConfiguraciónXXX</span>
+                        <i class="fas fa-chevron-right sidebar-chevron"></i>
+                    </a>
+                    <ul class="sidebar-dropdown collapse @(isAdminActive ? "show" : "")" id="adminMenu">
+                        <li class="sidebar-item">
+                            <a href="/Admin/Specialty"
+                               class="sidebar-link @(currentPath.StartsWith("/Admin/Specialty", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
+                                <i class="fas fa-stethoscope"></i>
+                                <span>Especialidades</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-item">
+                            <a href="/Admin/Clinic"
+                               class="sidebar-link @(currentPath.StartsWith("/Admin/Clinic", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
+                                <i class="fas fa-hospital"></i>
+                                <span>Clínicas</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-item">
+                            <a href="/Admin/Doctor"
+                               class="sidebar-link @(currentPath.StartsWith("/Admin/Doctor", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
+                                <i class="fas fa-user-md"></i>
+                                <span>Médicos</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-item">
+                            <a href="/Admin/User"
+                               class="sidebar-link @(currentPath.StartsWith("/Admin/User", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
+                                <i class="fas fa-users-cog"></i>
+                                <span>Usuarios</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+
+            <div class="sidebar-footer">
+                <a asp-controller="Account" asp-action="Logout" class="sidebar-link">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Cerrar Sesión</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="main">
+            <!-- Navbar -->
+            <nav class="navbar navbar-expand navbar-light bg-white border-bottom">
+                <div class="container-fluid">
+                    <button class="btn btn-link" id="sidebarToggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+
+                    <form class="d-none d-md-flex ms-3 me-auto">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0">
+                                <i class="fas fa-search text-muted"></i>
+                            </span>
+                            <input type="text" class="form-control border-start-0" placeholder="Buscar...">
+                        </div>
+                    </form>
+
+                    <ul class="navbar-nav ms-auto">
+
+                            <!-- Active Clinic -->
+                        <li class="nav-item me-2 d-none d-md-flex align-items-center">
+                            <span class="text-muted small">
+                                <i class="fas fa-hospital text-success me-1"></i>
+                                <span id="activeClinicLabel" class="fw-semibold">—</span>
+                            </span>
+                        </li>
+
+                        <!-- User Profile -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                                <img src="https://ui-avatars.com/api/?name=@Uri.EscapeDataString(User.Identity?.Name ?? "U")&background=10b981&color=fff"
+                                     class="rounded-circle me-2" width="32" height="32" alt="User">
+                                <span class="d-none d-md-inline">@User.Identity?.Name</span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="fas fa-user me-2"></i>Mi Perfil
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="fas fa-cog me-2"></i>Configuración
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#" onclick="openClinicSelector(); return false;">
+                                        <i class="fas fa-exchange-alt me-2"></i>Cambiar Clínica
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item" asp-controller="Account" asp-action="Logout">
+                                        <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Page Content -->
+            <main class="content">
+                @RenderBody()
+            </main>
+
+            <!-- Footer -->
+            <footer class="footer">
+                <div class="container-fluid">
+                    <div class="row text-muted">
+                        <div class="col-6 text-start">
+                            <p class="mb-0">
+                                &copy; 2026 Medycally
+                            </p>
+                        </div>
+                        <div class="col-6 text-end">
+                            <ul class="list-inline mb-0">
+                                <li class="list-inline-item">
+                                    <a class="text-muted" asp-controller="Home" asp-action="Privacy">Privacy</a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Clinic Selector Modal -->
+    <div class="modal fade" id="clinicSelectorModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-hospital me-2 text-success"></i>Seleccionar Clínica</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-2">
+                    <input type="text" class="form-control form-control-sm mb-2" id="clinicSelectorSearch"
+                           placeholder="Buscar clínica..." oninput="filterClinicSelector()" />
+                    <div id="clinicSelectorList" class="list-group list-group-flush">
+                        <div class="text-center py-3">
+                            <div class="spinner-border spinner-border-sm text-primary"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/admin.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+
+    <script>
+        // ── Clinic selector (global, available on all pages) ─────────────────────
+
+        let _clinicSelectorData = null;
+        let _clinicSelectorModal = null;
+
+        function _getActiveClinicId() {
+            return parseInt(localStorage.getItem('activeClinicId') || '1');
+        }
+
+        function _initClinicLabel() {
+            const cached = JSON.parse(localStorage.getItem('medycallyClinicsV2') || 'null');
+            const id     = _getActiveClinicId();
+            const label  = document.getElementById('activeClinicLabel');
+            if (!label) return;
+
+            if (cached) {
+                const found = cached.find(c => c.clinicId === id);
+                label.textContent = found ? found.clinicName : `Clínica #${id}`;
+            } else {
+                label.textContent = `Clínica #${id}`;
+                fetch('/Home/GetClinics')
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (!data) return;
+                        localStorage.setItem('medycallyClinicsV2', JSON.stringify(data));
+                        const found = data.find(c => c.clinicId === id);
+                        if (found) label.textContent = found.clinicName;
+                    })
+                    .catch(() => {});
+            }
+        }
+
+        function openClinicSelector() {
+            if (!_clinicSelectorModal) {
+                _clinicSelectorModal = new bootstrap.Modal(document.getElementById('clinicSelectorModal'));
+            }
+            document.getElementById('clinicSelectorSearch').value = '';
+            _clinicSelectorModal.show();
+
+            const cached = JSON.parse(localStorage.getItem('medycallyClinicsV2') || 'null');
+            if (cached) {
+                _clinicSelectorData = cached;
+                _renderClinicSelector(cached);
+            } else {
+                document.getElementById('clinicSelectorList').innerHTML =
+                    '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div></div>';
+                fetch('/Home/GetClinics')
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (!data) return;
+                        localStorage.setItem('medycallyClinicsV2', JSON.stringify(data));
+                        _clinicSelectorData = data;
+                        _renderClinicSelector(data);
+                    })
+                    .catch(() => {
+                        document.getElementById('clinicSelectorList').innerHTML =
+                            '<p class="text-danger text-center small py-2">Error al cargar las clínicas.</p>';
+                    });
+            }
+        }
+
+        function filterClinicSelector() {
+            if (!_clinicSelectorData) return;
+            const q = document.getElementById('clinicSelectorSearch').value.trim().toLowerCase();
+            const filtered = q
+                ? _clinicSelectorData.filter(c => (c.clinicName ?? '').toLowerCase().includes(q))
+                : _clinicSelectorData;
+            _renderClinicSelector(filtered);
+        }
+
+        function _renderClinicSelector(clinics) {
+            const activeId = _getActiveClinicId();
+            const list     = document.getElementById('clinicSelectorList');
+            if (!clinics || clinics.length === 0) {
+                list.innerHTML = '<p class="text-muted text-center small py-2">Sin resultados.</p>';
+                return;
+            }
+            list.innerHTML = clinics.map(c => {
+                const isActive  = c.clinicId === activeId;
+                const location  = [c.stateName, c.municipalityName].filter(Boolean).join(', ');
+                const escaped   = (c.clinicName ?? '').replace(/'/g, "\\'");
+                return `<a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center${isActive ? ' active' : ''}"
+                            onclick="selectClinic(${c.clinicId}, '${escaped}'); return false;">
+                    <div>
+                        <div class="fw-semibold">${_escHtml(c.clinicName ?? '')}</div>
+                        ${location ? `<small class="${isActive ? '' : 'text-muted'}">${_escHtml(location)}</small>` : ''}
+                    </div>
+                    ${isActive ? '<i class="fas fa-check-circle ms-2"></i>' : ''}
+                </a>`;
+            }).join('');
+        }
+
+        function selectClinic(id, name) {
+            localStorage.setItem('activeClinicId', id);
+
+            const label = document.getElementById('activeClinicLabel');
+            if (label) label.textContent = name;
+
+            if (_clinicSelectorModal) _clinicSelectorModal.hide();
+
+            window.dispatchEvent(new CustomEvent('clinicChanged', { detail: { clinicId: id, clinicName: name } }));
+        }
+
+        function _escHtml(t) {
+            const d = document.createElement('div');
+            d.textContent = t ?? '';
+            return d.innerHTML;
+        }
+
+        document.addEventListener('DOMContentLoaded', _initClinicLabel);
+    </script>
+</body>
+</html>

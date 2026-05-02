@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tail:*)",
+      "Bash(robocopy \"C:\\\\Users\\\\carce\\\\OneDrive\\\\Documents\\\\SQL Server Management Studio 22\\\\Projects\\\\Clinic\\\\assets\" \"C:\\\\Users\\\\carce\\\\OneDrive\\\\Documents\\\\SQL Server Management Studio 22\\\\Projects\\\\Medycally\\\\wwwroot\\\\clinic\\\\assets\" /E /NP /NFL /NDL 2>&1 | tail -5)",
+      "Bash(robocopy \"C:\\\\Users\\\\carce\\\\OneDrive\\\\Documents\\\\SQL Server Management Studio 22\\\\Projects\\\\Clinic\\\\assets\" \"C:\\\\Users\\\\carce\\\\OneDrive\\\\Documents\\\\SQL Server Management Studio 22\\\\Projects\\\\Medycally\\\\wwwroot\\\\clinic\\\\assets\" /E /NP 2>&1 | grep -E \"Files|Dirs|Total|Copied\" | head -10)",
+      "Bash(cp -r \"/c/Users/carce/OneDrive/Documents/SQL Server Management Studio 22/Projects/Clinic/assets\" \"/c/Users/carce/OneDrive/Documents/SQL Server Management Studio 22/Projects/Medycally/wwwroot/clinic/assets\" && echo \"Copied successfully\")",
+      "Bash(mkdir -p \"/c/Users/carce/OneDrive/Documents/SQL Server Management Studio 22/Projects/Medycally/wwwroot/clinic\" && cp -r \"/c/Users/carce/OneDrive/Documents/SQL Server Management Studio 22/Projects/Clinic/assets\" \"/c/Users/carce/OneDrive/Documents/SQL Server Management Studio 22/Projects/Medycally/wwwroot/clinic/\" && echo \"Done\")",
+      "Bash(ls \"/c/Users/carce/OneDrive/Documents/SQL Server Management Studio 22/Projects/Clinic/\"*.html)",
+      "Bash(cp \"/c/Users/carce/OneDrive/Documents/SQL Server Management Studio 22/Projects/Clinic/\"*.html \"/c/Users/carce/OneDrive/Documents/SQL Server Management Studio 22/Projects/Medycally/wwwroot/clinic/\" && echo \"Done\" && ls \"/c/Users/carce/OneDrive/Documents/SQL Server Management Studio 22/Projects/Medycally/wwwroot/clinic/\"*.html)",
+      "Bash(grep -l \"English\\\\|lang=\\\\\"en\\\\\"\\\\|<!DOCTYPE\" *.html)",
+      "Bash(ls -lah *.html)",
+      "Bash(ls *.html)",
+      "Bash(rm:*)",
+      "Bash(dotnet build *)",
+      "Bash(grep -E \"\\\\.\\(csproj|sln\\)$\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\carce\\\\OneDrive\\\\Documents\\\\SQL Server Management Studio 22\\\\Projects\\\\Medycally\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(Get-ChildItem *)"
+    ]
+  }
+}

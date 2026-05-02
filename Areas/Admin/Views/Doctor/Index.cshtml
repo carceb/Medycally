@@ -1,0 +1,695 @@
+@model List<Medycally.Models.DoctorModel>
+@{
+    ViewData["Title"] = "Médicos";
+    var sexes    = ViewBag.Sexes    as List<Medycally.Models.SexModel>        ?? [];
+    var states   = ViewBag.States   as List<Medycally.Models.GeographyModel>  ?? [];
+    var statuses = ViewBag.Statuses as List<Medycally.Models.StatusModel>     ?? [];
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">Médicos</h4>
+    <button class="btn btn-primary" onclick="openModal()">
+        <i class="fas fa-plus me-1"></i> Nuevo Médico
+    </button>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+
+        <div class="row mb-3">
+            <div class="col-md-5">
+                <div class="input-group">
+                    <span class="input-group-text text-muted"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="searchInput"
+                           placeholder="Buscar por nombre, cédula, teléfono, especialidad..."
+                           oninput="applyFilters()" />
+                    <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()" title="Limpiar">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Nombre</th>
+                        <th>Cédula</th>
+                        <th>Teléfono</th>
+                        <th>Especialidades</th>
+                        <th>Estatus</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="doctorBody"></tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <small class="text-muted" id="paginationInfo"></small>
+            <nav aria-label="Paginación de médicos">
+                <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
+            </nav>
+        </div>
+
+    </div>
+</div>
+
+<!-- Save Modal -->
+<div class="modal fade" id="doctorModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Nuevo Médico</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="doctorId" value="0" />
+
+                <h6 class="text-muted mb-3">Datos Personales</h6>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-8">
+                        <label class="form-label">Nombre completo <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control doc-text" id="doctorName" maxlength="150" />
+                        <div class="invalid-feedback" id="nameError"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Sexo</label>
+                        <select class="form-select" id="doctorSexId">
+                            <option value="0">— Seleccionar —</option>
+                            @foreach (var s in sexes)
+                            {
+                                <option value="@s.SexId">@s.SexName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Cédula</label>
+                        <input type="text" class="form-control" id="doctorIdNumber" maxlength="9" inputmode="numeric" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Correo electrónico <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="doctorEmail" maxlength="150" />
+                        <div class="invalid-feedback" id="emailError"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Estatus</label>
+                        <select class="form-select" id="doctorStatusId">
+                            @foreach (var st in statuses)
+                            {
+                                <option value="@st.StatusId">@st.StatusName</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <h6 class="text-muted mb-3">Contacto</h6>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Teléfono principal <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="doctorMainPhone" maxlength="20" />
+                        <div class="invalid-feedback" id="phoneError"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Teléfono secundario</label>
+                        <input type="text" class="form-control" id="doctorSecondPhone" maxlength="20" />
+                    </div>
+                </div>
+
+                <h6 class="text-muted mb-3">Ubicación</h6>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Estado</label>
+                        <select class="form-select" id="doctorStateId">
+                            <option value="0">— Seleccionar —</option>
+                            @foreach (var st in states)
+                            {
+                                <option value="@st.StateId">@st.StateName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label">Dirección <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control doc-text" id="doctorAddress" maxlength="300" />
+                        <div class="invalid-feedback" id="addressError"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSave" onclick="saveDoctor()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Specialties Modal -->
+<div class="modal fade" id="specialtyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="specialtyModalTitle">Especialidades</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="specialtyLoading" class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted">Cargando especialidades...</p>
+                </div>
+                <div id="specialtyChecks" class="d-none">
+                    <input type="text" class="form-control form-control-sm mb-3" id="specialtySearch"
+                           placeholder="Buscar especialidad..." oninput="applySpecialtyFilter()" />
+                    <div id="specialtyList"></div>
+                    <div id="specPagination" class="d-flex justify-content-between align-items-center mt-2">
+                        <small class="text-muted" id="specPaginationInfo"></small>
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="specPrevBtn" onclick="specChangePage(-1)">&lsaquo;</button>
+                            <small id="specPageLabel"></small>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="specNextBtn" onclick="specChangePage(1)">&rsaquo;</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="specialtyError" class="alert alert-danger d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSaveSpecialties" onclick="saveSpecialties()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Eliminar Médico</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Eliminar a <strong id="deleteName"></strong>?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnDelete" onclick="deleteDoctor()">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="toast" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMessage"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const doctorModal    = new bootstrap.Modal(document.getElementById('doctorModal'));
+    const specialtyModal = new bootstrap.Modal(document.getElementById('specialtyModal'));
+    const deleteModal    = new bootstrap.Modal(document.getElementById('deleteModal'));
+    const toast          = new bootstrap.Toast(document.getElementById('toast'), { delay: 3500 });
+
+    let pendingDeleteId          = 0;
+    let currentSpecialtyDoctorId = 0;
+    let filteredDoctors          = [];
+    let currentPage              = 1;
+    const PAGE_SIZE              = 10;
+
+    let allSpecialtyData    = [];
+    let filteredSpecialties = [];
+    let specialtyPage       = 1;
+    const SPEC_PAGE_SIZE    = 10;
+    let checkedSpecialtyIds = new Set();
+
+    const allDoctors  = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+    const allSexes    = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(sexes));
+    const allStates   = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(states));
+    const allStatuses = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(statuses));
+
+    function getDisplayName(d) {
+        const sex = allSexes.find(s => s.SexId === d.SexId);
+        const prefix = sex?.DoctorAbbreviation ? sex.DoctorAbbreviation + '. ' : '';
+        return prefix + (d.DoctorName ?? '');
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('doctorBody');
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const page  = filteredDoctors.slice(start, start + PAGE_SIZE);
+
+        if (filteredDoctors.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No se encontraron médicos.</td></tr>';
+            renderPagination();
+            return;
+        }
+
+        tbody.innerHTML = page.map(d => {
+            const displayName = getDisplayName(d);
+            const nameEscaped = (d.DoctorName ?? '').replace(/'/g, "\\'");
+            const statusBadge = d.StatusId === 1 ? 'bg-success' : 'bg-secondary';
+            const specialties = d.SpecialtyNames
+                ? d.SpecialtyNames.split(',').map(s => `<span class="badge bg-info text-dark me-1">${escapeHtml(s.trim())}</span>`).join('')
+                : '<span class="text-muted small">—</span>';
+            return `<tr data-id="${d.DoctorId}">
+                <td>${d.DoctorId}</td>
+                <td>${escapeHtml(displayName)}</td>
+                <td>${d.DoctorIdNumber > 0 ? d.DoctorIdNumber : '—'}</td>
+                <td>${escapeHtml(d.DoctorMainPhone ?? '—')}</td>
+                <td class="specialty-cell">${specialties}</td>
+                <td><span class="badge ${statusBadge}">${escapeHtml(d.StatusName ?? '')}</span></td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editDoctor(${d.DoctorId})" title="Editar"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-outline-info me-1" onclick="openSpecialtiesModal(${d.DoctorId},'${nameEscaped}')" title="Especialidades"><i class="fas fa-stethoscope"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(${d.DoctorId},'${nameEscaped}')" title="Eliminar"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>`;
+        }).join('');
+
+        renderPagination();
+    }
+
+    function renderPagination() {
+        const total      = filteredDoctors.length;
+        const totalPages = Math.ceil(total / PAGE_SIZE);
+        const pag        = document.getElementById('pagination');
+        const info       = document.getElementById('paginationInfo');
+
+        if (total === 0) { info.textContent = ''; pag.innerHTML = ''; return; }
+
+        const start = (currentPage - 1) * PAGE_SIZE + 1;
+        const end   = Math.min(currentPage * PAGE_SIZE, total);
+        info.textContent = `Mostrando ${start}–${end} de ${total}`;
+
+        if (totalPages <= 1) { pag.innerHTML = ''; return; }
+
+        const pages  = new Set([1, totalPages]);
+        for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) pages.add(i);
+        const sorted = [...pages].sort((a, b) => a - b);
+
+        let html = `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage - 1});return false;">&lsaquo;</a></li>`;
+
+        let prev = 0;
+        for (const p of sorted) {
+            if (p - prev > 1) html += `<li class="page-item disabled"><span class="page-link">&hellip;</span></li>`;
+            html += `<li class="page-item ${p === currentPage ? 'active' : ''}">
+                <a class="page-link" href="#" onclick="goToPage(${p});return false;">${p}</a></li>`;
+            prev = p;
+        }
+
+        html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage + 1});return false;">&rsaquo;</a></li>`;
+
+        pag.innerHTML = html;
+    }
+
+    function goToPage(page) {
+        const totalPages = Math.max(1, Math.ceil(filteredDoctors.length / PAGE_SIZE));
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        renderTable();
+    }
+
+    function applyFilters() {
+        const q = (document.getElementById('searchInput').value ?? '').trim().toLowerCase();
+        filteredDoctors = q
+            ? allDoctors.filter(d => {
+                const name  = getDisplayName(d).toLowerCase();
+                const idNum = d.DoctorIdNumber > 0 ? String(d.DoctorIdNumber) : '';
+                const phone = (d.DoctorMainPhone ?? '').toLowerCase();
+                const specs = (d.SpecialtyNames ?? '').toLowerCase();
+                const stat  = (d.StatusName ?? '').toLowerCase();
+                const state = (d.StateName ?? '').toLowerCase();
+                return name.includes(q) || idNum.includes(q) || phone.includes(q) ||
+                       specs.includes(q) || stat.includes(q) || state.includes(q);
+            })
+            : [...allDoctors];
+        currentPage = 1;
+        renderTable();
+    }
+
+    function clearSearch() {
+        document.getElementById('searchInput').value = '';
+        applyFilters();
+    }
+
+    function showToast(message, success) {
+        const el = document.getElementById('toast');
+        el.classList.remove('bg-success', 'bg-danger');
+        el.classList.add(success ? 'bg-success' : 'bg-danger');
+        document.getElementById('toastMessage').textContent = message;
+        toast.show();
+    }
+
+    function openModal() {
+        document.getElementById('doctorId').value          = '0';
+        document.getElementById('doctorName').value        = '';
+        document.getElementById('doctorSexId').value       = '0';
+        document.getElementById('doctorIdNumber').value    = '';
+        document.getElementById('doctorEmail').value       = '';
+        document.getElementById('doctorStatusId').value    = document.getElementById('doctorStatusId').options[0]?.value ?? '1';
+        document.getElementById('doctorMainPhone').value   = '';
+        document.getElementById('doctorSecondPhone').value = '';
+        document.getElementById('doctorStateId').value     = '0';
+        document.getElementById('doctorAddress').value     = '';
+        document.getElementById('modalTitle').textContent  = 'Nuevo Médico';
+        document.getElementById('doctorName').classList.remove('is-invalid');
+        document.getElementById('doctorEmail').classList.remove('is-invalid');
+        document.getElementById('doctorMainPhone').classList.remove('is-invalid');
+        document.getElementById('doctorAddress').classList.remove('is-invalid');
+        doctorModal.show();
+        setTimeout(() => document.getElementById('doctorName').focus(), 300);
+    }
+
+    function editDoctor(id) {
+        const d = allDoctors.find(x => x.DoctorId === id);
+        if (!d) return;
+        document.getElementById('doctorId').value          = d.DoctorId;
+        document.getElementById('doctorName').value        = d.DoctorName ?? '';
+        document.getElementById('doctorSexId').value       = d.SexId ?? 0;
+        document.getElementById('doctorIdNumber').value    = d.DoctorIdNumber > 0 ? d.DoctorIdNumber : '';
+        document.getElementById('doctorEmail').value       = d.DoctorEmail ?? '';
+        document.getElementById('doctorStatusId').value    = d.StatusId;
+        document.getElementById('doctorMainPhone').value   = d.DoctorMainPhone ?? '';
+        document.getElementById('doctorSecondPhone').value = d.DoctorSecondPhone ?? '';
+        document.getElementById('doctorStateId').value     = d.StateId ?? 0;
+        document.getElementById('doctorAddress').value     = d.DoctorAddress ?? '';
+        document.getElementById('modalTitle').textContent  = 'Editar Médico';
+        document.getElementById('doctorName').classList.remove('is-invalid');
+        document.getElementById('doctorEmail').classList.remove('is-invalid');
+        document.getElementById('doctorMainPhone').classList.remove('is-invalid');
+        document.getElementById('doctorAddress').classList.remove('is-invalid');
+        doctorModal.show();
+    }
+
+    function saveDoctor() {
+        const name = document.getElementById('doctorName').value.trim();
+        if (!name) {
+            document.getElementById('doctorName').classList.add('is-invalid');
+            document.getElementById('nameError').textContent = 'El nombre es requerido.';
+            return;
+        }
+        document.getElementById('doctorName').classList.remove('is-invalid');
+
+        const phone = document.getElementById('doctorMainPhone').value.trim();
+        if (!phone) {
+            document.getElementById('doctorMainPhone').classList.add('is-invalid');
+            document.getElementById('phoneError').textContent = 'El teléfono principal es requerido.';
+            return;
+        }
+        document.getElementById('doctorMainPhone').classList.remove('is-invalid');
+
+        const address = document.getElementById('doctorAddress').value.trim();
+        if (!address) {
+            document.getElementById('doctorAddress').classList.add('is-invalid');
+            document.getElementById('addressError').textContent = 'La dirección es requerida.';
+            return;
+        }
+        document.getElementById('doctorAddress').classList.remove('is-invalid');
+
+        const email = document.getElementById('doctorEmail').value.trim();
+        if (!email) {
+            document.getElementById('doctorEmail').classList.add('is-invalid');
+            document.getElementById('emailError').textContent = 'El correo electrónico es requerido.';
+            return;
+        }
+        if (!/^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/.test(email)) {
+            document.getElementById('doctorEmail').classList.add('is-invalid');
+            document.getElementById('emailError').textContent = 'Ingrese un correo electrónico válido.';
+            return;
+        }
+        document.getElementById('doctorEmail').classList.remove('is-invalid');
+
+        const id       = parseInt(document.getElementById('doctorId').value);
+        const sexId    = parseInt(document.getElementById('doctorSexId').value)    || 0;
+        const stateId  = parseInt(document.getElementById('doctorStateId').value)  || 0;
+        const statusId = parseInt(document.getElementById('doctorStatusId').value) || 1;
+
+        const payload = {
+            doctorId:          id,
+            doctorName:        name,
+            sexId:             sexId,
+            doctorIdNumber:    parseInt(document.getElementById('doctorIdNumber').value) || 0,
+            doctorEmail:       document.getElementById('doctorEmail').value.trim() || null,
+            statusId:          statusId,
+            doctorMainPhone:   document.getElementById('doctorMainPhone').value.trim() || null,
+            doctorSecondPhone: document.getElementById('doctorSecondPhone').value.trim() || null,
+            stateId:           stateId,
+            doctorAddress:     document.getElementById('doctorAddress').value.trim() || null,
+        };
+
+        document.getElementById('btnSave').disabled = true;
+
+        fetch('/Admin/Doctor/Save', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload)
+        })
+        .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)))
+        .then(data => {
+            doctorModal.hide();
+
+            const newId       = id === 0 ? data.doctorId : id;
+            const sexEntry    = allSexes.find(s => s.SexId === sexId);
+            const stateEntry  = allStates.find(s => s.StateId === stateId);
+            const statusEntry = allStatuses.find(s => s.StatusId === statusId);
+            const prevDoc     = allDoctors.find(x => x.DoctorId === id);
+
+            const newDoc = {
+                DoctorId:          newId,
+                DoctorName:        name,
+                DoctorIdNumber:    payload.doctorIdNumber,
+                SexId:             sexId,
+                SexName:           sexEntry?.SexName   ?? null,
+                DoctorMainPhone:   payload.doctorMainPhone,
+                DoctorSecondPhone: payload.doctorSecondPhone,
+                DoctorEmail:       payload.doctorEmail,
+                StateId:           stateId,
+                StateName:         stateEntry?.StateName  ?? null,
+                DoctorAddress:     payload.doctorAddress,
+                StatusId:          statusId,
+                StatusName:        statusEntry?.StatusName ?? null,
+                SpecialtyNames:    id === 0 ? null : (prevDoc?.SpecialtyNames ?? null),
+            };
+
+            if (id === 0) {
+                allDoctors.push(newDoc);
+            } else {
+                const idx = allDoctors.findIndex(x => x.DoctorId === id);
+                if (idx >= 0) allDoctors[idx] = newDoc;
+            }
+
+            applyFilters();
+            showToast(id === 0 ? 'Médico creado correctamente.' : 'Médico actualizado correctamente.', true);
+        })
+        .catch(err => showToast(err?.message ?? 'Error al guardar el médico.', false))
+        .finally(() => { document.getElementById('btnSave').disabled = false; });
+    }
+
+    function openSpecialtiesModal(doctorId, doctorName) {
+        currentSpecialtyDoctorId = doctorId;
+        allSpecialtyData    = [];
+        filteredSpecialties = [];
+        checkedSpecialtyIds = new Set();
+        specialtyPage       = 1;
+        document.getElementById('specialtyModalTitle').textContent = `Especialidades — ${doctorName}`;
+        document.getElementById('specialtyLoading').classList.remove('d-none');
+        document.getElementById('specialtyChecks').classList.add('d-none');
+        document.getElementById('specialtyError').classList.add('d-none');
+        document.getElementById('btnSaveSpecialties').disabled = false;
+        specialtyModal.show();
+
+        fetch(`/Admin/Doctor/GetSpecialties?doctorId=${doctorId}`)
+            .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.message ?? 'Error al cargar.')))
+            .then(data => {
+                if (data.length === 0) {
+                    document.getElementById('specialtyList').innerHTML =
+                        '<p class="text-muted small">No hay especialidades registradas. Agrega especialidades desde el módulo <strong>Especialidades</strong> primero.</p>';
+                    document.getElementById('specPagination').style.display = 'none';
+                } else {
+                    allSpecialtyData = data.map(s => ({
+                        id:         s.SpecialtyId   ?? s.specialtyId,
+                        name:       s.SpecialtyName ?? s.specialtyName ?? '',
+                        isAssigned: s.IsAssigned    ?? s.isAssigned    ?? false,
+                    }));
+                    allSpecialtyData.forEach(s => { if (s.isAssigned) checkedSpecialtyIds.add(s.id); });
+                    document.getElementById('specialtySearch').value = '';
+                    applySpecialtyFilter();
+                }
+                document.getElementById('specialtyLoading').classList.add('d-none');
+                document.getElementById('specialtyChecks').classList.remove('d-none');
+            })
+            .catch(msg => {
+                document.getElementById('specialtyLoading').classList.add('d-none');
+                const err = document.getElementById('specialtyError');
+                err.textContent = typeof msg === 'string' ? msg : 'Error al cargar las especialidades.';
+                err.classList.remove('d-none');
+            });
+    }
+
+    function applySpecialtyFilter() {
+        const q = (document.getElementById('specialtySearch').value ?? '').trim().toLowerCase();
+        filteredSpecialties = q
+            ? allSpecialtyData.filter(s => s.name.toLowerCase().includes(q))
+            : [...allSpecialtyData];
+        specialtyPage = 1;
+        renderSpecialtyPage();
+    }
+
+    function renderSpecialtyPage() {
+        const total      = filteredSpecialties.length;
+        const totalPages = Math.max(1, Math.ceil(total / SPEC_PAGE_SIZE));
+        if (specialtyPage > totalPages) specialtyPage = totalPages;
+
+        const start = (specialtyPage - 1) * SPEC_PAGE_SIZE;
+        const page  = filteredSpecialties.slice(start, start + SPEC_PAGE_SIZE);
+
+        const list = document.getElementById('specialtyList');
+        list.innerHTML = total === 0
+            ? '<p class="text-muted small">No se encontraron especialidades.</p>'
+            : page.map(s => `
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" value="${s.id}"
+                           id="spec${s.id}" data-name="${escapeHtml(s.name)}"
+                           ${checkedSpecialtyIds.has(s.id) ? 'checked' : ''}
+                           onchange="toggleSpecialty(${s.id}, this.checked)">
+                    <label class="form-check-label" for="spec${s.id}">${escapeHtml(s.name)}</label>
+                </div>`).join('');
+
+        const pag = document.getElementById('specPagination');
+        if (total > SPEC_PAGE_SIZE) {
+            document.getElementById('specPaginationInfo').textContent =
+                `${start + 1}–${Math.min(start + SPEC_PAGE_SIZE, total)} de ${total}`;
+            document.getElementById('specPageLabel').textContent = `${specialtyPage} / ${totalPages}`;
+            document.getElementById('specPrevBtn').disabled = specialtyPage <= 1;
+            document.getElementById('specNextBtn').disabled = specialtyPage >= totalPages;
+            pag.style.display = 'flex';
+        } else {
+            pag.style.display = 'none';
+        }
+    }
+
+    function specChangePage(delta) {
+        const totalPages = Math.max(1, Math.ceil(filteredSpecialties.length / SPEC_PAGE_SIZE));
+        specialtyPage = Math.max(1, Math.min(specialtyPage + delta, totalPages));
+        renderSpecialtyPage();
+    }
+
+    function toggleSpecialty(id, checked) {
+        if (checked) checkedSpecialtyIds.add(id);
+        else checkedSpecialtyIds.delete(id);
+    }
+
+    function saveSpecialties() {
+        const ids   = [...checkedSpecialtyIds];
+        const names = ids.map(id => allSpecialtyData.find(s => s.id === id)?.name).filter(Boolean);
+
+        document.getElementById('btnSaveSpecialties').disabled = true;
+
+        fetch('/Admin/Doctor/SaveSpecialties', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ doctorId: currentSpecialtyDoctorId, specialtyIds: ids })
+        })
+        .then(r => { if (!r.ok) return Promise.reject(); })
+        .then(() => {
+            specialtyModal.hide();
+            const doc = allDoctors.find(d => d.DoctorId === currentSpecialtyDoctorId);
+            if (doc) doc.SpecialtyNames = names.length > 0 ? names.join(', ') : null;
+            applyFilters();
+            showToast('Especialidades guardadas correctamente.', true);
+        })
+        .catch(() => showToast('Error al guardar las especialidades.', false))
+        .finally(() => { document.getElementById('btnSaveSpecialties').disabled = false; });
+    }
+
+    function confirmDelete(id, name) {
+        pendingDeleteId = id;
+        document.getElementById('deleteName').textContent = name;
+        deleteModal.show();
+    }
+
+    function deleteDoctor() {
+        document.getElementById('btnDelete').disabled = true;
+        fetch('/Admin/Doctor/Delete', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(pendingDeleteId)
+        })
+        .then(r => {
+            if (!r.ok) return Promise.reject();
+            deleteModal.hide();
+            const idx = allDoctors.findIndex(x => x.DoctorId === pendingDeleteId);
+            if (idx >= 0) allDoctors.splice(idx, 1);
+            applyFilters();
+            showToast('Médico eliminado correctamente.', true);
+        })
+        .catch(() => showToast('Error al eliminar el médico.', false))
+        .finally(() => { document.getElementById('btnDelete').disabled = false; });
+    }
+
+    function escapeHtml(text) {
+        const d = document.createElement('div');
+        d.textContent = text ?? '';
+        return d.innerHTML;
+    }
+
+    applyFilters();
+
+    // Uppercase for .doc-text fields inside #doctorModal
+    (function () {
+        const accentMap = { 'á':'A','é':'E','í':'I','ó':'O','ú':'U','ü':'U','ñ':'Ñ','Á':'A','É':'E','Í':'I','Ó':'O','Ú':'U','Ü':'U' };
+        function toUpperNoAccent(str) {
+            return str.replace(/[áéíóúüñÁÉÍÓÚÜ]/g, c => accentMap[c] || c).toUpperCase();
+        }
+        document.querySelectorAll('#doctorModal .doc-text').forEach(el => {
+            el.addEventListener('input', function () {
+                const pos = this.selectionStart;
+                this.value = toUpperNoAccent(this.value);
+                this.setSelectionRange(pos, pos);
+            });
+            el.addEventListener('paste', function (e) {
+                e.preventDefault();
+                const text = (e.clipboardData || window.clipboardData).getData('text');
+                const pos = this.selectionStart;
+                const end = this.selectionEnd;
+                this.value = toUpperNoAccent(this.value.slice(0, pos) + text + this.value.slice(end));
+                const newPos = pos + text.length;
+                this.setSelectionRange(newPos, newPos);
+            });
+        });
+    })();
+
+    // doctorIdNumber: digits only, max 9
+    (function () {
+        const el = document.getElementById('doctorIdNumber');
+        el.addEventListener('keydown', function (e) {
+            if (['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'].includes(e.key)) return;
+            if (e.ctrlKey || e.metaKey) return;
+            if (!/^\d$/.test(e.key)) e.preventDefault();
+        });
+        el.addEventListener('input', function () {
+            this.value = this.value.replace(/\D/g, '').slice(0, 9);
+        });
+        el.addEventListener('paste', function (e) {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            const digits = text.replace(/\D/g, '');
+            const pos = this.selectionStart;
+            const end = this.selectionEnd;
+            const combined = this.value.slice(0, pos) + digits + this.value.slice(end);
+            this.value = combined.slice(0, 9);
+            const newPos = Math.min(pos + digits.length, 9);
+            this.setSelectionRange(newPos, newPos);
+        });
+    })();
+</script>
+}
