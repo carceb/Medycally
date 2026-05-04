@@ -65,8 +65,9 @@ namespace Medycally.Core
 				{
 					var p = new PatientModel();
 					MapPatient(dr, p);
-					p.Age         = dr.IsDBNull(dr.GetOrdinal("Age"))         ? 0 : dr.GetInt32(dr.GetOrdinal("Age"));
-					p.FamilyCount = dr.IsDBNull(dr.GetOrdinal("FamilyCount")) ? 0 : dr.GetInt32(dr.GetOrdinal("FamilyCount"));
+					p.Age         = dr.IsDBNull(dr.GetOrdinal("Age"))         ? 0    : dr.GetInt32(dr.GetOrdinal("Age"));
+					p.FamilyCount = dr.IsDBNull(dr.GetOrdinal("FamilyCount")) ? 0    : dr.GetInt32(dr.GetOrdinal("FamilyCount"));
+					p.HasGuardian = !dr.IsDBNull(dr.GetOrdinal("HasGuardian")) && dr.GetBoolean(dr.GetOrdinal("HasGuardian"));
 					list.Add(p);
 				}
 				return list;
@@ -118,8 +119,17 @@ namespace Medycally.Core
 						PatientId        = dr.GetInt32(dr.GetOrdinal("PatientId")),
 						PatientIdNumber  = dr.IsDBNull(dr.GetOrdinal("PatientIdNumber"))  ? null : dr.GetInt32(dr.GetOrdinal("PatientIdNumber")),
 						PatientName      = dr.IsDBNull(dr.GetOrdinal("PatientName"))      ? null : dr.GetString(dr.GetOrdinal("PatientName")),
+						SexId            = dr.IsDBNull(dr.GetOrdinal("SexId"))            ? 0    : dr.GetInt32(dr.GetOrdinal("SexId")),
 						SexName          = dr.IsDBNull(dr.GetOrdinal("SexName"))          ? null : dr.GetString(dr.GetOrdinal("SexName")),
+						RelationshipId   = dr.IsDBNull(dr.GetOrdinal("RelationshipId"))   ? 0    : dr.GetInt32(dr.GetOrdinal("RelationshipId")),
 						RelationshipName = dr.IsDBNull(dr.GetOrdinal("RelationshipName")) ? null : dr.GetString(dr.GetOrdinal("RelationshipName")),
+						PatientMainPhone = dr.IsDBNull(dr.GetOrdinal("PatientMainPhone")) ? 0    : dr.GetInt64(dr.GetOrdinal("PatientMainPhone")),
+						PatientBirthdate = dr.IsDBNull(dr.GetOrdinal("PatientBirthdate")) ? null : dr.GetDateTime(dr.GetOrdinal("PatientBirthdate")),
+						PatientAddress   = dr.IsDBNull(dr.GetOrdinal("PatientAddress"))   ? null : dr.GetString(dr.GetOrdinal("PatientAddress")),
+						MunicipalityId   = dr.IsDBNull(dr.GetOrdinal("MunicipalityId"))   ? 0    : dr.GetInt32(dr.GetOrdinal("MunicipalityId")),
+						MunicipalityName = dr.IsDBNull(dr.GetOrdinal("MunicipalityName")) ? null : dr.GetString(dr.GetOrdinal("MunicipalityName")),
+						StateId          = dr.IsDBNull(dr.GetOrdinal("StateId"))          ? 0    : dr.GetInt32(dr.GetOrdinal("StateId")),
+						StateName        = dr.IsDBNull(dr.GetOrdinal("StateName"))        ? null : dr.GetString(dr.GetOrdinal("StateName")),
 					});
 				}
 				return list;

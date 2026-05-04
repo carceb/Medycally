@@ -17,5 +17,6 @@ namespace Medycally.Models
         public int     Age              { get; set; }
         public int     FamilyCount      { get; set; }
         public bool    IsGuardianOnly   { get; set; }
+        public bool    HasGuardian      { get; set; }
     }
 }

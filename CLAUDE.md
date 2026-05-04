@@ -44,15 +44,19 @@ Reading rules (always follow):
 builder.Services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
 // All others: AddScoped<IXxx, Xxx>()
 // IClinic, ISpecialty, IDoctorSchedule, IPatient, IReason, IGeography,
-// ICommonData, IAppointment, ISecurityUser, ISecurityModule, IDoctor, IAdminUser
+// ICommonData, IAppointment, IAppointmentQuery, ISecurityUser, ISecurityModule,
+// IDoctor, IAdminUser, IMedicalAttention, IPatientHistory
 ```
 
 ### Routes
 
 ```csharp
 "{area:exists}/{controller=Home}/{action=Index}/{id?}"   // /Admin/...
+"Patient/{action=Index}/{id?}"                           // /Patient/...
 "{controller=Home}/{action=Landing}/{id?}"               // default
 ```
+
+**IMPORTANT — Patient route parameter name:** The `Patient` route uses `{id?}`. Any `PatientController` action that receives a route segment (e.g. `/Patient/History/6`) must name its parameter `id`, not `patientId` or anything else — ASP.NET Core does NOT auto-map `id` → `patientId`.
 
 ## Authentication
 
@@ -87,9 +91,18 @@ Controllers carry `[Area("Admin")]` and `[Authorize]`. Layout resolves to `Views
 - After delete: `allXxx.splice(idx, 1)`, then `applyFilters()`.
 - `return Json()` from controllers produces PascalCase (no custom JSON options configured).
 
-## Database SQL Script
+## Database SQL Scripts
 
-`Database/SPs_Admin_Modules.sql` contains all SPs for Doctor, SpecialtyDoctor, SecurityUser, SecurityRole, and the updated `Clinic_GetAll` (PASO 11). Each block is idempotent. Execute in SSMS when setting up or after pulling changes.
+All scripts are idempotent (`CREATE OR ALTER`, `IF NOT EXISTS`). Execute in SSMS when setting up or after pulling changes.
+
+| File | Contents |
+|---|---|
+| `SPs_Admin_Modules.sql` | Doctor, SpecialtyDoctor, SecurityUser, SecurityRole, Clinic_GetAll (PASO 11) |
+| `SPs_Dashboard.sql` | Appointment_Detail view, Appointment_GetByClinic, Appointment_GetById |
+| `SPs_Patient_GuardianFix.sql` | PatientHistory nullable cols, IsGuardianOnly, Patient_GetAll/AddOrEdit/GetFamily fixes (PASOs 1-8) |
+| `SPs_MedicalAttention.sql` | MedicalAttention table + all SPs (PASOs 1-22+) |
+| `SPs_PatientId_Appointment.sql` | Appointment.PatientId FK + SetPatientId + GetConfirmedByClinic (PASOs 1-7) |
+| `SPs_PatientHistory.sql` | **NEW** — PatientHistory table + PatientHistory_GetByPatientId + PatientHistory_Save (PASOs 1-3) |
 
 ## Key gotchas
 
@@ -111,6 +124,24 @@ Use `SqlParameter(SqlDbType.Decimal) { Precision=18, Scale=8 }` — not `AddWith
 
 ### AdminUser password
 `AdminUser.cs` hashes `UserPassword` before calling the SP. The SP receives `@PasswordHash`. If `@PasswordHash` is NULL, the SP keeps the existing hash (edit without password change).
+
+### PatientHistory — Historia Médica
+`PatientHistory` table has a 1:1 relationship with `Patient` (UNIQUE constraint on `PatientId`). One row per patient, upserted via `PatientHistory_Save`.
+
+- `IPatientHistory.GetByPatientId(int)` → returns null if no record yet (patient has no history filled in)
+- `IPatientHistory.Save(model, userId)` → upsert; sets `LastUpdated` and `UpdatedByUserId`
+- Accessible from two places:
+  - `/Patient/History/{id}` — full page (Tab 1: Antecedentes form, Tab 2: Consultas accordion)
+  - `/Medical/Patient/{appointmentId}` — collapsed accordion "Antecedentes del Paciente"
+- Both save via `POST /Patient/SaveHistory`
+- `SmokingStatus` / `AlcoholStatus` / `PhysicalActivity` stored as `TINYINT` (0/1/2). Use `SqlDbType.TinyInt` explicitly — not `AddWithValue` — to avoid type mismatch.
+
+### IsGuardianOnly
+`IsGuardianOnly = 1` excludes the record from `Patient_GetAll`. Set in two flows:
+1. **Patient module** — minor save flow (`saveMinor()` 3-step): guardian saved with `IsGuardianOnly = true`
+2. **Dashboard modal "Registrar Paciente"** — `HomeController.RegisterPatient` forces `request.Guardian.IsGuardianOnly = true`
+
+SP protection: `Patient_AddOrEdit` UPDATE uses `CASE WHEN IsGuardianOnly = 0 THEN 0 ELSE @IsGuardianOnly END` — a real patient (0) never downgrades to guardian-only (1).
 
 ## Code conventions
 

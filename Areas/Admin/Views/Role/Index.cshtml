@@ -1,0 +1,340 @@
+@model List<Medycally.Models.SecurityRoleModel>
+@{
+    ViewData["Title"] = "Roles";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">Gestión de Roles</h4>
+    <button class="btn btn-primary" onclick="openRoleModal()">
+        <i class="fas fa-plus me-1"></i> Nuevo Rol
+    </button>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Nombre del Rol</th>
+                        <th>Nivel</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="roleBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Role Modal -->
+<div class="modal fade" id="roleModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="roleModalTitle">Nuevo Rol</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="securityRoleId" value="0" />
+                <div class="mb-3">
+                    <label class="form-label">Nombre del rol <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="roleName" maxlength="50" />
+                    <div class="invalid-feedback" id="roleNameError"></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Nivel <span class="text-danger">*</span>
+                        <small class="text-muted">(1=máximo privilegio)</small>
+                    </label>
+                    <input type="number" class="form-control" id="roleLevel" min="2" max="10" value="4" />
+                    <div class="form-text">El nivel 1 está reservado para el Super Administrador.</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSaveRole" onclick="saveRole()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Permissions Modal -->
+<div class="modal fade" id="permissionsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="permModalTitle">Permisos del Rol</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="permissionsBody">
+                    <div class="text-center py-4"><div class="spinner-border text-success"></div></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSavePerms" onclick="savePermissions()">
+                    <i class="fas fa-save me-1"></i> Guardar Permisos
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal fade" id="deleteRoleModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Eliminar Rol</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Eliminar el rol <strong id="deleteRoleName"></strong>?<br>
+                <small class="text-muted">Solo se puede eliminar si no tiene usuarios asignados.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnDeleteRole" onclick="deleteRole()">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="toast" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMessage"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<style>
+    .perm-table th, .perm-table td { vertical-align:middle; }
+    .perm-table .form-check { display:flex; justify-content:center; }
+    .level-badge { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:50%; font-weight:700; font-size:.85rem; background:#e0f2fe; color:#0369a1; }
+    .level-badge.lvl-1 { background:#fce7f3; color:#9d174d; }
+</style>
+<script>
+    const roleModal        = new bootstrap.Modal(document.getElementById('roleModal'));
+    const permissionsModal = new bootstrap.Modal(document.getElementById('permissionsModal'));
+    const deleteRoleModal  = new bootstrap.Modal(document.getElementById('deleteRoleModal'));
+    const toast            = new bootstrap.Toast(document.getElementById('toast'), { delay: 3500 });
+
+    let pendingDeleteId    = 0;
+    let currentPermRoleId  = 0;
+    let loadedModules      = [];
+
+    const allRoles = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+
+    function showToast(message, success) {
+        const el = document.getElementById('toast');
+        el.classList.remove('bg-success', 'bg-danger');
+        el.classList.add(success ? 'bg-success' : 'bg-danger');
+        document.getElementById('toastMessage').textContent = message;
+        toast.show();
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('roleBody');
+        if (allRoles.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No hay roles definidos.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = allRoles.map(r => {
+            const escaped  = (r.RoleName ?? '').replace(/'/g, "\\'");
+            const lvlClass = r.RoleLevel === 1 ? 'lvl-1' : '';
+            const canEdit  = r.SecurityRoleId !== 1;
+            return `<tr>
+                <td>${r.SecurityRoleId}</td>
+                <td>${escapeHtml(r.RoleName)}</td>
+                <td><span class="level-badge ${lvlClass}">${r.RoleLevel}</span></td>
+                <td class="text-end">
+                    <div class="action-buttons">
+                        <button class="btn-icon" onclick="openPermissions(${r.SecurityRoleId},'${escaped}')" title="Permisos">
+                            <i class="fas fa-shield-alt text-primary"></i>
+                        </button>
+                        ${canEdit ? `<button class="btn-icon" onclick="editRole(${r.SecurityRoleId})" title="Editar"><i class="fas fa-edit"></i></button>` : ''}
+                        ${canEdit ? `<button class="btn-icon" onclick="confirmDeleteRole(${r.SecurityRoleId},'${escaped}')" title="Eliminar"><i class="fas fa-trash text-danger"></i></button>` : ''}
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    function openRoleModal() {
+        document.getElementById('securityRoleId').value = '0';
+        document.getElementById('roleName').value       = '';
+        document.getElementById('roleLevel').value      = '4';
+        document.getElementById('roleModalTitle').textContent = 'Nuevo Rol';
+        document.getElementById('roleName').classList.remove('is-invalid');
+        roleModal.show();
+        setTimeout(() => document.getElementById('roleName').focus(), 300);
+    }
+
+    function editRole(id) {
+        const r = allRoles.find(x => x.SecurityRoleId === id);
+        if (!r) return;
+        document.getElementById('securityRoleId').value = r.SecurityRoleId;
+        document.getElementById('roleName').value       = r.RoleName;
+        document.getElementById('roleLevel').value      = r.RoleLevel;
+        document.getElementById('roleModalTitle').textContent = 'Editar Rol';
+        document.getElementById('roleName').classList.remove('is-invalid');
+        roleModal.show();
+    }
+
+    function saveRole() {
+        const name  = document.getElementById('roleName').value.trim();
+        const level = parseInt(document.getElementById('roleLevel').value);
+
+        if (!name) {
+            document.getElementById('roleName').classList.add('is-invalid');
+            document.getElementById('roleNameError').textContent = 'El nombre es requerido.';
+            return;
+        }
+        document.getElementById('roleName').classList.remove('is-invalid');
+
+        const id      = parseInt(document.getElementById('securityRoleId').value);
+        const payload = { securityRoleId: id, roleName: name, roleLevel: level };
+        document.getElementById('btnSaveRole').disabled = true;
+
+        fetch('/Admin/Role/Save', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload)
+        })
+        .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)))
+        .then(data => {
+            roleModal.hide();
+            const newId = id === 0 ? data.securityRoleId : id;
+            const newDoc = { SecurityRoleId: newId, RoleName: name, RoleLevel: level };
+            if (id === 0) {
+                allRoles.push(newDoc);
+                showToast('Rol creado correctamente.', true);
+            } else {
+                const idx = allRoles.findIndex(x => x.SecurityRoleId === id);
+                if (idx >= 0) allRoles[idx] = newDoc;
+                showToast('Rol actualizado correctamente.', true);
+            }
+            renderTable();
+        })
+        .catch(err => showToast(err?.message ?? 'Error al guardar el rol.', false))
+        .finally(() => { document.getElementById('btnSaveRole').disabled = false; });
+    }
+
+    function openPermissions(roleId, roleName) {
+        currentPermRoleId = roleId;
+        document.getElementById('permModalTitle').textContent = `Permisos — ${roleName}`;
+        document.getElementById('permissionsBody').innerHTML =
+            '<div class="text-center py-4"><div class="spinner-border text-success"></div></div>';
+        permissionsModal.show();
+
+        fetch(`/Admin/Role/GetModules?roleId=${roleId}`)
+            .then(r => r.ok ? r.json() : Promise.reject('Error al cargar los módulos.'))
+            .then(modules => {
+                loadedModules = modules;
+                renderPermissions(modules);
+            })
+            .catch(err => {
+                document.getElementById('permissionsBody').innerHTML =
+                    `<div class="alert alert-danger">${err}</div>`;
+            });
+    }
+
+    function renderPermissions(modules) {
+        if (modules.length === 0) {
+            document.getElementById('permissionsBody').innerHTML =
+                '<div class="alert alert-warning">No hay módulos configurados en el sistema.</div>';
+            return;
+        }
+
+        const rows = modules.map(m => `
+            <tr data-module-id="${m.securityModuleId}">
+                <td>
+                    <i class="fas ${m.moduleIcon ?? 'fa-circle'} me-2 text-muted"></i>
+                    ${escapeHtml(m.moduleName)}
+                </td>
+                <td class="text-center"><input class="form-check-input" type="checkbox" data-perm="view"   ${m.canView   ? 'checked' : ''} /></td>
+                <td class="text-center"><input class="form-check-input" type="checkbox" data-perm="create" ${m.canCreate ? 'checked' : ''} /></td>
+                <td class="text-center"><input class="form-check-input" type="checkbox" data-perm="edit"   ${m.canEdit   ? 'checked' : ''} /></td>
+                <td class="text-center"><input class="form-check-input" type="checkbox" data-perm="delete" ${m.canDelete ? 'checked' : ''} /></td>
+            </tr>`).join('');
+
+        document.getElementById('permissionsBody').innerHTML = `
+            <table class="table perm-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Módulo</th>
+                        <th class="text-center" style="width:80px"><i class="fas fa-eye" title="Ver"></i> Ver</th>
+                        <th class="text-center" style="width:80px"><i class="fas fa-plus" title="Crear"></i> Crear</th>
+                        <th class="text-center" style="width:80px"><i class="fas fa-edit" title="Editar"></i> Editar</th>
+                        <th class="text-center" style="width:80px"><i class="fas fa-trash" title="Eliminar"></i> Eliminar</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+    }
+
+    function savePermissions() {
+        const rows    = document.querySelectorAll('#permissionsBody tbody tr[data-module-id]');
+        const modules = Array.from(rows).map(row => ({
+            SecurityModuleId: parseInt(row.dataset.moduleId),
+            CanView:   row.querySelector('[data-perm="view"]').checked,
+            CanCreate: row.querySelector('[data-perm="create"]').checked,
+            CanEdit:   row.querySelector('[data-perm="edit"]').checked,
+            CanDelete: row.querySelector('[data-perm="delete"]').checked,
+        }));
+
+        document.getElementById('btnSavePerms').disabled = true;
+        fetch('/Admin/Role/SaveModules', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ securityRoleId: currentPermRoleId, modules })
+        })
+        .then(r => { if (!r.ok) return Promise.reject('Error al guardar.'); })
+        .then(() => {
+            permissionsModal.hide();
+            showToast('Permisos actualizados correctamente.', true);
+        })
+        .catch(err => showToast(typeof err === 'string' ? err : 'Error al guardar permisos.', false))
+        .finally(() => { document.getElementById('btnSavePerms').disabled = false; });
+    }
+
+    function confirmDeleteRole(id, name) {
+        pendingDeleteId = id;
+        document.getElementById('deleteRoleName').textContent = name;
+        deleteRoleModal.show();
+    }
+
+    function deleteRole() {
+        document.getElementById('btnDeleteRole').disabled = true;
+        fetch('/Admin/Role/Delete', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(pendingDeleteId)
+        })
+        .then(r => r.ok ? null : r.json().then(e => Promise.reject(e)))
+        .then(() => {
+            deleteRoleModal.hide();
+            const idx = allRoles.findIndex(x => x.SecurityRoleId === pendingDeleteId);
+            if (idx >= 0) allRoles.splice(idx, 1);
+            renderTable();
+            showToast('Rol eliminado correctamente.', true);
+        })
+        .catch(err => showToast(err?.message ?? 'Error al eliminar el rol.', false))
+        .finally(() => { document.getElementById('btnDeleteRole').disabled = false; });
+    }
+
+    function escapeHtml(text) {
+        const d = document.createElement('div');
+        d.textContent = text ?? '';
+        return d.innerHTML;
+    }
+
+    renderTable();
+</script>
+}

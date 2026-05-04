@@ -15,35 +15,28 @@
     </div>
 </div>
 
-<!-- Stats row -->
+<!-- Stats -->
 <div class="row g-3 mb-4" id="statsRow" style="display:none">
-    <div class="col-6 col-md-3">
+    <div class="col-4">
         <div class="card border-0 shadow-sm text-center py-2">
             <div class="fs-4 fw-bold text-primary" id="statTotal">0</div>
             <small class="text-muted">Total</small>
         </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-4">
         <div class="card border-0 shadow-sm text-center py-2">
             <div class="fs-4 fw-bold text-success" id="statConfirmed">0</div>
             <small class="text-muted">Confirmados</small>
         </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-4">
         <div class="card border-0 shadow-sm text-center py-2">
             <div class="fs-4 fw-bold text-info" id="statInAttention">0</div>
             <small class="text-muted">En Atención</small>
         </div>
     </div>
-    <div class="col-6 col-md-3">
-        <div class="card border-0 shadow-sm text-center py-2">
-            <div class="fs-4 fw-bold text-secondary" id="statWaiting">0</div>
-            <small class="text-muted">En espera</small>
-        </div>
-    </div>
 </div>
 
-<!-- Queue -->
 <div id="queueContainer">
     <div class="text-center py-5 text-muted">
         <i class="fas fa-spinner fa-spin fa-2x mb-2"></i>
@@ -53,42 +46,29 @@
 
 <style>
     .queue-card {
-        background: #fff;
-        border: 1px solid #e9ecef;
-        border-radius: 10px;
-        padding: 1rem 1.25rem;
-        margin-bottom: .75rem;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        transition: box-shadow .15s;
+        background: #fff; border: 1px solid #e9ecef; border-radius: 10px;
+        padding: 1rem 1.25rem; margin-bottom: .75rem;
+        display: flex; align-items: center; gap: 1rem; transition: box-shadow .15s;
     }
     .queue-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.08); }
-    .queue-card.status-in-attention {
-        border-left: 4px solid #0dcaf0;
-        background: #f0fbff;
-    }
-    .queue-card.status-confirmed {
-        border-left: 4px solid #198754;
-    }
+    .queue-card.status-in-attention { border-left: 4px solid #0dcaf0; background: #f0fbff; }
+    .queue-card.status-confirmed    { border-left: 4px solid #198754; }
     .queue-time {
-        min-width: 60px;
-        text-align: center;
-        font-size: 1.15rem;
-        font-weight: 700;
-        color: #495057;
-        line-height: 1.1;
+        min-width: 60px; text-align: center; font-size: 1.15rem;
+        font-weight: 700; color: #495057; line-height: 1.1;
     }
-    .queue-time small { font-size: .65rem; font-weight: 400; color: #6c757d; display:block; }
+    .queue-time small { font-size: .65rem; font-weight: 400; color: #6c757d; display: block; }
     .queue-info { flex: 1; min-width: 0; }
     .queue-patient-name { font-weight: 600; font-size: 1rem; }
     .queue-meta { font-size: .8rem; color: #6c757d; }
-    .queue-symptoms { font-size: .78rem; color: #495057; margin-top: 3px;
-                      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 400px; }
-    .badge-confirmed   { background: #d1e7dd; color: #0a3622; }
-    .badge-in-attention{ background: #cff4fc; color: #055160; }
-    .empty-queue { text-align:center; padding: 3rem 1rem; color:#6c757d; }
-    .empty-queue i { font-size: 3rem; margin-bottom: 1rem; opacity:.3; }
+    .queue-symptoms {
+        font-size: .78rem; color: #495057; margin-top: 3px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 400px;
+    }
+    .badge-confirmed    { background: #d1e7dd; color: #0a3622; }
+    .badge-in-attention { background: #cff4fc; color: #055160; }
+    .empty-queue { text-align: center; padding: 3rem 1rem; color: #6c757d; }
+    .empty-queue i { font-size: 3rem; margin-bottom: 1rem; opacity: .3; }
 </style>
 
 @section Scripts {
@@ -100,7 +80,6 @@
     let activeClinicName = '';
     let queueData        = [];
 
-    // Update clinic label when clinic changes
     window.addEventListener('clinicChanged', e => {
         activeClinicId   = e.detail.clinicId;
         activeClinicName = e.detail.clinicName ?? '';
@@ -110,7 +89,7 @@
 
     function updateClinicLabel() {
         const name = activeClinicName || localStorage.getItem('medycallyActiveName') || '';
-        document.getElementById('clinicLabel').textContent = name ? name : `Clínica ID ${activeClinicId}`;
+        document.getElementById('clinicLabel').textContent = name || `Clínica ID ${activeClinicId}`;
     }
 
     async function loadQueue() {
@@ -120,39 +99,25 @@
                 <i class="fas fa-spinner fa-spin fa-2x mb-2"></i>
                 <div>Cargando cola... (Clínica ${activeClinicId}, fecha ${date})</div>
             </div>`;
-
-        const url = `/Medical/GetQueue?clinicId=${activeClinicId}&date=${date}`;
-        console.log('[MedicalQueue] GET', url);
-
         try {
-            const res = await fetch(url);
-            if (!res.ok) {
-                const errText = await res.text();
-                console.error('[MedicalQueue] Error HTTP', res.status, errText);
-                throw new Error(`Error ${res.status}: ${errText.substring(0, 200)}`);
-            }
+            const res = await fetch(`/Medical/GetQueue?clinicId=${activeClinicId}&date=${date}`);
+            if (!res.ok) throw new Error(`Error ${res.status}`);
             queueData = await res.json();
-            console.log('[MedicalQueue] Resultados:', queueData.length, queueData);
             renderQueue();
         } catch (e) {
             document.getElementById('queueContainer').innerHTML =
-                `<div class="alert alert-danger">
-                    <i class="fas fa-exclamation-circle me-2"></i><strong>Error al cargar la cola:</strong> ${e.message}
-                    <div class="mt-2 small text-muted">Parámetros: clínica=${activeClinicId}, fecha=${date}</div>
-                 </div>`;
+                `<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i>${e.message}</div>`;
         }
     }
 
     function renderQueue() {
-        const container = document.getElementById('queueContainer');
-
-        const confirmed    = queueData.filter(q => q.appointmentStatusId === 2);
-        const inAttention  = queueData.filter(q => q.appointmentStatusId === 4);
+        const container   = document.getElementById('queueContainer');
+        const inAttention = queueData.filter(q => q.appointmentStatusId === 4);
+        const confirmed   = queueData.filter(q => q.appointmentStatusId === 2);
 
         document.getElementById('statTotal').textContent       = queueData.length;
-        document.getElementById('statConfirmed').textContent   = confirmed.length;
+        document.getElementById('statConfirmed').textContent   = confirmed.length + inAttention.length;
         document.getElementById('statInAttention').textContent = inAttention.length;
-        document.getElementById('statWaiting').textContent     = confirmed.length;
         document.getElementById('statsRow').style.display      = queueData.length ? '' : 'none';
 
         if (queueData.length === 0) {
@@ -161,36 +126,35 @@
                 <div class="empty-queue">
                     <i class="fas fa-calendar-times"></i>
                     <div class="fs-5 mb-1">Sin pacientes en cola</div>
-                    <small>No hay citas con estatus <strong>Confirmado</strong> o <strong>En Atención</strong>
-                    para la fecha <strong>${date}</strong> en la clínica ID <strong>${activeClinicId}</strong>.</small>
-                    <div class="mt-3">
-                        <small class="text-muted">
-                            Verifica: ¿la cita es para esta fecha? ¿Está asignada a esta clínica? ¿Su estatus es "Confirmado" (ID 2)?
-                        </small>
-                    </div>
+                    <small>No hay citas confirmadas para la fecha <strong>${date}</strong>
+                    en la clínica ID <strong>${activeClinicId}</strong>.</small>
                 </div>`;
             return;
         }
 
-        // Show "En Atención" first, then "Confirmado"
         const sorted = [...inAttention, ...confirmed];
 
         container.innerHTML = sorted.map(q => {
             const isInAtt   = q.appointmentStatusId === 4;
             const cardClass = isInAtt ? 'status-in-attention' : 'status-confirmed';
-            const badge     = isInAtt
+
+            const statusBadge = isInAtt
                 ? `<span class="badge badge-in-attention"><i class="fas fa-user-clock me-1"></i>En Atención</span>`
                 : `<span class="badge badge-confirmed"><i class="fas fa-check-circle me-1"></i>Confirmado</span>`;
 
-            const btnLabel  = isInAtt ? 'Continuar' : 'Atender';
-            const btnClass  = isInAtt ? 'btn-info' : 'btn-primary';
-            const idNum     = q.patientIdNumber > 0 ? `V-${q.patientIdNumber}` : 'Sin cédula';
-            const symptoms  = q.symptoms
+            const idNum    = q.patientIdNumber > 0 ? `V-${q.patientIdNumber}` : 'Sin cédula';
+            const symptoms = q.symptoms
                 ? `<div class="queue-symptoms"><i class="fas fa-comment-medical me-1"></i>${escapeHtml(q.symptoms)}</div>`
                 : '';
-            const reason    = q.reasonName
+            const reason = q.reasonName
                 ? `<span class="me-2"><i class="fas fa-tag me-1"></i>${escapeHtml(q.reasonName)}</span>`
                 : '';
+
+            const btnLabel  = isInAtt ? 'Continuar' : 'Atender';
+            const btnAttend = `<button type="button" class="btn btn-sm ${isInAtt ? 'btn-info' : 'btn-primary'} px-3"
+                                       onclick="attendPatient(${q.appointmentId}, ${q.appointmentStatusId})">
+                                   <i class="fas fa-user-check me-1"></i>${btnLabel}
+                               </button>`;
 
             return `
             <div class="queue-card ${cardClass}">
@@ -201,7 +165,7 @@
                 <div class="queue-info">
                     <div class="d-flex align-items-center gap-2 flex-wrap">
                         <span class="queue-patient-name">${escapeHtml(q.patientName ?? '')}</span>
-                        ${badge}
+                        ${statusBadge}
                     </div>
                     <div class="queue-meta mt-1">
                         <span class="me-2"><i class="fas fa-id-card me-1"></i>${idNum}</span>
@@ -209,16 +173,11 @@
                         <span class="me-2"><i class="fas fa-stethoscope me-1"></i>${escapeHtml(q.specialtyName ?? '')}</span>
                         <span><i class="fas fa-user-md me-1"></i>${escapeHtml(q.doctorName ?? '')}</span>
                     </div>
-                    <div class="queue-meta mt-1">
-                        ${reason}
-                    </div>
+                    <div class="queue-meta mt-1">${reason}</div>
                     ${symptoms}
                 </div>
                 <div class="ms-auto text-end">
-                    <button type="button" class="btn btn-sm ${btnClass} px-3"
-                            onclick="attendPatient(${q.appointmentId}, ${q.appointmentStatusId})">
-                        <i class="fas fa-user-check me-1"></i>${btnLabel}
-                    </button>
+                    ${btnAttend}
                 </div>
             </div>`;
         }).join('');
@@ -231,22 +190,18 @@
         }
         try {
             const res = await fetch('/Medical/StartAttention', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify(appointmentId)
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(appointmentId)
             });
             if (!res.ok) throw new Error('No se pudo iniciar la atención.');
             window.location.href = `/Medical/Patient/${appointmentId}`;
-        } catch (e) {
-            alert(e.message);
-        }
+        } catch (e) { alert(e.message); }
     }
 
     function escapeHtml(str) {
         return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    // Init: try to get clinic name from cached clinics
     (function init() {
         updateClinicLabel();
         const cached = localStorage.getItem('medycallyClinicsV2');

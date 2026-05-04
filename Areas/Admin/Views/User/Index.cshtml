@@ -37,6 +37,7 @@
                         <th>Usuario</th>
                         <th>Cédula</th>
                         <th>Rol</th>
+                        <th>Activación</th>
                         <th>Estatus</th>
                         <th class="text-end">Acciones</th>
                     </tr>
@@ -47,9 +48,7 @@
 
         <div class="d-flex justify-content-between align-items-center mt-3">
             <small class="text-muted" id="paginationInfo"></small>
-            <nav>
-                <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
-            </nav>
+            <nav><ul class="pagination pagination-sm mb-0" id="pagination"></ul></nav>
         </div>
 
     </div>
@@ -65,6 +64,10 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" id="securityUserId" value="0" />
+                <div id="newUserNotice" class="alert alert-info d-flex align-items-start" style="display:none!important">
+                    <i class="fas fa-envelope me-2 mt-1"></i>
+                    <span>Se enviará un correo de activación al usuario para que establezca su contraseña.</span>
+                </div>
                 <div class="row g-3">
                     <div class="col-12">
                         <label class="form-label">Nombre completo <span class="text-danger">*</span></label>
@@ -107,18 +110,14 @@
                         </select>
                         <div class="form-text">Vincula este usuario con su registro de médico para filtrar su cola de atención.</div>
                     </div>
-                    <div class="col-12">
-                        <label class="form-label">Contraseña</label>
-                        <input type="password" class="form-control" id="userPassword" maxlength="100"
-                               autocomplete="new-password" />
-                        <div class="invalid-feedback" id="passwordError"></div>
-                        <div class="form-text" id="passwordHint">Dejar en blanco para no cambiar la contraseña.</div>
-                    </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btnSave" onclick="saveUser()">Guardar</button>
+                <button type="button" class="btn btn-primary" id="btnSave" onclick="saveUser()">
+                    <span id="btnSaveIcon"><i class="fas fa-paper-plane me-1"></i></span>
+                    <span id="btnSaveText">Crear y enviar invitación</span>
+                </button>
             </div>
         </div>
     </div>
@@ -154,6 +153,11 @@
 </div>
 
 @section Scripts {
+<style>
+    .activation-badge { display:inline-flex; align-items:center; gap:5px; font-size:.78rem; font-weight:600; padding:3px 10px; border-radius:20px; }
+    .activation-active   { background:#d1fae5; color:#065f46; }
+    .activation-pending  { background:#fef3c7; color:#92400e; }
+</style>
 <script>
     const userModal   = new bootstrap.Modal(document.getElementById('userModal'));
     const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
@@ -170,8 +174,8 @@
 
     function roleBadgeClass(roleName) {
         const lower = (roleName ?? '').toLowerCase();
-        if (lower.includes('admin')) return 'role-admin';
-        if (lower.includes('manager') || lower.includes('gerente')) return 'role-manager';
+        if (lower.includes('admin') || lower.includes('super')) return 'role-admin';
+        if (lower.includes('médico') || lower.includes('doctor')) return 'role-manager';
         return 'role-user';
     }
 
@@ -181,17 +185,23 @@
         const page  = filteredUsers.slice(start, start + PAGE_SIZE);
 
         if (filteredUsers.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No se encontraron usuarios.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No se encontraron usuarios.</td></tr>';
             renderPagination();
             return;
         }
 
         tbody.innerHTML = page.map(u => {
-            const escaped     = (u.UserName ?? '').replace(/'/g, "\\'");
-            const initials    = encodeURIComponent(u.UserName ?? 'U');
-            const badgeClass  = roleBadgeClass(u.RoleName);
+            const escaped    = (u.UserName ?? '').replace(/'/g, "\\'");
+            const initials   = encodeURIComponent(u.UserName ?? 'U');
+            const badgeClass = roleBadgeClass(u.RoleName);
             const statusClass = u.StatusId === 1 ? 'status-active' : 'status-inactive';
             const statusLabel = u.StatusId === 1 ? 'Activo' : 'Inactivo';
+            const actBadge = u.IsActivated
+                ? `<span class="activation-badge activation-active"><i class="fas fa-check-circle"></i> Activado</span>`
+                : `<span class="activation-badge activation-pending"><i class="fas fa-clock"></i> Pendiente</span>`;
+            const resendBtn = !u.IsActivated
+                ? `<button class="btn-icon" onclick="resendActivation(${u.SecurityUserId},'${escaped}')" title="Reenviar invitación"><i class="fas fa-envelope text-warning"></i></button>`
+                : '';
             return `<tr data-id="${u.SecurityUserId}">
                 <td>${u.SecurityUserId}</td>
                 <td>
@@ -205,9 +215,11 @@
                 </td>
                 <td>${u.UserIdNumber > 0 ? u.UserIdNumber : '—'}</td>
                 <td><span class="role-badge ${badgeClass}">${escapeHtml(u.RoleName ?? '—')}</span></td>
+                <td>${actBadge}</td>
                 <td><span class="status-badge ${statusClass}"><i class="fas fa-circle"></i> ${statusLabel}</span></td>
                 <td class="text-end">
                     <div class="action-buttons">
+                        ${resendBtn}
                         <button class="btn-icon" onclick="editUser(${u.SecurityUserId})" title="Editar"><i class="fas fa-edit"></i></button>
                         <button class="btn-icon" onclick="confirmDelete(${u.SecurityUserId},'${escaped}')" title="Eliminar"><i class="fas fa-trash text-danger"></i></button>
                     </div>
@@ -247,7 +259,6 @@
         }
         html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
             <a class="page-link" href="#" onclick="goToPage(${currentPage + 1});return false;">&rsaquo;</a></li>`;
-
         pag.innerHTML = html;
     }
 
@@ -267,8 +278,9 @@
                 const idNum  = u.UserIdNumber > 0 ? String(u.UserIdNumber) : '';
                 const role   = (u.RoleName ?? '').toLowerCase();
                 const stat   = u.StatusId === 1 ? 'activo' : 'inactivo';
+                const act    = u.IsActivated ? 'activado' : 'pendiente';
                 return name.includes(q) || email.includes(q) || idNum.includes(q) ||
-                       role.includes(q) || stat.includes(q);
+                       role.includes(q) || stat.includes(q) || act.includes(q);
             })
             : [...allUsers];
         currentPage = 1;
@@ -302,10 +314,11 @@
         document.getElementById('userIdNumber').value   = '';
         document.getElementById('securityRoleId').value = document.getElementById('securityRoleId').options[0]?.value ?? '';
         document.getElementById('userStatusId').value   = '1';
-        document.getElementById('userPassword').value   = '';
         document.getElementById('doctorId').value       = '';
-        document.getElementById('modalTitle').textContent    = 'Nuevo Usuario';
-        document.getElementById('passwordHint').textContent  = '';
+        document.getElementById('modalTitle').textContent = 'Nuevo Usuario';
+        document.getElementById('newUserNotice').style.display = '';
+        document.getElementById('btnSaveText').textContent     = 'Crear y enviar invitación';
+        document.getElementById('btnSaveIcon').innerHTML       = '<i class="fas fa-paper-plane me-1"></i>';
         onRoleChange();
         clearValidation();
         userModal.show();
@@ -321,27 +334,27 @@
         document.getElementById('userIdNumber').value   = u.UserIdNumber > 0 ? u.UserIdNumber : '';
         document.getElementById('securityRoleId').value = u.SecurityRoleId;
         document.getElementById('userStatusId').value   = u.StatusId;
-        document.getElementById('userPassword').value   = '';
         document.getElementById('doctorId').value       = u.DoctorId ?? '';
-        document.getElementById('modalTitle').textContent    = 'Editar Usuario';
-        document.getElementById('passwordHint').textContent  = 'Dejar en blanco para no cambiar la contraseña.';
+        document.getElementById('modalTitle').textContent = 'Editar Usuario';
+        document.getElementById('newUserNotice').style.display = 'none';
+        document.getElementById('btnSaveText').textContent     = 'Guardar cambios';
+        document.getElementById('btnSaveIcon').innerHTML       = '<i class="fas fa-save me-1"></i>';
         onRoleChange();
         clearValidation();
         userModal.show();
     }
 
     function clearValidation() {
-        ['userName', 'userEmail', 'userPassword'].forEach(id => {
+        ['userName', 'userEmail'].forEach(id => {
             document.getElementById(id).classList.remove('is-invalid');
         });
     }
 
     function saveUser() {
         clearValidation();
-        const id       = parseInt(document.getElementById('securityUserId').value);
-        const name     = document.getElementById('userName').value.trim();
-        const email    = document.getElementById('userEmail').value.trim();
-        const password = document.getElementById('userPassword').value;
+        const id    = parseInt(document.getElementById('securityUserId').value);
+        const name  = document.getElementById('userName').value.trim();
+        const email = document.getElementById('userEmail').value.trim();
         let valid = true;
 
         if (!name) {
@@ -354,17 +367,12 @@
             document.getElementById('emailError').textContent = 'El correo es requerido.';
             valid = false;
         }
-        if (id === 0 && !password) {
-            document.getElementById('userPassword').classList.add('is-invalid');
-            document.getElementById('passwordError').textContent = 'La contraseña es requerida para nuevos usuarios.';
-            valid = false;
-        }
         if (!valid) return;
 
-        const roleId   = parseInt(document.getElementById('securityRoleId').value);
-        const statusId = parseInt(document.getElementById('userStatusId').value);
-
+        const roleId      = parseInt(document.getElementById('securityRoleId').value);
+        const statusId    = parseInt(document.getElementById('userStatusId').value);
         const doctorIdRaw = document.getElementById('doctorId').value;
+
         const payload = {
             securityUserId: id,
             userName:       name,
@@ -372,7 +380,6 @@
             userIdNumber:   parseInt(document.getElementById('userIdNumber').value) || 0,
             securityRoleId: roleId,
             statusId:       statusId,
-            userPassword:   password || null,
             doctorId:       doctorIdRaw ? parseInt(doctorIdRaw) : null,
         };
 
@@ -387,10 +394,10 @@
         .then(data => {
             userModal.hide();
 
-            const newId      = id === 0 ? data.securityUserId : id;
-            const roleEntry  = allRoles.find(r => r.SecurityRoleId === roleId);
+            const newId     = id === 0 ? data.securityUserId : id;
+            const roleEntry = allRoles.find(r => r.SecurityRoleId === roleId);
+            const docEntry  = allDoctors.find(d => d.DoctorId === payload.doctorId);
 
-            const docEntry = allDoctors.find(d => d.DoctorId === payload.doctorId);
             const newDoc = {
                 SecurityUserId: newId,
                 UserName:       name,
@@ -398,23 +405,37 @@
                 UserIdNumber:   payload.userIdNumber,
                 SecurityRoleId: roleId,
                 RoleName:       roleEntry?.RoleName ?? null,
+                RoleLevel:      roleEntry?.RoleLevel ?? 0,
                 StatusId:       statusId,
+                IsActivated:    id !== 0 ? (allUsers.find(x => x.SecurityUserId === id)?.IsActivated ?? false) : false,
                 DoctorId:       payload.doctorId ?? null,
                 DoctorName:     docEntry?.DoctorName ?? null,
             };
 
             if (id === 0) {
                 allUsers.push(newDoc);
+                showToast('Usuario creado. Se envió un correo de activación.', true);
             } else {
                 const idx = allUsers.findIndex(x => x.SecurityUserId === id);
                 if (idx >= 0) allUsers[idx] = newDoc;
+                showToast('Usuario actualizado correctamente.', true);
             }
-
             applyFilters();
-            showToast(id === 0 ? 'Usuario creado correctamente.' : 'Usuario actualizado correctamente.', true);
         })
         .catch(err => showToast(err?.message ?? 'Error al guardar el usuario.', false))
         .finally(() => { document.getElementById('btnSave').disabled = false; });
+    }
+
+    function resendActivation(id, name) {
+        if (!confirm(`¿Reenviar el correo de activación a ${name}?`)) return;
+        fetch('/Admin/User/ResendActivation', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(id)
+        })
+        .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)))
+        .then(data => showToast(data.message ?? 'Correo reenviado correctamente.', true))
+        .catch(err => showToast(err?.message ?? 'Error al reenviar el correo.', false));
     }
 
     function confirmDelete(id, name) {

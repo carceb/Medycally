@@ -11,15 +11,21 @@ namespace Medycally.Controllers
         private readonly IMedicalAttention _medical;
         private readonly IAppointmentQuery _appointmentQuery;
         private readonly IPatient          _patient;
+        private readonly IPatientHistory   _patientHistory;
 
-        public MedicalController(IMedicalAttention medical, IAppointmentQuery appointmentQuery, IPatient patient)
+        public MedicalController(IMedicalAttention medical, IAppointmentQuery appointmentQuery,
+            IPatient patient, IPatientHistory patientHistory)
         {
             _medical          = medical;
             _appointmentQuery = appointmentQuery;
             _patient          = patient;
+            _patientHistory   = patientHistory;
         }
 
-        public IActionResult Index() => View();
+        public IActionResult Index()
+        {
+            return View();
+        }
 
         [HttpGet]
         public IActionResult GetQueue(int clinicId, string? date = null)
@@ -40,34 +46,40 @@ namespace Medycally.Controllers
         public IActionResult Patient(int id)
         {
             var detail = _appointmentQuery.GetById(id);
-            if (detail == null || detail.PatientId == null) return NotFound();
+            if (detail == null) return NotFound();
 
-            var patient = _patient.GetById(detail.PatientId.Value);
+            var patient = detail.PatientId.HasValue ? _patient.GetById(detail.PatientId.Value) : null;
             if (patient != null)
             {
-                detail.PatientName      = patient.PatientName      ?? detail.PatientName;
+                // Datos del paciente exclusivamente desde tabla Patient
+                detail.PatientName      = patient.PatientName;
+                detail.PatientIdNumber  = patient.PatientIdNumber ?? 0;
                 detail.PatientAge       = patient.Age;
-                detail.PatientSexName   = patient.SexName          ?? detail.PatientSexName;
+                detail.PatientSexName   = patient.SexName;
                 detail.PatientPhone     = patient.PatientMainPhone > 0
-                    ? patient.PatientMainPhone.ToString() : detail.PatientPhone;
-                detail.PatientAddress   = patient.PatientAddress   ?? detail.PatientAddress;
-                detail.PatientBirthDate = patient.PatientBirthdate ?? detail.PatientBirthDate;
+                    ? patient.PatientMainPhone.ToString() : null;
+                detail.PatientAddress   = patient.PatientAddress;
+                detail.PatientBirthDate = patient.PatientBirthdate;
 
-                // Guardian desde la familia del paciente (para menores)
+                // Representante exclusivamente desde PatientGuardian + Patient
                 var family = _patient.GetFamily(patient.PatientId);
                 var guardianMember = family.FirstOrDefault(f => f.Role == "guardian");
                 if (guardianMember != null)
                 {
+                    detail.PatientTypeId = 2; // menor — determinado por tener representante
                     var guardian = _patient.GetById(guardianMember.PatientId);
                     if (guardian != null)
                     {
-                        detail.ChildGuardianName  = guardian.PatientName ?? detail.ChildGuardianName;
-                        detail.ChildGuardianPhone = guardian.PatientMainPhone > 0
-                            ? guardian.PatientMainPhone.ToString() : detail.ChildGuardianPhone;
-                        if (guardian.PatientIdNumber.HasValue && guardian.PatientIdNumber.Value > 0)
-                            detail.ChildGuardianIdNumber = guardian.PatientIdNumber.Value;
+                        detail.ChildGuardianName     = guardian.PatientName;
+                        detail.ChildGuardianPhone    = guardian.PatientMainPhone > 0
+                            ? guardian.PatientMainPhone.ToString() : null;
+                        detail.ChildGuardianIdNumber = guardian.PatientIdNumber ?? 0;
                     }
-                    detail.RelationshipName = guardianMember.RelationshipName ?? detail.RelationshipName;
+                    detail.RelationshipName = guardianMember.RelationshipName;
+                }
+                else
+                {
+                    detail.PatientTypeId = 1; // adulto
                 }
             }
 
@@ -79,8 +91,10 @@ namespace Medycally.Controllers
             else
                 history = new List<MedicalAttentionModel>();
 
-            ViewBag.History  = history;
-            ViewBag.Existing = _medical.GetByAppointment(id);
+            ViewBag.History         = history;
+            ViewBag.Existing        = _medical.GetByAppointment(id);
+            ViewBag.PatientHistory  = patient != null ? _patientHistory.GetByPatientId(patient.PatientId) : null;
+            ViewBag.PatientId       = patient?.PatientId ?? 0;
             return View(detail);
         }
 
@@ -97,10 +111,65 @@ namespace Medycally.Controllers
             return Ok(new { attentionId = id });
         }
 
+        [HttpGet]
+        public IActionResult MedicalReport(int id)
+        {
+            var detail = _appointmentQuery.GetById(id);
+            if (detail == null) return NotFound();
+
+            var patient = detail.PatientId.HasValue ? _patient.GetById(detail.PatientId.Value) : null;
+            if (patient != null)
+            {
+                detail.PatientName      = patient.PatientName;
+                detail.PatientIdNumber  = patient.PatientIdNumber ?? 0;
+                detail.PatientAge       = patient.Age;
+                detail.PatientSexName   = patient.SexName;
+                detail.PatientPhone     = patient.PatientMainPhone > 0
+                    ? patient.PatientMainPhone.ToString() : null;
+                detail.PatientAddress   = patient.PatientAddress;
+                detail.PatientBirthDate = patient.PatientBirthdate;
+
+                var family = _patient.GetFamily(patient.PatientId);
+                var guardianMember = family.FirstOrDefault(f => f.Role == "guardian");
+                if (guardianMember != null)
+                {
+                    detail.PatientTypeId = 2;
+                    var guardian = _patient.GetById(guardianMember.PatientId);
+                    if (guardian != null)
+                    {
+                        detail.ChildGuardianName     = guardian.PatientName;
+                        detail.ChildGuardianPhone    = guardian.PatientMainPhone > 0
+                            ? guardian.PatientMainPhone.ToString() : null;
+                        detail.ChildGuardianIdNumber = guardian.PatientIdNumber ?? 0;
+                    }
+                    detail.RelationshipName = guardianMember.RelationshipName;
+                }
+                else
+                {
+                    detail.PatientTypeId = 1;
+                }
+            }
+
+            var existing = _medical.GetByAppointment(id);
+            if (existing == null) return RedirectToAction("Patient", new { id });
+
+            ViewBag.Attention      = existing;
+            ViewBag.PatientHistory = patient != null ? _patientHistory.GetByPatientId(patient.PatientId) : null;
+            return View(detail);
+        }
+
+        [HttpGet]
+        public IActionResult AttendedPatients()
+        {
+            var list = _medical.GetAll();
+            return View(list);
+        }
+
         private int? GetDoctorId()
         {
             var val = User.FindFirst("DoctorId")?.Value;
             return int.TryParse(val, out var id) && id > 0 ? id : null;
         }
     }
+
 }

@@ -1617,14 +1617,13 @@ async function renderSlots() {
     schedules.forEach((s, idx) => {
         const targetJsDay = s.dayOfWeek;
         const d = new Date(today);
-        // Si hoy es el día del horario, verificar si la hora de inicio ya pasó
+        // Si hoy es el día del horario, verificar si la hora de cierre ya pasó
         if (d.getDay() === targetJsDay) {
-            const startHourToday = parseInt(s.startTime);
-            const startMinToday = parseInt((s.startTime.split(':')[1]) || '0');
-            const scheduleMinutes = startHourToday * 60 + startMinToday;
+            const endParts = (s.endTime || '00:00').split(':');
+            const endMinutes = parseInt(endParts[0]) * 60 + parseInt(endParts[1] || '0');
             const nowMinutes = now.getHours() * 60 + now.getMinutes();
-            // Si el horario ya pasó, ir a la próxima semana
-            if (nowMinutes >= scheduleMinutes) {
+            // Solo pasar a la próxima semana si ya cerró el horario
+            if (nowMinutes >= endMinutes) {
                 d.setDate(d.getDate() + 7);
             }
         } else {

@@ -1,0 +1,256 @@
+@model Medycally.Models.AppointmentDetailModel
+@{
+    Layout = null;
+    var att    = ViewBag.Attention      as Medycally.Models.MedicalAttentionModel;
+    var ph     = ViewBag.PatientHistory as Medycally.Models.PatientHistoryModel;
+    var isMinor = Model.PatientTypeId == 2;
+    var today  = DateTime.Now.ToString("dd/MM/yyyy");
+
+    string SmokeLabel(int v)    => v == 1 ? "Ex-fumador"  : v == 2 ? "Activo"    : "Nunca";
+    string AlcLabel(int v)      => v == 1 ? "Ocasional"   : v == 2 ? "Frecuente" : "Nunca";
+    string PhysLabel(int v)     => v == 1 ? "Moderado"    : v == 2 ? "Activo"    : "Sedentario";
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Informe Médico — @Model.PatientName</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; color: #1a1a1a; padding: 28px; }
+.header { display: flex; justify-content: space-between; align-items: flex-start;
+          border-bottom: 3px solid #0d6efd; padding-bottom: 14px; margin-bottom: 22px; }
+.header-left h1 { font-size: 20px; color: #0d6efd; font-weight: 700; }
+.header-left p  { font-size: 11px; color: #666; margin-top: 3px; }
+.header-right   { text-align: right; font-size: 11px; color: #555; line-height: 1.7; }
+.section { margin-bottom: 18px; page-break-inside: avoid; }
+.section-title  { background: #0d6efd; color: #fff; padding: 5px 12px;
+                  font-weight: 600; font-size: 12px; border-radius: 3px; margin-bottom: 8px; }
+table { width: 100%; border-collapse: collapse; }
+td { padding: 5px 10px; vertical-align: top; border-bottom: 1px solid #e9ecef; }
+td.lbl { width: 36%; font-weight: 600; color: #444; white-space: nowrap; }
+.text-block { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;
+              padding: 10px 12px; white-space: pre-wrap; line-height: 1.6; }
+.badge { display: inline-block; background: #e7f1ff; color: #0d6efd;
+         border: 1px solid #b6d4fe; border-radius: 3px; padding: 1px 7px; margin: 2px; font-size: 11px; }
+.footer { margin-top: 32px; border-top: 1px solid #ccc; padding-top: 10px;
+          font-size: 10px; color: #999; display: flex; justify-content: space-between; }
+.no-print { margin-bottom: 16px; }
+@@media print { .no-print { display: none !important; } body { padding: 12px; } }
+</style>
+</head>
+<body>
+
+<div class="no-print">
+    <button onclick="window.print()" style="font-size:13px;padding:6px 18px;cursor:pointer;
+        background:#0d6efd;color:#fff;border:none;border-radius:4px;">
+        🖨️ Imprimir / Guardar PDF
+    </button>
+    <button onclick="window.close()" style="font-size:13px;padding:6px 16px;cursor:pointer;
+        margin-left:8px;background:#6c757d;color:#fff;border:none;border-radius:4px;">
+        Cerrar
+    </button>
+</div>
+
+<!-- Encabezado -->
+<div class="header">
+    <div class="header-left">
+        <h1>Informe Médico</h1>
+        <p>@(!string.IsNullOrEmpty(Model.ClinicName) ? Model.ClinicName + " — " : "")Fecha de emisión: @today</p>
+    </div>
+    <div class="header-right">
+        <strong>Especialidad:</strong> @(Model.SpecialtyName ?? "—")<br />
+        <strong>Médico:</strong> @(Model.DoctorName ?? "—")<br />
+        <strong>Cita:</strong> @Model.AppointmentDate.ToString("dd/MM/yyyy")@(!string.IsNullOrEmpty(Model.AppointmentTime) ? " " + Model.AppointmentTime : "")
+    </div>
+</div>
+
+<!-- Datos del Paciente -->
+<div class="section">
+    <div class="section-title">Datos del Paciente</div>
+    <table>
+        <tr><td class="lbl">Nombre</td><td>@(Model.PatientName ?? "—") @(isMinor ? "(Menor)" : "")</td></tr>
+        <tr><td class="lbl">Cédula</td><td>@(Model.PatientIdNumber > 0 ? $"V-{Model.PatientIdNumber}" : "Sin cédula")</td></tr>
+        <tr><td class="lbl">Edad</td><td>@Model.PatientAge años</td></tr>
+        <tr><td class="lbl">Sexo</td><td>@(Model.PatientSexName ?? "—")</td></tr>
+        @if (Model.PatientBirthDate.HasValue)
+        {
+            <tr><td class="lbl">Fecha de nacimiento</td><td>@Model.PatientBirthDate.Value.ToString("dd/MM/yyyy")</td></tr>
+        }
+        @if (!string.IsNullOrEmpty(Model.PatientPhone))
+        {
+            <tr><td class="lbl">Teléfono</td><td>@Model.PatientPhone</td></tr>
+        }
+        @if (!string.IsNullOrEmpty(Model.PatientAddress))
+        {
+            <tr><td class="lbl">Dirección</td><td>@Model.PatientAddress</td></tr>
+        }
+    </table>
+</div>
+
+<!-- Datos del Representante (solo si es menor) -->
+@if (isMinor && !string.IsNullOrEmpty(Model.ChildGuardianName))
+{
+    <div class="section">
+        <div class="section-title">Datos del Representante</div>
+        <table>
+            <tr><td class="lbl">Nombre</td><td>@Model.ChildGuardianName</td></tr>
+            <tr><td class="lbl">Cédula</td><td>@(Model.ChildGuardianIdNumber > 0 ? $"V-{Model.ChildGuardianIdNumber}" : "—")</td></tr>
+            @if (!string.IsNullOrEmpty(Model.RelationshipName))
+            {
+                <tr><td class="lbl">Parentesco</td><td>@Model.RelationshipName</td></tr>
+            }
+            @if (!string.IsNullOrEmpty(Model.ChildGuardianPhone))
+            {
+                <tr><td class="lbl">Teléfono</td><td>@Model.ChildGuardianPhone</td></tr>
+            }
+        </table>
+    </div>
+}
+
+<!-- Diagnóstico -->
+<div class="section">
+    <div class="section-title">Diagnóstico</div>
+    <div class="text-block">@(att?.Diagnosis ?? "—")</div>
+</div>
+
+<!-- Tratamiento -->
+<div class="section">
+    <div class="section-title">Tratamiento</div>
+    <div class="text-block">@(att?.Treatment ?? "—")</div>
+</div>
+
+<!-- Notas adicionales -->
+@if (!string.IsNullOrWhiteSpace(att?.Notes))
+{
+    <div class="section">
+        <div class="section-title">Notas Adicionales</div>
+        <div class="text-block">@att.Notes</div>
+    </div>
+}
+
+<!-- Antecedentes Médicos -->
+@if (ph != null)
+{
+    <div class="section">
+        <div class="section-title">Antecedentes Médicos</div>
+        <table>
+            <tr>
+                <td class="lbl">Condiciones personales</td>
+                <td>
+                    @{
+                        var conds = new List<string>();
+                        if (ph.HasHypertension)      conds.Add("Hipertensión");
+                        if (ph.HasDiabetes)          conds.Add("Diabetes");
+                        if (ph.HasHeartDisease)      conds.Add("Enf. cardíacas");
+                        if (ph.HasAsthmaRespiratory) conds.Add("Asma / Respiratorio");
+                        if (ph.HasThyroidDisease)    conds.Add("Tiroides");
+                        if (ph.HasRenalDisease)      conds.Add("Enf. renales");
+                        if (ph.HasAnxietyDepression) conds.Add("Ansiedad / Depresión");
+                        if (ph.HasCancer)            conds.Add(!string.IsNullOrEmpty(ph.CancerDetail) ? $"Cáncer ({ph.CancerDetail})" : "Cáncer");
+                    }
+                    @if (conds.Count > 0)
+                    {
+                        foreach (var c in conds) { <span class="badge">@c</span> }
+                    }
+                    else
+                    {
+                        <span>Ninguna registrada</span>
+                    }
+                </td>
+            </tr>
+            @if (!string.IsNullOrWhiteSpace(ph.PreviousSurgeries))
+            {
+                <tr><td class="lbl">Cirugías previas</td><td>@ph.PreviousSurgeries</td></tr>
+            }
+            @if (!string.IsNullOrWhiteSpace(ph.RecentHospitalizations))
+            {
+                <tr><td class="lbl">Hospitalizaciones recientes</td><td>@ph.RecentHospitalizations</td></tr>
+            }
+            <tr>
+                <td class="lbl">Alergias a medicamentos</td>
+                <td>@(string.IsNullOrWhiteSpace(ph.DrugAllergies) ? "Ninguna" : ph.DrugAllergies)</td>
+            </tr>
+            <tr>
+                <td class="lbl">Alergias a alimentos</td>
+                <td>@(string.IsNullOrWhiteSpace(ph.FoodAllergies) ? "Ninguna" : ph.FoodAllergies)</td>
+            </tr>
+            @if (!string.IsNullOrWhiteSpace(ph.OtherAllergies))
+            {
+                <tr><td class="lbl">Otras alergias</td><td>@ph.OtherAllergies</td></tr>
+            }
+            @if (!string.IsNullOrWhiteSpace(ph.CurrentMedications))
+            {
+                <tr><td class="lbl">Medicamentos actuales</td><td>@ph.CurrentMedications</td></tr>
+            }
+            <tr>
+                <td class="lbl">Antecedentes familiares</td>
+                <td>
+                    @{
+                        var fam = new List<string>();
+                        if (ph.FamilyDiabetes)     fam.Add("Diabetes");
+                        if (ph.FamilyCancer)       fam.Add("Cáncer");
+                        if (ph.FamilyHeartDisease) fam.Add("Enf. corazón");
+                        if (ph.FamilyHypertension) fam.Add("Presión alta");
+                    }
+                    @if (fam.Count > 0)
+                    {
+                        foreach (var f in fam) { <span class="badge">@f</span> }
+                    }
+                    else
+                    {
+                        <span>Ninguno registrado</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(ph.FamilyOthers))
+                    {
+                        <span>· @ph.FamilyOthers</span>
+                    }
+                </td>
+            </tr>
+            <tr><td class="lbl">Tabaco</td><td>@SmokeLabel(ph.SmokingStatus)@(ph.SmokingStatus == 2 && !string.IsNullOrEmpty(ph.SmokingDailyAmount) ? $" ({ph.SmokingDailyAmount}/día)" : "")</td></tr>
+            <tr><td class="lbl">Alcohol</td><td>@AlcLabel(ph.AlcoholStatus)</td></tr>
+            <tr><td class="lbl">Actividad física</td><td>@PhysLabel(ph.PhysicalActivity)</td></tr>
+            <tr><td class="lbl">Sustancias / drogas</td><td>@(ph.DrugUse ? "Sí" : "No")</td></tr>
+            <tr>
+                <td class="lbl">Revisión por sistemas</td>
+                <td>
+                    @{
+                        var sis = new List<string>();
+                        if (ph.HasWeightLoss)          sis.Add("Pérdida de peso inexplicable");
+                        if (ph.HasFrequentFever)       sis.Add("Fiebre frecuente");
+                        if (ph.HasHeadache)            sis.Add("Dolor de cabeza persistente");
+                        if (ph.HasVisionHearingChange) sis.Add("Cambios en visión o audición");
+                        if (ph.HasBreathingDifficulty) sis.Add("Dificultad para respirar");
+                    }
+                    @if (sis.Count > 0)
+                    {
+                        foreach (var s in sis) { <span class="badge">@s</span> }
+                    }
+                    else
+                    {
+                        <span>Sin hallazgos</span>
+                    }
+                </td>
+            </tr>
+        </table>
+    </div>
+}
+else
+{
+    <div class="section">
+        <div class="section-title">Antecedentes Médicos</div>
+        <p style="color:#888;padding:8px 0;">Sin antecedentes médicos registrados para este paciente.</p>
+    </div>
+}
+
+<div class="footer">
+    <span>Medycally — Sistema de Gestión Médica</span>
+    <span>Generado el @today</span>
+</div>
+
+<script>
+    window.onload = function () { window.focus(); window.print(); };
+</script>
+</body>
+</html>

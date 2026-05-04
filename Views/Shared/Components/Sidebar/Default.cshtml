@@ -5,13 +5,49 @@
 
 @foreach (var module in Model)
 {
-    var isActive = !string.IsNullOrEmpty(module.ModuleUrl)
-        && currentPath.StartsWith(module.ModuleUrl, StringComparison.OrdinalIgnoreCase);
+    var isMedical = string.Equals(module.ModuleUrl, "/Medical/Index", StringComparison.OrdinalIgnoreCase);
 
-    <li class="sidebar-item">
-        <a href="@module.ModuleUrl" class="sidebar-link @(isActive ? "active" : "")">
-            <i class="fas @module.ModuleIcon"></i>
-            <span>@module.ModuleName</span>
-        </a>
-    </li>
+    if (isMedical)
+    {
+        var isMedicalActive = currentPath.StartsWith("/Medical", StringComparison.OrdinalIgnoreCase);
+        var isQueueActive   = isMedicalActive && !currentPath.StartsWith("/Medical/AttendedPatients", StringComparison.OrdinalIgnoreCase);
+        var isAttendedActive = currentPath.StartsWith("/Medical/AttendedPatients", StringComparison.OrdinalIgnoreCase);
+        <li class="sidebar-item">
+            <a class="sidebar-link sidebar-link-parent @(isMedicalActive ? "active" : "")"
+               data-bs-toggle="collapse" data-bs-target="#medicalMenu"
+               href="#" role="button"
+               aria-expanded="@(isMedicalActive ? "true" : "false")">
+                <i class="fas @module.ModuleIcon"></i>
+                <span>@module.ModuleName</span>
+                <i class="fas fa-chevron-right sidebar-chevron"></i>
+            </a>
+            <ul class="sidebar-dropdown collapse @(isMedicalActive ? "show" : "")" id="medicalMenu">
+                <li class="sidebar-item">
+                    <a href="/Medical/Index"
+                       class="sidebar-link @(isQueueActive ? "active" : "")">
+                        <i class="fas fa-list-ul"></i>
+                        <span>Cola de Pacientes</span>
+                    </a>
+                </li>
+                <li class="sidebar-item">
+                    <a href="/Medical/AttendedPatients"
+                       class="sidebar-link @(isAttendedActive ? "active" : "")">
+                        <i class="fas fa-user-check"></i>
+                        <span>Pacientes Atendidos</span>
+                    </a>
+                </li>
+            </ul>
+        </li>
+    }
+    else
+    {
+        var isActive = !string.IsNullOrEmpty(module.ModuleUrl)
+            && currentPath.StartsWith(module.ModuleUrl, StringComparison.OrdinalIgnoreCase);
+        <li class="sidebar-item">
+            <a href="@module.ModuleUrl" class="sidebar-link @(isActive ? "active" : "")">
+                <i class="fas @module.ModuleIcon"></i>
+                <span>@module.ModuleName</span>
+            </a>
+        </li>
+    }
 }

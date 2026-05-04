@@ -59,7 +59,9 @@
     </div>
 </div>
 
-<!-- Add / Edit Patient Modal -->
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Add / Edit Patient Modal
+     ═══════════════════════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="patientModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
@@ -69,64 +71,205 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" id="patientId" value="0" />
+                <input type="hidden" id="guardianPatientId" value="0" />
 
-                <h6 class="text-muted mb-3">Datos Personales</h6>
-                <div class="row g-3 mb-3">
-                    <div class="col-md-8">
-                        <label class="form-label">Nombre completo <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control pat-text" id="patientName" maxlength="150" />
-                        <div class="invalid-feedback" id="nameError"></div>
+                <!-- Type selector -->
+                <div id="patientTypeGroup" class="mb-4">
+                    <label class="form-label fw-semibold mb-2">Tipo de paciente</label>
+                    <div class="d-flex gap-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="patientType" id="typeAdult"
+                                   value="adult" onchange="onPatientTypeChange('adult')" />
+                            <label class="form-check-label" for="typeAdult">
+                                <i class="fas fa-user me-1 text-primary"></i> Adulto
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="patientType" id="typeMinor"
+                                   value="minor" onchange="onPatientTypeChange('minor')" />
+                            <label class="form-check-label" for="typeMinor">
+                                <i class="fas fa-child me-1 text-success"></i> Menor de edad
+                            </label>
+                        </div>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Sexo <span class="text-danger">*</span></label>
-                        <select class="form-select" id="patientSexId">
-                            <option value="0">— Seleccionar —</option>
-                            @foreach (var s in sexes)
-                            {
-                                <option value="@s.SexId">@s.SexName</option>
-                            }
-                        </select>
-                        <div class="invalid-feedback" id="sexError"></div>
+                    <div class="invalid-feedback d-block" id="typeError" style="display:none!important"></div>
+                </div>
+
+                <!-- ─── Adult Section ─── -->
+                <div id="adultSection" class="d-none">
+                    <h6 class="text-muted mb-3">Datos Personales</h6>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Nombre completo <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control pat-text" id="patientName" maxlength="150" />
+                            <div class="invalid-feedback" id="nameError"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Sexo <span class="text-danger">*</span></label>
+                            <select class="form-select" id="patientSexId">
+                                <option value="0">— Seleccionar —</option>
+                                @foreach (var s in sexes)
+                                {
+                                    <option value="@s.SexId">@s.SexName</option>
+                                }
+                            </select>
+                            <div class="invalid-feedback" id="sexError"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Cédula <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="patientIdNumber" maxlength="9"
+                                   inputmode="numeric" placeholder="Ej: 12345678" />
+                            <div class="invalid-feedback" id="cedulaError"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Fecha de nacimiento <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="patientBirthdate" />
+                            <div class="invalid-feedback" id="birthdateError"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Teléfono <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="patientMainPhone" maxlength="15"
+                                   inputmode="numeric" placeholder="Ej: 04141234567" />
+                            <div class="invalid-feedback" id="phoneError"></div>
+                        </div>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Cédula</label>
-                        <input type="text" class="form-control" id="patientIdNumber" maxlength="9" inputmode="numeric" placeholder="Sin cédula si es menor" />
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Fecha de nacimiento <span class="text-danger">*</span></label>
-                        <input type="date" class="form-control" id="patientBirthdate" />
-                        <div class="invalid-feedback" id="birthdateError"></div>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Teléfono <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="patientMainPhone" maxlength="15" inputmode="numeric" />
-                        <div class="invalid-feedback" id="phoneError"></div>
+                    <h6 class="text-muted mb-3">Ubicación</h6>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Estado</label>
+                            <select class="form-select" id="patientStateId"
+                                    onchange="loadMunicipalities(this.value, 0)">
+                                <option value="0">— Seleccionar —</option>
+                                @foreach (var st in states)
+                                {
+                                    <option value="@st.StateId">@st.StateName</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Municipio</label>
+                            <select class="form-select" id="patientMunicipalityId">
+                                <option value="0">— Seleccionar estado primero —</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Dirección</label>
+                            <input type="text" class="form-control pat-text" id="patientAddress" maxlength="300" />
+                        </div>
                     </div>
                 </div>
 
-                <h6 class="text-muted mb-3">Ubicación</h6>
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label">Estado</label>
-                        <select class="form-select" id="patientStateId" onchange="loadMunicipalities(this.value, 0)">
-                            <option value="0">— Seleccionar —</option>
-                            @foreach (var st in states)
-                            {
-                                <option value="@st.StateId">@st.StateName</option>
-                            }
-                        </select>
+                <!-- ─── Minor Section ─── -->
+                <div id="minorSection" class="d-none">
+                    <h6 class="fw-semibold mb-3">
+                        <i class="fas fa-child text-success me-1"></i> Datos del Menor
+                    </h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-8">
+                            <label class="form-label">Nombre y Apellido <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control minor-text" id="minorName" maxlength="150"
+                                   placeholder="Nombre completo del menor" />
+                            <div class="invalid-feedback" id="minorNameError"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Sexo <span class="text-danger">*</span></label>
+                            <select class="form-select" id="minorSexId">
+                                <option value="0">— Seleccionar —</option>
+                                @foreach (var s in sexes)
+                                {
+                                    <option value="@s.SexId">@s.SexName</option>
+                                }
+                            </select>
+                            <div class="invalid-feedback" id="minorSexError"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Fecha de Nacimiento <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="minorBirthdate" />
+                            <div class="invalid-feedback" id="minorBirthdateError"></div>
+                        </div>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Municipio</label>
-                        <select class="form-select" id="patientMunicipalityId">
-                            <option value="0">— Seleccionar estado primero —</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Dirección</label>
-                        <input type="text" class="form-control pat-text" id="patientAddress" maxlength="300" />
+
+                    <hr class="my-3" />
+                    <h6 class="fw-semibold mb-3">
+                        <i class="fas fa-user-shield text-primary me-1"></i> Datos del Representante
+                    </h6>
+                    <div class="row g-3">
+                        <div class="col-md-5">
+                            <label class="form-label">Cédula <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="guardianIdNumber" maxlength="9"
+                                       inputmode="numeric" placeholder="Ingrese la cédula"
+                                       onblur="lookupGuardian()" />
+                                <button class="btn btn-outline-secondary" type="button"
+                                        onclick="lookupGuardian()" title="Buscar">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                            <div class="small mt-1" id="guardianLookupMsg"></div>
+                            <div class="invalid-feedback" id="guardianCedulaError"></div>
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label">Nombre del Representante <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control guardian-text" id="guardianName" maxlength="150"
+                                   placeholder="Nombre completo del representante" />
+                            <div class="invalid-feedback" id="guardianNameError"></div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Dirección</label>
+                            <input type="text" class="form-control guardian-text" id="guardianAddress"
+                                   maxlength="300" placeholder="Dirección completa" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Parentesco <span class="text-danger">*</span></label>
+                            <select class="form-select" id="guardianRelationshipIdNew">
+                                <option value="0">— Seleccione —</option>
+                                @foreach (var r in relationships)
+                                {
+                                    <option value="@r.RelationshipId">@r.RelationshipName</option>
+                                }
+                            </select>
+                            <div class="invalid-feedback" id="guardianRelError"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Sexo del Representante</label>
+                            <select class="form-select" id="guardianSexId">
+                                <option value="0">— Seleccionar —</option>
+                                @foreach (var s in sexes)
+                                {
+                                    <option value="@s.SexId">@s.SexName</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Fecha de Nacimiento</label>
+                            <input type="date" class="form-control" id="guardianBirthdate" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Teléfono <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="guardianPhone" maxlength="15"
+                                   inputmode="numeric" placeholder="Ej: 04141234567" />
+                            <div class="invalid-feedback" id="guardianPhoneError"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Estado</label>
+                            <select class="form-select" id="guardianStateId"
+                                    onchange="loadGuardianMunicipalities(this.value, 0)">
+                                <option value="0">— Seleccionar —</option>
+                                @foreach (var st in states)
+                                {
+                                    <option value="@st.StateId">@st.StateName</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Municipio</label>
+                            <select class="form-select" id="guardianMunicipalityId">
+                                <option value="0">— Seleccionar estado primero —</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
+
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -136,157 +279,31 @@
     </div>
 </div>
 
-<!-- Patient Detail Modal (Grupo Familiar + Historia Médica) -->
-<div class="modal fade" id="detailModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Save Confirm Modal
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="saveConfirmModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="detailModalTitle">Paciente</h5>
+                <h5 class="modal-title">Confirmar</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-
-                <ul class="nav nav-tabs mb-3" id="detailTabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="tab-family-btn" data-bs-toggle="tab"
-                                data-bs-target="#tabFamily" type="button" role="tab">
-                            <i class="fas fa-users me-1"></i> Grupo Familiar
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="tab-history-btn" data-bs-toggle="tab"
-                                data-bs-target="#tabHistory" type="button" role="tab">
-                            <i class="fas fa-file-medical me-1"></i> Historia Médica
-                        </button>
-                    </li>
-                </ul>
-
-                <div class="tab-content">
-
-                    <!-- Grupo Familiar -->
-                    <div class="tab-pane fade show active" id="tabFamily" role="tabpanel">
-
-                        <div id="familyLoading" class="text-center py-3">
-                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                            <p class="text-muted small mt-2 mb-0">Cargando grupo familiar...</p>
-                        </div>
-
-                        <div id="familyContent" class="d-none">
-
-                            <h6 class="text-muted mb-2">
-                                <i class="fas fa-shield-alt me-1 text-primary"></i> Representantes
-                            </h6>
-                            <div id="guardianList" class="mb-3"></div>
-
-                            <h6 class="text-muted mb-2">
-                                <i class="fas fa-child me-1 text-success"></i> Dependientes
-                            </h6>
-                            <div id="dependentList" class="mb-3"></div>
-
-                            <hr />
-
-                            <h6 class="text-muted mb-2">
-                                <i class="fas fa-link me-1"></i> Vincular representante
-                            </h6>
-                            <div class="row g-2 align-items-start">
-                                <div class="col-md-5">
-                                    <input type="text" class="form-control form-control-sm" id="guardianCedulaInput"
-                                           placeholder="Cédula del representante" inputmode="numeric" maxlength="9" />
-                                </div>
-                                <div class="col-md-auto">
-                                    <button class="btn btn-sm btn-outline-primary" onclick="searchGuardian()">
-                                        <i class="fas fa-search me-1"></i>Buscar
-                                    </button>
-                                </div>
-                            </div>
-                            <div id="guardianSearchError" class="text-danger small mt-1 d-none"></div>
-
-                            <div id="guardianFoundCard" class="card card-body py-2 px-3 bg-light mt-2 d-none">
-                                <span class="fw-semibold" id="guardianFoundName"></span>
-                                <div class="row g-2 mt-1 align-items-center">
-                                    <div class="col-md-6">
-                                        <select class="form-select form-select-sm" id="guardianRelationshipId">
-                                            <option value="0">— Parentesco —</option>
-                                            @foreach (var r in relationships)
-                                            {
-                                                <option value="@r.RelationshipId">@r.RelationshipName</option>
-                                            }
-                                        </select>
-                                    </div>
-                                    <div class="col-md-auto">
-                                        <button class="btn btn-sm btn-success" onclick="linkGuardian()">
-                                            <i class="fas fa-link me-1"></i>Vincular
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div id="createGuardianForm" class="card card-body bg-light mt-2 d-none">
-                                <p class="small text-muted mb-2">Complete los datos para registrarlo como representante:</p>
-                                <div class="row g-2">
-                                    <div class="col-md-6">
-                                        <input type="text" class="form-control form-control-sm guardian-text" id="newGuardianName"
-                                               placeholder="Nombre completo *" maxlength="150" />
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select form-select-sm" id="newGuardianSexId">
-                                            <option value="0">— Sexo * —</option>
-                                            @foreach (var s in sexes)
-                                            {
-                                                <option value="@s.SexId">@s.SexName</option>
-                                            }
-                                        </select>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <input type="date" class="form-control form-control-sm" id="newGuardianBirthdate" />
-                                    </div>
-                                    <div class="col-md-4">
-                                        <input type="text" class="form-control form-control-sm" id="newGuardianPhone"
-                                               placeholder="Teléfono" maxlength="15" inputmode="numeric" />
-                                    </div>
-                                    <div class="col-md-4">
-                                        <select class="form-select form-select-sm" id="newGuardianRelationshipId">
-                                            <option value="0">— Parentesco * —</option>
-                                            @foreach (var r in relationships)
-                                            {
-                                                <option value="@r.RelationshipId">@r.RelationshipName</option>
-                                            }
-                                        </select>
-                                    </div>
-                                </div>
-                                <div id="createGuardianError" class="text-danger small mt-1 d-none"></div>
-                                <div class="mt-2">
-                                    <button class="btn btn-sm btn-success" onclick="createAndLinkGuardian()">
-                                        <i class="fas fa-user-plus me-1"></i>Crear y vincular
-                                    </button>
-                                    <button class="btn btn-sm btn-secondary ms-1" onclick="cancelCreateGuardian()">Cancelar</button>
-                                </div>
-                            </div>
-
-                        </div>
-
-                        <div id="familyError" class="alert alert-danger d-none"></div>
-                    </div>
-
-                    <!-- Historia Médica -->
-                    <div class="tab-pane fade" id="tabHistory" role="tabpanel">
-                        <div class="text-center py-5">
-                            <i class="fas fa-file-medical fa-3x text-muted mb-3 d-block"></i>
-                            <p class="fw-semibold text-muted mb-1">Historia Médica</p>
-                            <p class="text-muted small mb-0">Esta funcionalidad estará disponible próximamente.</p>
-                        </div>
-                    </div>
-
-                </div>
+                <p id="saveConfirmMsg" class="mb-0">¿Desea guardar los cambios?</p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="confirmSave()">Confirmar</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Delete Confirm Modal -->
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Delete Confirm Modal
+     ═══════════════════════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="deleteModal" tabindex="-1">
     <div class="modal-dialog modal-sm">
         <div class="modal-content">
@@ -318,22 +335,67 @@
 
 @section Scripts {
 <script>
-    const patientModal = new bootstrap.Modal(document.getElementById('patientModal'));
-    const detailModal  = new bootstrap.Modal(document.getElementById('detailModal'));
-    const deleteModal  = new bootstrap.Modal(document.getElementById('deleteModal'));
-    const toast        = new bootstrap.Toast(document.getElementById('toast'), { delay: 3500 });
+    const patientModal     = new bootstrap.Modal(document.getElementById('patientModal'));
+    const saveConfirmModal = new bootstrap.Modal(document.getElementById('saveConfirmModal'));
+    const deleteModal      = new bootstrap.Modal(document.getElementById('deleteModal'));
+    const toast            = new bootstrap.Toast(document.getElementById('toast'), { delay: 3500 });
 
-    let pendingDeleteId         = 0;
-    let currentDetailPatientId  = 0;
-    let guardianFoundPatientId  = 0;
-    let filteredPatients        = [];
-    let currentPage             = 1;
-    const PAGE_SIZE             = 10;
+    let pendingDeleteId    = 0;
+    let filteredPatients  = [];
+    let currentPage              = 1;
+    let currentPatientType       = '';   // 'adult' | 'minor'
+    let originalGuardianId       = 0;   // for edit minor: guardian before editing
+    const PAGE_SIZE              = 10;
 
-    const allPatients      = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
-    const allSexes         = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(sexes));
-    const allStates        = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(states));
-    const allMunicipalities= @Html.Raw(System.Text.Json.JsonSerializer.Serialize(municipalities));
+    const allPatients       = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+    const allSexes          = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(sexes));
+    const allStates         = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(states));
+    const allMunicipalities = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(municipalities));
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    function showToast(message, success) {
+        const el = document.getElementById('toast');
+        el.classList.remove('bg-success', 'bg-danger');
+        el.classList.add(success ? 'bg-success' : 'bg-danger');
+        document.getElementById('toastMessage').textContent = message;
+        toast.show();
+    }
+
+    function escapeHtml(text) {
+        const d = document.createElement('div');
+        d.textContent = text ?? '';
+        return d.innerHTML;
+    }
+
+    function formatDateForInput(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return '';
+        return d.toISOString().slice(0, 10);
+    }
+
+    function calcAge(dateStr) {
+        if (!dateStr) return 0;
+        const birth = new Date(dateStr);
+        if (isNaN(birth.getTime())) return 0;
+        const today = new Date();
+        let age = today.getFullYear() - birth.getFullYear();
+        if (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate())) age--;
+        return Math.max(age, 0);
+    }
+
+    function setInvalid(fieldId, errId, msg) {
+        const el = document.getElementById(fieldId);
+        if (el) el.classList.add('is-invalid');
+        const err = document.getElementById(errId);
+        if (err) err.textContent = msg;
+    }
+
+    function clearInvalid(fieldId) {
+        const el = document.getElementById(fieldId);
+        if (el) el.classList.remove('is-invalid');
+    }
 
     // ── Table ────────────────────────────────────────────────────────────────
 
@@ -367,7 +429,7 @@
                 <td>${family}</td>
                 <td class="text-end">
                     <button class="btn btn-sm btn-outline-primary me-1" onclick="editPatient(${p.PatientId})" title="Editar"><i class="fas fa-edit"></i></button>
-                    <button class="btn btn-sm btn-outline-info me-1" onclick="openDetailModal(${p.PatientId},'${nameEscaped}')" title="Grupo Familiar / Historia"><i class="fas fa-folder-open"></i></button>
+                    <a class="btn btn-sm btn-outline-info me-1" href="/Patient/History/${p.PatientId}" title="Historia Médica"><i class="fas fa-file-medical"></i></a>
                     <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(${p.PatientId},'${nameEscaped}')" title="Eliminar"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>`;
@@ -435,77 +497,7 @@
         applyFilters();
     }
 
-    function showToast(message, success) {
-        const el = document.getElementById('toast');
-        el.classList.remove('bg-success', 'bg-danger');
-        el.classList.add(success ? 'bg-success' : 'bg-danger');
-        document.getElementById('toastMessage').textContent = message;
-        toast.show();
-    }
-
-    function escapeHtml(text) {
-        const d = document.createElement('div');
-        d.textContent = text ?? '';
-        return d.innerHTML;
-    }
-
-    // ── Patient modal ────────────────────────────────────────────────────────
-
-    function clearModalValidation() {
-        ['patientName','patientSexId','patientBirthdate','patientMainPhone'].forEach(id => {
-            document.getElementById(id).classList.remove('is-invalid');
-        });
-    }
-
-    function openModal() {
-        document.getElementById('patientId').value               = '0';
-        document.getElementById('patientName').value             = '';
-        document.getElementById('patientSexId').value            = '0';
-        document.getElementById('patientIdNumber').value         = '';
-        document.getElementById('patientBirthdate').value        = '';
-        document.getElementById('patientMainPhone').value        = '';
-        document.getElementById('patientStateId').value          = '0';
-        document.getElementById('patientMunicipalityId').innerHTML = '<option value="0">— Seleccionar estado primero —</option>';
-        document.getElementById('patientAddress').value          = '';
-        document.getElementById('modalTitle').textContent        = 'Nuevo Paciente';
-        clearModalValidation();
-        patientModal.show();
-        setTimeout(() => document.getElementById('patientName').focus(), 300);
-    }
-
-    function editPatient(id) {
-        const p = allPatients.find(x => x.PatientId === id);
-        if (!p) return;
-        document.getElementById('patientId').value        = p.PatientId;
-        document.getElementById('patientName').value      = p.PatientName ?? '';
-        document.getElementById('patientSexId').value     = p.SexId ?? 0;
-        document.getElementById('patientIdNumber').value  = p.PatientIdNumber ?? '';
-        document.getElementById('patientBirthdate').value = formatDateForInput(p.PatientBirthdate);
-        document.getElementById('patientMainPhone').value = p.PatientMainPhone ? String(p.PatientMainPhone) : '';
-        document.getElementById('patientStateId').value   = p.StateId ?? 0;
-        loadMunicipalities(p.StateId ?? 0, p.MunicipalityId ?? 0);
-        document.getElementById('patientAddress').value   = p.PatientAddress ?? '';
-        document.getElementById('modalTitle').textContent = 'Editar Paciente';
-        clearModalValidation();
-        patientModal.show();
-    }
-
-    function formatDateForInput(dateStr) {
-        if (!dateStr) return '';
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return '';
-        return d.toISOString().slice(0, 10);
-    }
-
-    function calcAge(dateStr) {
-        if (!dateStr) return 0;
-        const birth = new Date(dateStr);
-        if (isNaN(birth.getTime())) return 0;
-        const today = new Date();
-        let age = today.getFullYear() - birth.getFullYear();
-        if (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate())) age--;
-        return Math.max(age, 0);
-    }
+    // ── Municipality loaders ─────────────────────────────────────────────────
 
     function loadMunicipalities(stateId, preselectId = 0) {
         const sel = document.getElementById('patientMunicipalityId');
@@ -525,51 +517,259 @@
         });
     }
 
+    function loadGuardianMunicipalities(stateId, preselectId = 0) {
+        const sel = document.getElementById('guardianMunicipalityId');
+        const sid = parseInt(stateId) || 0;
+        if (sid === 0) {
+            sel.innerHTML = '<option value="0">— Seleccionar estado primero —</option>';
+            return;
+        }
+        const filtered = allMunicipalities.filter(m => m.StateId === sid);
+        sel.innerHTML = '<option value="0">— Seleccionar —</option>';
+        filtered.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value       = m.MunicipalityId;
+            opt.textContent = m.MunicipalityName;
+            if (m.MunicipalityId === preselectId) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    }
+
+    // ── Patient modal — open / type change ───────────────────────────────────
+
+    function openModal() {
+        document.getElementById('patientId').value      = '0';
+        document.getElementById('guardianPatientId').value = '0';
+        originalGuardianId  = 0;
+        currentPatientType  = '';
+
+        document.getElementById('typeAdult').checked   = false;
+        document.getElementById('typeMinor').checked   = false;
+        document.getElementById('typeAdult').disabled  = false;
+        document.getElementById('typeMinor').disabled  = false;
+        document.getElementById('adultSection').classList.add('d-none');
+        document.getElementById('minorSection').classList.add('d-none');
+
+        resetAdultFields();
+        resetMinorFields();
+
+        document.getElementById('modalTitle').textContent = 'Nuevo Paciente';
+        patientModal.show();
+    }
+
+    function onPatientTypeChange(type) {
+        currentPatientType = type;
+        if (type === 'adult') {
+            document.getElementById('adultSection').classList.remove('d-none');
+            document.getElementById('minorSection').classList.add('d-none');
+            setTimeout(() => document.getElementById('patientName').focus(), 100);
+        } else {
+            document.getElementById('adultSection').classList.add('d-none');
+            document.getElementById('minorSection').classList.remove('d-none');
+            setTimeout(() => document.getElementById('minorName').focus(), 100);
+        }
+    }
+
+    function resetAdultFields() {
+        ['patientName','patientSexId','patientIdNumber','patientBirthdate',
+         'patientMainPhone','patientAddress'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.value = el.tagName === 'SELECT' ? '0' : ''; el.classList.remove('is-invalid'); }
+        });
+        document.getElementById('patientMunicipalityId').innerHTML =
+            '<option value="0">— Seleccionar estado primero —</option>';
+        document.getElementById('patientStateId').value = '0';
+    }
+
+    function resetMinorFields() {
+        ['minorName','minorSexId','minorBirthdate',
+         'guardianIdNumber','guardianName','guardianAddress','guardianSexId',
+         'guardianBirthdate','guardianPhone','guardianStateId','guardianRelationshipIdNew'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.value = el.tagName === 'SELECT' ? '0' : ''; el.classList.remove('is-invalid'); }
+        });
+        document.getElementById('guardianMunicipalityId').innerHTML =
+            '<option value="0">— Seleccionar estado primero —</option>';
+        const msg = document.getElementById('guardianLookupMsg');
+        msg.textContent = '';
+        msg.className = 'small mt-1';
+    }
+
+    // ── Guardian lookup (patient modal — minor section) ──────────────────────
+
+    function lookupGuardian() {
+        const cedulaStr = document.getElementById('guardianIdNumber').value.trim();
+        const msg       = document.getElementById('guardianLookupMsg');
+
+        if (!cedulaStr || !/^\d+$/.test(cedulaStr)) {
+            msg.textContent = '';
+            return;
+        }
+
+        msg.textContent = 'Buscando...';
+        msg.className   = 'text-muted small mt-1';
+
+        fetch(`/Patient/GetByCedula?cedula=${cedulaStr}`)
+            .then(r => r.ok ? r.json() : Promise.reject())
+            .then(data => {
+                const gid = data.patientId ?? 0;
+                document.getElementById('guardianPatientId').value = gid;
+                document.getElementById('guardianName').value      = data.patientName ?? '';
+                document.getElementById('guardianSexId').value     = data.sexId ?? 0;
+                document.getElementById('guardianBirthdate').value = formatDateForInput(data.patientBirthdate);
+                document.getElementById('guardianPhone').value     = data.patientMainPhone ? String(data.patientMainPhone) : '';
+                document.getElementById('guardianAddress').value   = data.patientAddress ?? '';
+                const stateId = data.stateId ?? 0;
+                document.getElementById('guardianStateId').value   = stateId;
+                loadGuardianMunicipalities(stateId, data.municipalityId ?? 0);
+                msg.textContent = 'Representante encontrado — datos pre-llenados.';
+                msg.className   = 'text-success small mt-1';
+            })
+            .catch(() => {
+                document.getElementById('guardianPatientId').value = '0';
+                clearGuardianDataFields();
+                msg.textContent = 'Cédula no encontrada. Complete los datos manualmente.';
+                msg.className   = 'text-warning small mt-1';
+            });
+    }
+
+    function clearGuardianDataFields() {
+        ['guardianName','guardianSexId','guardianBirthdate',
+         'guardianPhone','guardianAddress','guardianStateId'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = el.tagName === 'SELECT' ? '0' : '';
+        });
+        document.getElementById('guardianMunicipalityId').innerHTML =
+            '<option value="0">— Seleccionar estado primero —</option>';
+    }
+
+    // ── Edit patient ─────────────────────────────────────────────────────────
+
+    function editPatient(id) {
+        const p = allPatients.find(x => x.PatientId === id);
+        if (!p) return;
+
+        document.getElementById('patientId').value         = p.PatientId;
+        document.getElementById('guardianPatientId').value = '0';
+        originalGuardianId  = 0;
+        document.getElementById('typeAdult').disabled  = true;
+        document.getElementById('typeMinor').disabled  = true;
+        document.getElementById('modalTitle').textContent = 'Editar Paciente';
+
+        if (p.HasGuardian) {
+            // ── Minor ──
+            currentPatientType = 'minor';
+            document.getElementById('typeMinor').checked = true;
+            document.getElementById('adultSection').classList.add('d-none');
+            document.getElementById('minorSection').classList.remove('d-none');
+            resetMinorFields();
+
+            document.getElementById('minorName').value      = p.PatientName ?? '';
+            document.getElementById('minorSexId').value     = p.SexId ?? 0;
+            document.getElementById('minorBirthdate').value = formatDateForInput(p.PatientBirthdate);
+
+            // Load guardian data
+            const msg = document.getElementById('guardianLookupMsg');
+            msg.textContent = 'Cargando...';
+            msg.className   = 'text-muted small mt-1';
+
+            fetch(`/Patient/GetFamily?patientId=${id}`)
+                .then(r => r.json())
+                .then(family => {
+                    const g = family.find(m => (m.role ?? m.Role) === 'guardian');
+                    if (!g) { msg.textContent = ''; return; }
+
+                    const gid = g.patientId ?? g.PatientId ?? 0;
+                    document.getElementById('guardianPatientId').value = gid;
+                    originalGuardianId = gid;
+
+                    const idNum = g.patientIdNumber ?? g.PatientIdNumber;
+                    document.getElementById('guardianIdNumber').value    = idNum ? String(idNum) : '';
+                    document.getElementById('guardianName').value        = g.patientName      ?? g.PatientName      ?? '';
+                    document.getElementById('guardianSexId').value       = g.sexId            ?? g.SexId            ?? 0;
+                    document.getElementById('guardianBirthdate').value   = formatDateForInput(g.patientBirthdate  ?? g.PatientBirthdate);
+                    document.getElementById('guardianPhone').value       = (g.patientMainPhone ?? g.PatientMainPhone)
+                        ? String(g.patientMainPhone ?? g.PatientMainPhone) : '';
+                    document.getElementById('guardianAddress').value     = g.patientAddress   ?? g.PatientAddress   ?? '';
+                    document.getElementById('guardianRelationshipIdNew').value = g.relationshipId ?? g.RelationshipId ?? 0;
+                    const stateId = g.stateId ?? g.StateId ?? 0;
+                    document.getElementById('guardianStateId').value     = stateId;
+                    loadGuardianMunicipalities(stateId, g.municipalityId ?? g.MunicipalityId ?? 0);
+                    msg.textContent = '';
+                })
+                .catch(() => { document.getElementById('guardianLookupMsg').textContent = ''; });
+
+        } else {
+            // ── Adult ──
+            currentPatientType = 'adult';
+            document.getElementById('typeAdult').checked = true;
+            document.getElementById('adultSection').classList.remove('d-none');
+            document.getElementById('minorSection').classList.add('d-none');
+            resetAdultFields();
+
+            document.getElementById('patientName').value      = p.PatientName ?? '';
+            document.getElementById('patientSexId').value     = p.SexId ?? 0;
+            document.getElementById('patientIdNumber').value  = p.PatientIdNumber ?? '';
+            document.getElementById('patientBirthdate').value = formatDateForInput(p.PatientBirthdate);
+            document.getElementById('patientMainPhone').value = p.PatientMainPhone ? String(p.PatientMainPhone) : '';
+            document.getElementById('patientStateId').value   = p.StateId ?? 0;
+            loadMunicipalities(p.StateId ?? 0, p.MunicipalityId ?? 0);
+            document.getElementById('patientAddress').value   = p.PatientAddress ?? '';
+        }
+
+        patientModal.show();
+    }
+
+    // ── Save ─────────────────────────────────────────────────────────────────
+
     function savePatient() {
+        if (!currentPatientType) {
+            document.getElementById('typeError').textContent = 'Seleccione el tipo de paciente.';
+            document.getElementById('typeError').style.display = 'block';
+            return;
+        }
+        document.getElementById('typeError').style.display = 'none';
+        const isNew = parseInt(document.getElementById('patientId').value) === 0;
+        document.getElementById('saveConfirmMsg').textContent = isNew
+            ? '¿Desea registrar este paciente?'
+            : '¿Desea guardar los cambios?';
+        saveConfirmModal.show();
+    }
+
+    function confirmSave() {
+        saveConfirmModal.hide();
+        if (currentPatientType === 'adult') saveAdult();
+        else saveMinor();
+    }
+
+    function saveAdult() {
         let valid = true;
 
         const name = document.getElementById('patientName').value.trim();
-        if (!name) {
-            document.getElementById('patientName').classList.add('is-invalid');
-            document.getElementById('nameError').textContent = 'El nombre es requerido.';
-            valid = false;
-        } else {
-            document.getElementById('patientName').classList.remove('is-invalid');
-        }
+        if (!name) { setInvalid('patientName', 'nameError', 'El nombre es requerido.'); valid = false; }
+        else clearInvalid('patientName');
 
         const sexId = parseInt(document.getElementById('patientSexId').value) || 0;
-        if (sexId === 0) {
-            document.getElementById('patientSexId').classList.add('is-invalid');
-            document.getElementById('sexError').textContent = 'Seleccione el sexo.';
-            valid = false;
-        } else {
-            document.getElementById('patientSexId').classList.remove('is-invalid');
-        }
+        if (!sexId) { setInvalid('patientSexId', 'sexError', 'Seleccione el sexo.'); valid = false; }
+        else clearInvalid('patientSexId');
+
+        const cedulaStr = document.getElementById('patientIdNumber').value.trim();
+        if (!cedulaStr) { setInvalid('patientIdNumber', 'cedulaError', 'La cédula es requerida.'); valid = false; }
+        else clearInvalid('patientIdNumber');
 
         const birthdate = document.getElementById('patientBirthdate').value;
-        if (!birthdate) {
-            document.getElementById('patientBirthdate').classList.add('is-invalid');
-            document.getElementById('birthdateError').textContent = 'La fecha de nacimiento es requerida.';
-            valid = false;
-        } else {
-            document.getElementById('patientBirthdate').classList.remove('is-invalid');
-        }
+        if (!birthdate) { setInvalid('patientBirthdate', 'birthdateError', 'La fecha de nacimiento es requerida.'); valid = false; }
+        else clearInvalid('patientBirthdate');
 
         const phoneRaw = document.getElementById('patientMainPhone').value.trim();
-        if (!phoneRaw) {
-            document.getElementById('patientMainPhone').classList.add('is-invalid');
-            document.getElementById('phoneError').textContent = 'El teléfono es requerido.';
-            valid = false;
-        } else {
-            document.getElementById('patientMainPhone').classList.remove('is-invalid');
-        }
+        if (!phoneRaw) { setInvalid('patientMainPhone', 'phoneError', 'El teléfono es requerido.'); valid = false; }
+        else clearInvalid('patientMainPhone');
 
         if (!valid) return;
 
-        const id         = parseInt(document.getElementById('patientId').value);
-        const stateId    = parseInt(document.getElementById('patientStateId').value) || 0;
-        const muniId     = parseInt(document.getElementById('patientMunicipalityId').value) || 0;
-        const idNumStr   = document.getElementById('patientIdNumber').value.trim();
+        const id       = parseInt(document.getElementById('patientId').value);
+        const stateId  = parseInt(document.getElementById('patientStateId').value) || 0;
+        const muniId   = parseInt(document.getElementById('patientMunicipalityId').value) || 0;
         const stateEntry = allStates.find(s => s.StateId === stateId);
         const muniSel    = document.getElementById('patientMunicipalityId');
         const muniName   = muniSel.options[muniSel.selectedIndex]?.text ?? null;
@@ -579,11 +779,12 @@
             patientId:        id,
             patientName:      name,
             sexId:            sexId,
-            patientIdNumber:  idNumStr ? parseInt(idNumStr) : null,
+            patientIdNumber:  parseInt(cedulaStr) || null,
             patientBirthdate: birthdate,
-            patientMainPhone: parseInt(phoneRaw) || 0,
+            patientMainPhone: parseInt(phoneRaw.replace(/\D/g, '')) || 0,
             municipalityId:   muniId,
             patientAddress:   document.getElementById('patientAddress').value.trim() || null,
+            isGuardianOnly:   false
         };
 
         document.getElementById('btnSave').disabled = true;
@@ -596,7 +797,6 @@
         .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)))
         .then(data => {
             patientModal.hide();
-
             const newId  = id === 0 ? data.patientId : id;
             const newDoc = {
                 PatientId:        newId,
@@ -613,15 +813,10 @@
                 StateName:        stateEntry?.StateName ?? null,
                 PatientAddress:   payload.patientAddress,
                 FamilyCount:      id === 0 ? 0 : (allPatients.find(x => x.PatientId === id)?.FamilyCount ?? 0),
+                HasGuardian:      false,
             };
-
-            if (id === 0) {
-                allPatients.push(newDoc);
-            } else {
-                const idx = allPatients.findIndex(x => x.PatientId === id);
-                if (idx >= 0) allPatients[idx] = newDoc;
-            }
-
+            if (id === 0) allPatients.push(newDoc);
+            else { const idx = allPatients.findIndex(x => x.PatientId === id); if (idx >= 0) allPatients[idx] = newDoc; }
             applyFilters();
             showToast(id === 0 ? 'Paciente registrado correctamente.' : 'Paciente actualizado correctamente.', true);
         })
@@ -629,166 +824,145 @@
         .finally(() => { document.getElementById('btnSave').disabled = false; });
     }
 
-    // ── Family + History modal ───────────────────────────────────────────────
+    function saveMinor() {
+        let valid = true;
 
-    function openDetailModal(patientId, patientName) {
-        currentDetailPatientId = patientId;
-        guardianFoundPatientId = 0;
-        document.getElementById('detailModalTitle').textContent = patientName;
-        document.getElementById('familyLoading').classList.remove('d-none');
-        document.getElementById('familyContent').classList.add('d-none');
-        document.getElementById('familyError').classList.add('d-none');
-        document.getElementById('guardianCedulaInput').value = '';
-        document.getElementById('guardianFoundCard').classList.add('d-none');
-        document.getElementById('guardianSearchError').classList.add('d-none');
-        document.getElementById('createGuardianForm').classList.add('d-none');
-        // Reset to family tab
-        document.getElementById('tab-family-btn').click();
-        detailModal.show();
-        loadFamily(patientId);
-    }
+        const minorName = document.getElementById('minorName').value.trim();
+        if (!minorName) { setInvalid('minorName', 'minorNameError', 'El nombre del menor es requerido.'); valid = false; }
+        else clearInvalid('minorName');
 
-    function loadFamily(patientId) {
-        fetch(`/Patient/GetFamily?patientId=${patientId}`)
-            .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.message ?? 'Error al cargar.')))
-            .then(data => {
-                renderFamily(data);
-                document.getElementById('familyLoading').classList.add('d-none');
-                document.getElementById('familyContent').classList.remove('d-none');
-            })
-            .catch(msg => {
-                document.getElementById('familyLoading').classList.add('d-none');
-                const err = document.getElementById('familyError');
-                err.textContent = typeof msg === 'string' ? msg : 'Error al cargar el grupo familiar.';
-                err.classList.remove('d-none');
-            });
-    }
+        const minorSexId = parseInt(document.getElementById('minorSexId').value) || 0;
+        if (!minorSexId) { setInvalid('minorSexId', 'minorSexError', 'Seleccione el sexo del menor.'); valid = false; }
+        else clearInvalid('minorSexId');
 
-    function renderFamily(members) {
-        const guardians  = members.filter(m => (m.role ?? m.Role) === 'guardian');
-        const dependents = members.filter(m => (m.role ?? m.Role) === 'dependent');
+        const minorBirthdate = document.getElementById('minorBirthdate').value;
+        if (!minorBirthdate) { setInvalid('minorBirthdate', 'minorBirthdateError', 'La fecha de nacimiento es requerida.'); valid = false; }
+        else clearInvalid('minorBirthdate');
 
-        document.getElementById('guardianList').innerHTML  = renderMemberList(guardians, 'guardian');
-        document.getElementById('dependentList').innerHTML = renderMemberList(dependents, 'dependent');
-    }
+        const guardianCedula = document.getElementById('guardianIdNumber').value.trim();
+        if (!guardianCedula) { setInvalid('guardianIdNumber', 'guardianCedulaError', 'La cédula del representante es requerida.'); valid = false; }
+        else clearInvalid('guardianIdNumber');
 
-    function renderMemberList(members, role) {
-        if (members.length === 0) {
-            return `<p class="text-muted small mb-0">Ninguno registrado.</p>`;
-        }
-        return members.map(m => {
-            const idNum   = m.patientIdNumber  ?? m.PatientIdNumber;
-            const name    = m.patientName      ?? m.PatientName      ?? '';
-            const relName = m.relationshipName ?? m.RelationshipName ?? null;
-            const pid     = m.patientId        ?? m.PatientId;
-            const cedula  = idNum   ? `Cédula: ${idNum}` : 'Sin cédula';
-            const rel     = relName ? ` — ${escapeHtml(relName)}` : '';
-            const removeBtn = role === 'guardian'
-                ? `<button class="btn btn-sm btn-outline-danger py-0" onclick="removeGuardian(${currentDetailPatientId},${pid})" title="Desvincular"><i class="fas fa-unlink"></i></button>`
-                : '';
-            return `<div class="d-flex justify-content-between align-items-center border rounded px-3 py-2 mb-2 bg-white">
-                <div>
-                    <span class="fw-semibold">${escapeHtml(name)}</span>${rel}
-                    <small class="text-muted d-block">${cedula}</small>
-                </div>
-                ${removeBtn}
-            </div>`;
-        }).join('');
-    }
+        const guardianName = document.getElementById('guardianName').value.trim();
+        if (!guardianName) { setInvalid('guardianName', 'guardianNameError', 'El nombre del representante es requerido.'); valid = false; }
+        else clearInvalid('guardianName');
 
-    function searchGuardian() {
-        const cedulaStr = document.getElementById('guardianCedulaInput').value.trim();
-        const errEl     = document.getElementById('guardianSearchError');
-        const cardEl    = document.getElementById('guardianFoundCard');
+        const relId = parseInt(document.getElementById('guardianRelationshipIdNew').value) || 0;
+        if (!relId) { setInvalid('guardianRelationshipIdNew', 'guardianRelError', 'Seleccione el parentesco.'); valid = false; }
+        else clearInvalid('guardianRelationshipIdNew');
 
-        errEl.classList.add('d-none');
-        cardEl.classList.add('d-none');
-        document.getElementById('createGuardianForm').classList.add('d-none');
-        guardianFoundPatientId = 0;
+        const guardianPhoneRaw = document.getElementById('guardianPhone').value.trim();
+        if (!guardianPhoneRaw) { setInvalid('guardianPhone', 'guardianPhoneError', 'El teléfono del representante es requerido.'); valid = false; }
+        else clearInvalid('guardianPhone');
 
-        if (!cedulaStr || !/^\d+$/.test(cedulaStr)) {
-            errEl.textContent = 'Ingrese una cédula válida.';
-            errEl.classList.remove('d-none');
-            return;
-        }
+        if (!valid) return;
 
-        fetch(`/Patient/GetByCedula?cedula=${cedulaStr}`)
-            .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.message ?? 'No encontrado.')))
-            .then(data => {
-                guardianFoundPatientId = data.PatientId ?? data.patientId;
-                document.getElementById('guardianFoundName').textContent =
-                    (data.PatientName ?? data.patientName ?? '') +
-                    (data.PatientIdNumber ?? data.patientIdNumber ? ` — Cédula ${data.PatientIdNumber ?? data.patientIdNumber}` : '');
-                document.getElementById('guardianRelationshipId').value = '0';
-                cardEl.classList.remove('d-none');
-            })
-            .catch(() => {
-                errEl.textContent = 'No se encontró ningún paciente con esa cédula. Complete los datos para registrarlo como representante:';
-                errEl.classList.remove('d-none');
-                document.getElementById('newGuardianName').value             = '';
-                document.getElementById('newGuardianSexId').value            = '0';
-                document.getElementById('newGuardianBirthdate').value        = '';
-                document.getElementById('newGuardianPhone').value            = '';
-                document.getElementById('newGuardianRelationshipId').value   = '0';
-                document.getElementById('createGuardianError').classList.add('d-none');
-                document.getElementById('createGuardianForm').classList.remove('d-none');
-            });
-    }
+        const minorPatientId = parseInt(document.getElementById('patientId').value);
+        let   guardianId     = parseInt(document.getElementById('guardianPatientId').value) || 0;
 
-    function linkGuardian() {
-        if (!guardianFoundPatientId) return;
-        const relId = parseInt(document.getElementById('guardianRelationshipId').value) || 0;
-        if (relId === 0) {
-            showToast('Seleccione el parentesco antes de vincular.', false);
-            return;
-        }
+        const guardianSexId   = parseInt(document.getElementById('guardianSexId').value)   || 0;
+        const guardianStateId = parseInt(document.getElementById('guardianStateId').value)  || 0;
+        const guardianMuniId  = parseInt(document.getElementById('guardianMunicipalityId').value) || 0;
+        const guardianMuniSel = document.getElementById('guardianMunicipalityId');
+        const guardianMuniName= guardianMuniSel.options[guardianMuniSel.selectedIndex]?.text ?? null;
+        const guardianStateEntry = allStates.find(s => s.StateId === guardianStateId);
+        const minorSexEntry      = allSexes.find(s => s.SexId === minorSexId);
+        const guardianPhone      = parseInt(guardianPhoneRaw.replace(/\D/g, '')) || 0;
 
-        fetch('/Patient/SaveGuardian', {
+        const guardianPayload = {
+            patientId:        guardianId,
+            patientName:      guardianName,
+            sexId:            guardianSexId,
+            patientIdNumber:  parseInt(guardianCedula) || null,
+            patientBirthdate: document.getElementById('guardianBirthdate').value || null,
+            patientMainPhone: guardianPhone,
+            municipalityId:   guardianMuniId,
+            patientAddress:   document.getElementById('guardianAddress').value.trim() || null,
+            isGuardianOnly:   true
+        };
+
+        const minorPayload = {
+            patientId:        minorPatientId,
+            patientName:      minorName,
+            sexId:            minorSexId,
+            patientIdNumber:  null,
+            patientBirthdate: minorBirthdate,
+            patientMainPhone: 0,
+            municipalityId:   guardianMuniId,
+            patientAddress:   guardianPayload.patientAddress,
+            isGuardianOnly:   false
+        };
+
+        document.getElementById('btnSave').disabled = true;
+
+        // Step 1: Save guardian
+        fetch('/Patient/Save', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({
-                patientId:         currentDetailPatientId,
-                guardianPatientId: guardianFoundPatientId,
-                relationshipId:    relId
+            body:    JSON.stringify(guardianPayload)
+        })
+        .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)))
+        .then(gData => {
+            const newGuardianId = gData.patientId ?? gData.PatientId;
+            // Step 2: Save minor
+            return fetch('/Patient/Save', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(minorPayload)
             })
+            .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)))
+            .then(mData => ({ minorId: mData.patientId ?? mData.PatientId, newGuardianId }));
         })
-        .then(r => { if (!r.ok) return Promise.reject(); })
-        .then(() => {
-            document.getElementById('guardianFoundCard').classList.add('d-none');
-            document.getElementById('createGuardianForm').classList.add('d-none');
-            document.getElementById('guardianCedulaInput').value = '';
-            guardianFoundPatientId = 0;
-            // Refresh family list
-            document.getElementById('familyLoading').classList.remove('d-none');
-            document.getElementById('familyContent').classList.add('d-none');
-            loadFamily(currentDetailPatientId);
-            // Update FamilyCount in allPatients
-            const p = allPatients.find(x => x.PatientId === currentDetailPatientId);
-            if (p) p.FamilyCount = (p.FamilyCount || 0) + 1;
+        .then(({ minorId, newGuardianId }) => {
+            // Step 3: Remove old guardian link if guardian changed
+            const oldId = originalGuardianId;
+            const removePromise = (oldId > 0 && oldId !== newGuardianId)
+                ? fetch('/Patient/RemoveGuardian', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({ patientId: minorId, guardianPatientId: oldId })
+                  })
+                : Promise.resolve();
+            return removePromise.then(() => ({ minorId, newGuardianId }));
+        })
+        .then(({ minorId, newGuardianId }) => {
+            // Step 4: Create/update guardian link
+            return fetch('/Patient/SaveGuardian', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ patientId: minorId, guardianPatientId: newGuardianId, relationshipId: relId })
+            })
+            .then(r => { if (!r.ok) return Promise.reject({ message: 'Error al vincular el representante.' }); })
+            .then(() => minorId);
+        })
+        .then(minorId => {
+            patientModal.hide();
+            const newDoc = {
+                PatientId:        minorId,
+                PatientName:      minorName,
+                SexId:            minorSexId,
+                SexName:          minorSexEntry?.SexName ?? null,
+                PatientIdNumber:  null,
+                PatientBirthdate: minorBirthdate,
+                Age:              calcAge(minorBirthdate),
+                PatientMainPhone: guardianPhone,
+                MunicipalityId:   guardianMuniId,
+                MunicipalityName: guardianMuniId > 0 ? (guardianMuniName !== '— Seleccionar —' ? guardianMuniName : null) : null,
+                StateId:          guardianStateId,
+                StateName:        guardianStateEntry?.StateName ?? null,
+                PatientAddress:   guardianPayload.patientAddress,
+                FamilyCount:      minorPatientId === 0 ? 1 : (allPatients.find(x => x.PatientId === minorPatientId)?.FamilyCount ?? 1),
+                HasGuardian:      true,
+            };
+            if (minorPatientId === 0) allPatients.push(newDoc);
+            else { const idx = allPatients.findIndex(x => x.PatientId === minorPatientId); if (idx >= 0) allPatients[idx] = newDoc; }
             applyFilters();
-            showToast('Representante vinculado correctamente.', true);
+            showToast(minorPatientId === 0 ? 'Menor registrado correctamente.' : 'Menor actualizado correctamente.', true);
         })
-        .catch(() => showToast('Error al vincular el representante.', false));
+        .catch(err => showToast(err?.message ?? 'Error al guardar el paciente.', false))
+        .finally(() => { document.getElementById('btnSave').disabled = false; });
     }
 
-    function removeGuardian(patientId, guardianId) {
-        fetch('/Patient/RemoveGuardian', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ patientId, guardianPatientId: guardianId })
-        })
-        .then(r => { if (!r.ok) return Promise.reject(); })
-        .then(() => {
-            document.getElementById('familyLoading').classList.remove('d-none');
-            document.getElementById('familyContent').classList.add('d-none');
-            loadFamily(currentDetailPatientId);
-            const p = allPatients.find(x => x.PatientId === currentDetailPatientId);
-            if (p && p.FamilyCount > 0) p.FamilyCount--;
-            applyFilters();
-            showToast('Vínculo eliminado correctamente.', true);
-        })
-        .catch(() => showToast('Error al eliminar el vínculo.', false));
-    }
 
     // ── Delete ───────────────────────────────────────────────────────────────
 
@@ -817,85 +991,12 @@
         .finally(() => { document.getElementById('btnDelete').disabled = false; });
     }
 
-    // ── Guardian creation ────────────────────────────────────────────────────
-
-    function cancelCreateGuardian() {
-        document.getElementById('createGuardianForm').classList.add('d-none');
-        document.getElementById('guardianSearchError').classList.add('d-none');
-    }
-
-    function createAndLinkGuardian() {
-        const name  = document.getElementById('newGuardianName').value.trim();
-        const sexId = parseInt(document.getElementById('newGuardianSexId').value) || 0;
-        const relId = parseInt(document.getElementById('newGuardianRelationshipId').value) || 0;
-        const errEl = document.getElementById('createGuardianError');
-        errEl.classList.add('d-none');
-
-        if (!name)     { errEl.textContent = 'El nombre es requerido.';   errEl.classList.remove('d-none'); return; }
-        if (sexId === 0){ errEl.textContent = 'Seleccione el sexo.';       errEl.classList.remove('d-none'); return; }
-        if (relId === 0){ errEl.textContent = 'Seleccione el parentesco.'; errEl.classList.remove('d-none'); return; }
-
-        const cedulaStr = document.getElementById('guardianCedulaInput').value.trim();
-        const birthdate = document.getElementById('newGuardianBirthdate').value || null;
-        const phoneRaw  = document.getElementById('newGuardianPhone').value.trim();
-
-        const savePayload = {
-            patientId:        0,
-            patientName:      name,
-            sexId:            sexId,
-            patientIdNumber:  cedulaStr ? parseInt(cedulaStr) : null,
-            patientBirthdate: birthdate,
-            patientMainPhone: phoneRaw ? parseInt(phoneRaw) : 0,
-            municipalityId:   0,
-            patientAddress:   null,
-            isGuardianOnly:   true
-        };
-
-        fetch('/Patient/Save', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify(savePayload)
-        })
-        .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)))
-        .then(data => {
-            const newId = data.patientId ?? data.PatientId;
-            return fetch('/Patient/SaveGuardian', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({
-                    patientId:         currentDetailPatientId,
-                    guardianPatientId: newId,
-                    relationshipId:    relId
-                })
-            }).then(r => { if (!r.ok) return Promise.reject('Error al vincular.'); });
-        })
-        .then(() => {
-            document.getElementById('createGuardianForm').classList.add('d-none');
-            document.getElementById('guardianSearchError').classList.add('d-none');
-            document.getElementById('guardianCedulaInput').value = '';
-            document.getElementById('familyLoading').classList.remove('d-none');
-            document.getElementById('familyContent').classList.add('d-none');
-            loadFamily(currentDetailPatientId);
-            const p = allPatients.find(x => x.PatientId === currentDetailPatientId);
-            if (p) p.FamilyCount = (p.FamilyCount || 0) + 1;
-            applyFilters();
-            showToast('Representante creado y vinculado correctamente.', true);
-        })
-        .catch(err => {
-            errEl.textContent = typeof err === 'string' ? err : (err?.message ?? 'Error al crear el representante.');
-            errEl.classList.remove('d-none');
-        });
-    }
-
     // ── Input behavior ───────────────────────────────────────────────────────
 
-    // Uppercase for .pat-text fields
     (function () {
         const accentMap = { 'á':'A','é':'E','í':'I','ó':'O','ú':'U','ü':'U','ñ':'Ñ','Á':'A','É':'E','Í':'I','Ó':'O','Ú':'U','Ü':'U' };
-        function up(str) {
-            return str.replace(/[áéíóúüñÁÉÍÓÚÜ]/g, c => accentMap[c] || c).toUpperCase();
-        }
-        document.querySelectorAll('#patientModal .pat-text').forEach(el => {
+        function up(str) { return str.replace(/[áéíóúüñÁÉÍÓÚÜ]/g, c => accentMap[c] || c).toUpperCase(); }
+        document.querySelectorAll('.pat-text, .minor-text, .guardian-text').forEach(el => {
             el.addEventListener('input', function () {
                 const pos = this.selectionStart;
                 this.value = up(this.value);
@@ -906,15 +1007,13 @@
                 const text = (e.clipboardData || window.clipboardData).getData('text');
                 const pos = this.selectionStart, end = this.selectionEnd;
                 this.value = up(this.value.slice(0, pos) + text + this.value.slice(end));
-                const newPos = pos + text.length;
-                this.setSelectionRange(newPos, newPos);
+                this.setSelectionRange(pos + text.length, pos + text.length);
             });
         });
     })();
 
-    // Cedula: digits only, max 9
     (function () {
-        ['patientIdNumber','guardianCedulaInput'].forEach(elId => {
+        ['patientIdNumber', 'guardianIdNumber'].forEach(elId => {
             const el = document.getElementById(elId);
             if (!el) return;
             el.addEventListener('keydown', function (e) {
@@ -928,49 +1027,16 @@
         });
     })();
 
-    // Uppercase for .guardian-text fields
     (function () {
-        const accentMap = { 'á':'A','é':'E','í':'I','ó':'O','ú':'U','ü':'U','ñ':'Ñ','Á':'A','É':'E','Í':'I','Ó':'O','Ú':'U','Ü':'U' };
-        function up(str) { return str.replace(/[áéíóúüñÁÉÍÓÚÜ]/g, c => accentMap[c] || c).toUpperCase(); }
-        document.querySelectorAll('#detailModal .guardian-text').forEach(el => {
-            el.addEventListener('input', function () {
-                const pos = this.selectionStart;
-                this.value = up(this.value);
-                this.setSelectionRange(pos, pos);
+        ['patientMainPhone', 'guardianPhone'].forEach(elId => {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            el.addEventListener('keydown', function (e) {
+                if (['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'].includes(e.key)) return;
+                if (e.ctrlKey || e.metaKey) return;
+                if (!/^\d$/.test(e.key)) e.preventDefault();
             });
-            el.addEventListener('paste', function (e) {
-                e.preventDefault();
-                const text = (e.clipboardData || window.clipboardData).getData('text');
-                const pos = this.selectionStart, end = this.selectionEnd;
-                this.value = up(this.value.slice(0, pos) + text + this.value.slice(end));
-                const newPos = pos + text.length;
-                this.setSelectionRange(newPos, newPos);
-            });
-        });
-    })();
-
-    // newGuardianPhone: digits only
-    (function () {
-        const el = document.getElementById('newGuardianPhone');
-        if (!el) return;
-        el.addEventListener('keydown', function (e) {
-            if (['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'].includes(e.key)) return;
-            if (e.ctrlKey || e.metaKey) return;
-            if (!/^\d$/.test(e.key)) e.preventDefault();
-        });
-        el.addEventListener('input', function () { this.value = this.value.replace(/\D/g, ''); });
-    })();
-
-    // Phone: digits only
-    (function () {
-        const el = document.getElementById('patientMainPhone');
-        el.addEventListener('keydown', function (e) {
-            if (['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'].includes(e.key)) return;
-            if (e.ctrlKey || e.metaKey) return;
-            if (!/^\d$/.test(e.key)) e.preventDefault();
-        });
-        el.addEventListener('input', function () {
-            this.value = this.value.replace(/\D/g, '');
+            el.addEventListener('input', function () { this.value = this.value.replace(/\D/g, ''); });
         });
     })();
 

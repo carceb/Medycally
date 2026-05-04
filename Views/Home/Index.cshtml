@@ -600,6 +600,9 @@
         document.getElementById('dashBody').innerHTML = page.map(a => {
             const color     = AVATAR_COLORS[a.appointmentId % AVATAR_COLORS.length];
             const statusCss = STATUS_CSS[a.appointmentStatusId] ?? 'status-pending';
+            const btnEdit   = a.isRegistered
+                ? `<button class="btn btn-sm btn-icon" title="Paciente ya registrado" disabled><i class="far fa-edit"></i></button>`
+                : `<button class="btn btn-sm btn-icon" title="Registrar Paciente" onclick="openRegisterPatient(${a.appointmentId})"><i class="far fa-edit"></i></button>`;
             return `<tr>
                 <td>
                     <div class="user-info">
@@ -627,8 +630,8 @@
                 <td><span class="text-muted fw-bold">${escHtml(a.appointmentTime ?? '—')}</span></td>
                 <td>
                     <div class="action-buttons">
-                        <button class="btn btn-sm btn-icon" title="Ver" onclick="openAppointmentDetail(${a.appointmentId})"><i class="far fa-eye"></i></button>
-                        <button class="btn btn-sm btn-icon" title="Registrar Paciente" onclick="openRegisterPatient(${a.appointmentId})"><i class="far fa-edit"></i></button>
+                        <button class="btn btn-sm btn-icon" title="Ver" onclick="openEyeDetail(${a.appointmentId}, ${a.isRegistered})"><i class="far fa-eye"></i></button>
+                        ${btnEdit}
                         <button class="btn btn-sm btn-icon text-danger" title="Eliminar" onclick="confirmDeleteAppointment(${a.appointmentId},'${escHtml(a.patientName ?? '')}')"><i class="fas fa-trash-alt"></i></button>
                     </div>
                 </td>
@@ -1018,6 +1021,66 @@
         })
         .catch(msg => showDashToast(typeof msg === 'string' ? msg : 'Error al eliminar la cita.', false))
         .finally(() => { btn.disabled = false; });
+    }
+
+    async function openEyeDetail(appointmentId, isRegistered) {
+        const body  = document.getElementById('appointmentDetailBody');
+        const modal = new bootstrap.Modal(document.getElementById('appointmentDetailModal'));
+        body.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>';
+        modal.show();
+
+        if (!isRegistered) {
+            fetch(`/Home/GetAppointmentDetail?appointmentId=${appointmentId}`)
+                .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.message ?? 'Error')))
+                .then(d => { body.innerHTML = buildDetailHtml(d); })
+                .catch(msg => {
+                    body.innerHTML = `<div class="alert alert-danger">${escHtml(typeof msg === 'string' ? msg : 'Error al cargar la cita.')}</div>`;
+                });
+            return;
+        }
+
+        try {
+            const res  = await fetch(`/Home/GetPatientDetail?appointmentId=${appointmentId}`);
+            const data = await res.json();
+            body.innerHTML = buildPatientDetailHtml(data);
+        } catch {
+            body.innerHTML = '<div class="alert alert-danger">Error al cargar los datos del paciente.</div>';
+        }
+    }
+
+    function buildPatientDetailHtml(d) {
+        const idNum    = d.patientIdNumber ? `V-${escHtml(String(d.patientIdNumber))}` : '—';
+        const phone    = d.patientMainPhone > 0 ? String(d.patientMainPhone) : '—';
+        const address  = d.patientAddress  || '—';
+        const location = [d.municipalityName, d.stateName].filter(Boolean).join(', ') || '—';
+
+        let html = `
+        <div class="mb-2">
+            <div class="fw-bold fs-6 mb-2">${escHtml(d.patientName ?? '—')}
+                ${d.isMinor ? '<span class="badge bg-warning text-dark ms-1">Menor</span>' : ''}
+            </div>
+            <table class="table table-sm table-borderless mb-0 small">
+                <tr><td class="text-muted pe-3" style="width:110px">Cédula</td><td>${idNum}</td></tr>
+                ${d.age > 0 ? `<tr><td class="text-muted pe-3">Edad</td><td>${d.age} años</td></tr>` : ''}
+                ${d.sexName ? `<tr><td class="text-muted pe-3">Sexo</td><td>${escHtml(d.sexName)}</td></tr>` : ''}
+                ${d.patientBirthdateDisplay ? `<tr><td class="text-muted pe-3">Nacimiento</td><td>${escHtml(d.patientBirthdateDisplay)}</td></tr>` : ''}
+                <tr><td class="text-muted pe-3">Teléfono</td><td>${escHtml(phone)}</td></tr>
+                ${location !== '—' ? `<tr><td class="text-muted pe-3">Ubicación</td><td>${escHtml(location)}</td></tr>` : ''}
+                ${address !== '—' ? `<tr><td class="text-muted pe-3">Dirección</td><td>${escHtml(address)}</td></tr>` : ''}
+            </table>
+        </div>`;
+
+        if (d.isMinor && d.guardianName) {
+            html += `
+        <hr class="my-2"/>
+        <div class="small text-muted mb-1"><i class="fas fa-user-shield me-1"></i>Representante</div>
+        <div class="fw-semibold">${escHtml(d.guardianName)}</div>
+        ${d.relationshipName ? `<div class="small text-muted">${escHtml(d.relationshipName)}</div>` : ''}
+        ${d.guardianIdNumber ? `<div class="small"><i class="fas fa-id-card me-1 text-muted"></i>V-${escHtml(d.guardianIdNumber)}</div>` : ''}
+        ${d.guardianPhone    ? `<div class="small"><i class="fas fa-phone me-1 text-muted"></i>${escHtml(d.guardianPhone)}</div>` : ''}`;
+        }
+
+        return html;
     }
 
     function openAppointmentDetail(appointmentId) {

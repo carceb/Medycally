@@ -16,7 +16,9 @@
       "Bash(grep -E \"\\\\.\\(csproj|sln\\)$\")",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\carce\\\\OneDrive\\\\Documents\\\\SQL Server Management Studio 22\\\\Projects\\\\Medycally\" -Directory)",
       "Bash(Select-Object Name)",
-      "Bash(Get-ChildItem *)"
+      "Bash(Get-ChildItem *)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Select-Object FullName)"
     ]
   }
 }

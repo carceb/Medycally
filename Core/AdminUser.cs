@@ -22,6 +22,8 @@ namespace Medycally.Core
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
+                int doctorIdOrd   = r.GetOrdinal("DoctorId");
+                int doctorNameOrd = r.GetOrdinal("DoctorName");
                 list.Add(new AdminUserModel
                 {
                     SecurityUserId = Convert.ToInt32(r["SecurityUserId"]),
@@ -30,15 +32,17 @@ namespace Medycally.Core
                     UserIdNumber   = r["UserIdNumber"] == DBNull.Value ? 0 : Convert.ToInt32(r["UserIdNumber"]),
                     SecurityRoleId = Convert.ToInt32(r["SecurityRoleId"]),
                     RoleName       = r["RoleName"]     == DBNull.Value ? null : r["RoleName"].ToString(),
+                    RoleLevel      = r["RoleLevel"]    == DBNull.Value ? 0 : Convert.ToInt32(r["RoleLevel"]),
                     StatusId       = Convert.ToInt32(r["StatusId"]),
-                    DoctorId       = r["DoctorId"]     == DBNull.Value ? null : Convert.ToInt32(r["DoctorId"]),
-                    DoctorName     = r["DoctorName"]   == DBNull.Value ? null : r["DoctorName"].ToString(),
+                    IsActivated    = r["IsActivated"]  != DBNull.Value && Convert.ToBoolean(r["IsActivated"]),
+                    DoctorId       = r.IsDBNull(doctorIdOrd)   ? null : r.GetInt32(doctorIdOrd),
+                    DoctorName     = r.IsDBNull(doctorNameOrd) ? null : r.GetString(doctorNameOrd),
                 });
             }
             return list;
         }
 
-        public int AddOrEdit(AdminUserModel model)
+        public AdminUserModel AddOrEdit(AdminUserModel model)
         {
             using var conn = _db.CreateConnection();
             conn.Open();
@@ -51,14 +55,14 @@ namespace Medycally.Core
             cmd.Parameters.AddWithValue("@StatusId",       model.StatusId);
             cmd.Parameters.AddWithValue("@DoctorId",       model.DoctorId.HasValue ? (object)model.DoctorId.Value : DBNull.Value);
 
-            // Password: hash plain text if provided, null keeps existing in SP
-            var hash = !string.IsNullOrWhiteSpace(model.UserPassword)
-                ? HashSha256(model.UserPassword)
-                : (object)DBNull.Value;
-            cmd.Parameters.AddWithValue("@PasswordHash", hash);
-
-            var result = cmd.ExecuteScalar();
-            return result != null && result != DBNull.Value ? Convert.ToInt32(result) : model.SecurityUserId;
+            using var reader = cmd.ExecuteReader();
+            if (reader.Read())
+            {
+                model.SecurityUserId  = Convert.ToInt32(reader["SecurityUserId"]);
+                int tokenOrd          = reader.GetOrdinal("ActivationToken");
+                model.ActivationToken = reader.IsDBNull(tokenOrd) ? null : reader.GetString(tokenOrd);
+            }
+            return model;
         }
 
         public void Delete(int securityUserId)
@@ -87,6 +91,16 @@ namespace Medycally.Core
                 });
             }
             return list;
+        }
+
+        public string? ResendToken(int securityUserId)
+        {
+            using var conn = _db.CreateConnection();
+            conn.Open();
+            using var cmd = new SqlCommand("SecurityUser_ResendToken", conn) { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@SecurityUserId", securityUserId);
+            var result = cmd.ExecuteScalar();
+            return result == null || result == DBNull.Value ? null : result.ToString();
         }
 
         private static string HashSha256(string input)

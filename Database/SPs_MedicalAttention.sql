@@ -370,5 +370,347 @@ END
 GO
 
 -- =============================================================================
+-- PASO 13: Agregar estado "Atendido" (ID=5) a AppointmentStatus
+-- =============================================================================
+IF NOT EXISTS (SELECT 1 FROM dbo.AppointmentStatus WHERE AppointmentStatusId = 5)
+    INSERT INTO dbo.AppointmentStatus (AppointmentStatusId, AppointmentStatusName)
+    VALUES (5, N'Atendido');
+GO
+
+-- =============================================================================
+-- PASO 14: Agregar columna PatientId a MedicalAttention
+-- Permite identificar al paciente sin depender de la tabla Appointment.
+-- NULL permitido para registros previos sin PatientId.
+-- =============================================================================
+IF NOT EXISTS (SELECT 1 FROM sys.columns
+               WHERE object_id = OBJECT_ID('dbo.MedicalAttention') AND name = 'PatientId')
+    ALTER TABLE dbo.MedicalAttention ADD PatientId INT NULL
+        CONSTRAINT FK_MedicalAttention_Patient FOREIGN KEY REFERENCES dbo.Patient(PatientId);
+GO
+
+-- =============================================================================
+-- PASO 15: Actualizar MedicalAttention_Save
+-- - Guarda PatientId derivándolo de la cita.
+-- - Al finalizar, actualiza el estatus de la cita a "Atendido" (5).
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.MedicalAttention_Save
+    @AttentionId   INT,
+    @AppointmentId INT,
+    @Diagnosis     NVARCHAR(3000),
+    @Treatment     NVARCHAR(3000),
+    @Notes         NVARCHAR(1000) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @DoctorId INT, @PatientId INT;
+    SELECT @DoctorId  = sd.DoctorId,
+           @PatientId = a.PatientId
+    FROM       dbo.Appointment     a
+    INNER JOIN dbo.SpecialtyDoctor sd ON sd.SpecialtyDoctorId = a.SpecialtyDoctorId
+    WHERE  a.AppointmentId = @AppointmentId;
+
+    IF @AttentionId = 0
+    BEGIN
+        INSERT INTO dbo.MedicalAttention (AppointmentId, DoctorId, PatientId, Diagnosis, Treatment, Notes)
+        VALUES (@AppointmentId, @DoctorId, @PatientId, @Diagnosis, @Treatment, @Notes);
+        SELECT CAST(SCOPE_IDENTITY() AS INT);
+    END
+    ELSE
+    BEGIN
+        UPDATE dbo.MedicalAttention
+        SET    Diagnosis = @Diagnosis,
+               Treatment = @Treatment,
+               Notes     = @Notes,
+               PatientId = ISNULL(PatientId, @PatientId)
+        WHERE  AttentionId = @AttentionId;
+        SELECT @AttentionId;
+    END
+
+    -- Marcar la cita como Atendido (5)
+    UPDATE dbo.Appointment
+    SET    AppointmentStatusId = 5
+    WHERE  AppointmentId = @AppointmentId;
+END
+GO
+
+-- =============================================================================
+-- PASO 16: MedicalAttention_GetAll
+-- Lista de todos los pacientes atendidos para la vista "Pacientes Atendidos".
+-- Usa PatientId para obtener el nombre del paciente; cae en Appointment.PatientName
+-- como respaldo para registros anteriores sin PatientId.
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.MedicalAttention_GetAll
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        ma.AttentionId,
+        ma.AppointmentId,
+        ma.PatientId,
+        ISNULL(p.PatientName, a.PatientName)                        AS PatientName,
+        ma.DoctorId,
+        ISNULL(sx.DoctorAbbreviation + N' ', N'') + d.DoctorName    AS DoctorName,
+        sp.SpecialtyName,
+        ma.AttentionDate,
+        ma.Diagnosis,
+        ma.Treatment,
+        ma.Notes
+    FROM       dbo.MedicalAttention  ma
+    INNER JOIN dbo.Doctor            d   ON d.DoctorId            = ma.DoctorId
+    INNER JOIN dbo.Appointment       a   ON a.AppointmentId       = ma.AppointmentId
+    INNER JOIN dbo.SpecialtyDoctor   sd  ON sd.SpecialtyDoctorId  = a.SpecialtyDoctorId
+    INNER JOIN dbo.Specialty         sp  ON sp.SpecialtyId        = sd.SpecialtyId
+    LEFT  JOIN dbo.Patient           p   ON p.PatientId           = ma.PatientId
+    LEFT  JOIN dbo.Sex               sx  ON sx.SexId              = d.SexId
+    ORDER BY ma.AttentionDate DESC;
+END
+GO
+
+-- =============================================================================
+-- PASO 17: Appointment_GetConfirmedByClinic — excluir pacientes no registrados
+-- Solo muestra citas donde el paciente ya existe en la tabla Patient.
+-- Agrega AND a.PatientId IS NOT NULL al WHERE.
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.Appointment_GetConfirmedByClinic
+    @ClinicId INT,
+    @DoctorId INT  = NULL,
+    @Date     DATE = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @TargetDate DATE = ISNULL(@Date, CAST(GETDATE() AS DATE));
+
+    SELECT
+        a.AppointmentId,
+        a.PatientName,
+        ISNULL(a.PatientIdNumber, 0)  AS PatientIdNumber,
+        a.PatientAge,
+        sd.DoctorId,
+        ISNULL(sx.DoctorAbbreviation + N' ', N'') + d.DoctorName  AS DoctorName,
+        sp.SpecialtyName,
+        r.ReasonName,
+        a.AppointmentDate,
+        LEFT(CONVERT(VARCHAR(8), CAST(a.AppointmentDate AS TIME), 108), 5) AS AppointmentTime,
+        a.AppointmentStatusId,
+        ast.AppointmentStatusName,
+        a.Symptoms
+    FROM       dbo.Appointment       a
+    INNER JOIN dbo.AppointmentStatus ast ON ast.AppointmentStatusId = a.AppointmentStatusId
+    INNER JOIN dbo.SpecialtyDoctor   sd  ON sd.SpecialtyDoctorId    = a.SpecialtyDoctorId
+    INNER JOIN dbo.Doctor            d   ON d.DoctorId              = sd.DoctorId
+    INNER JOIN dbo.Specialty         sp  ON sp.SpecialtyId          = sd.SpecialtyId
+    LEFT  JOIN dbo.Reason            r   ON r.ReasonId              = a.ReasonId
+    LEFT  JOIN dbo.Sex               sx  ON sx.SexId                = d.SexId
+    WHERE a.ClinicId             = @ClinicId
+      AND CAST(a.AppointmentDate AS DATE) = @TargetDate
+      AND a.AppointmentStatusId IN (2, 4)
+      AND a.PatientId            IS NOT NULL
+      AND (@DoctorId IS NULL OR sd.DoctorId = @DoctorId)
+    ORDER BY a.AppointmentDate;
+END
+GO
+
+-- =============================================================================
+-- PASO 18: Agregar Symptoms y ReasonId a MedicalAttention
+-- Permite conservar estos datos aunque el registro Appointment sea eliminado.
+-- =============================================================================
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.MedicalAttention') AND name = 'Symptoms')
+    ALTER TABLE dbo.MedicalAttention ADD Symptoms NVARCHAR(500) NULL;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.MedicalAttention') AND name = 'ReasonId')
+    ALTER TABLE dbo.MedicalAttention ADD ReasonId INT NULL
+        CONSTRAINT FK_MedicalAttention_Reason FOREIGN KEY REFERENCES dbo.Reason(ReasonId);
+GO
+
+-- =============================================================================
+-- PASO 19: MedicalAttention_Save — captura Symptoms y ReasonId de la cita
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.MedicalAttention_Save
+    @AttentionId   INT,
+    @AppointmentId INT,
+    @Diagnosis     NVARCHAR(3000),
+    @Treatment     NVARCHAR(3000),
+    @Notes         NVARCHAR(1000) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @DoctorId INT, @PatientId INT, @Symptoms NVARCHAR(500), @ReasonId INT;
+    SELECT @DoctorId  = sd.DoctorId,
+           @PatientId = a.PatientId,
+           @Symptoms  = a.Symptoms,
+           @ReasonId  = a.ReasonId
+    FROM       dbo.Appointment     a
+    INNER JOIN dbo.SpecialtyDoctor sd ON sd.SpecialtyDoctorId = a.SpecialtyDoctorId
+    WHERE  a.AppointmentId = @AppointmentId;
+
+    IF @AttentionId = 0
+    BEGIN
+        INSERT INTO dbo.MedicalAttention
+            (AppointmentId, DoctorId, PatientId, Symptoms, ReasonId, Diagnosis, Treatment, Notes)
+        VALUES
+            (@AppointmentId, @DoctorId, @PatientId, @Symptoms, @ReasonId, @Diagnosis, @Treatment, @Notes);
+        SELECT CAST(SCOPE_IDENTITY() AS INT);
+    END
+    ELSE
+    BEGIN
+        UPDATE dbo.MedicalAttention
+        SET    Diagnosis = @Diagnosis,
+               Treatment = @Treatment,
+               Notes     = @Notes,
+               PatientId = ISNULL(PatientId, @PatientId),
+               Symptoms  = ISNULL(Symptoms,  @Symptoms),
+               ReasonId  = ISNULL(ReasonId,  @ReasonId)
+        WHERE  AttentionId = @AttentionId;
+        SELECT @AttentionId;
+    END
+
+    UPDATE dbo.Appointment
+    SET    AppointmentStatusId = 5
+    WHERE  AppointmentId = @AppointmentId;
+END
+GO
+
+-- =============================================================================
+-- PASO 20: MedicalAttention_GetByAppointment — devuelve Symptoms y ReasonName
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.MedicalAttention_GetByAppointment
+    @AppointmentId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        ma.AttentionId,
+        ma.AppointmentId,
+        ma.AttentionDate,
+        ma.Diagnosis,
+        ma.Treatment,
+        ma.Notes,
+        ma.Symptoms,
+        ma.ReasonId,
+        r.ReasonName,
+        ISNULL(sx.DoctorAbbreviation + N' ', N'') + d.DoctorName AS DoctorName
+    FROM       dbo.MedicalAttention  ma
+    INNER JOIN dbo.Doctor            d  ON d.DoctorId  = ma.DoctorId
+    LEFT  JOIN dbo.Sex               sx ON sx.SexId    = d.SexId
+    LEFT  JOIN dbo.Reason            r  ON r.ReasonId  = ma.ReasonId
+    WHERE ma.AppointmentId = @AppointmentId;
+END
+GO
+
+-- =============================================================================
+-- PASO 21: MedicalAttention_GetByPatient — usa ma.Symptoms (permanente)
+-- Transición: ISNULL(ma.Symptoms, a.Symptoms) para registros anteriores
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.MedicalAttention_GetByPatient
+    @PatientIdNumber INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        ma.AttentionId,
+        ma.AppointmentId,
+        ma.AttentionDate,
+        ma.Diagnosis,
+        ma.Treatment,
+        ma.Notes,
+        ISNULL(sx.DoctorAbbreviation + N' ', N'') + d.DoctorName  AS DoctorName,
+        sp.SpecialtyName,
+        a.AppointmentDate,
+        ISNULL(ma.Symptoms, a.Symptoms)                            AS Symptoms
+    FROM       dbo.MedicalAttention  ma
+    INNER JOIN dbo.Appointment       a   ON a.AppointmentId      = ma.AppointmentId
+    INNER JOIN dbo.Doctor            d   ON d.DoctorId           = ma.DoctorId
+    INNER JOIN dbo.SpecialtyDoctor   sd  ON sd.SpecialtyDoctorId = a.SpecialtyDoctorId
+    INNER JOIN dbo.Specialty         sp  ON sp.SpecialtyId       = sd.SpecialtyId
+    LEFT  JOIN dbo.Sex               sx  ON sx.SexId             = d.SexId
+    WHERE  a.PatientIdNumber = @PatientIdNumber
+    ORDER  BY ma.AttentionDate DESC;
+END
+GO
+
+-- =============================================================================
+-- PASO 22: MedicalAttention_GetByGuardian — usa ma.Symptoms (permanente)
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.MedicalAttention_GetByGuardian
+    @ChildGuardianIdNumber INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        ma.AttentionId,
+        ma.AppointmentId,
+        ma.AttentionDate,
+        ma.Diagnosis,
+        ma.Treatment,
+        ma.Notes,
+        ISNULL(sx.DoctorAbbreviation + N' ', N'') + d.DoctorName  AS DoctorName,
+        sp.SpecialtyName,
+        a.AppointmentDate,
+        ISNULL(ma.Symptoms, a.Symptoms)                            AS Symptoms,
+        a.PatientName
+    FROM       dbo.MedicalAttention  ma
+    INNER JOIN dbo.Appointment       a   ON a.AppointmentId      = ma.AppointmentId
+    INNER JOIN dbo.Doctor            d   ON d.DoctorId           = ma.DoctorId
+    INNER JOIN dbo.SpecialtyDoctor   sd  ON sd.SpecialtyDoctorId = a.SpecialtyDoctorId
+    INNER JOIN dbo.Specialty         sp  ON sp.SpecialtyId       = sd.SpecialtyId
+    LEFT  JOIN dbo.Sex               sx  ON sx.SexId             = d.SexId
+    WHERE  a.ChildGuardianIdNumber = @ChildGuardianIdNumber
+    ORDER  BY ma.AttentionDate DESC;
+END
+GO
+
+-- =============================================================================
+-- PASO 23: Appointment_GetConfirmedByClinic — mostrar TODOS (registrados y no registrados)
+--          Elimina el filtro AND a.PatientId IS NOT NULL para que los pacientes sin
+--          registro en Patient también aparezcan en la cola. Agrega a.PatientId al SELECT.
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.Appointment_GetConfirmedByClinic
+    @ClinicId INT,
+    @DoctorId INT  = NULL,
+    @Date     DATE = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @TargetDate DATE = ISNULL(@Date, CAST(GETDATE() AS DATE));
+
+    SELECT
+        a.AppointmentId,
+        a.PatientName,
+        ISNULL(a.PatientIdNumber, 0)  AS PatientIdNumber,
+        a.PatientAge,
+        sd.DoctorId,
+        ISNULL(sx.DoctorAbbreviation + N' ', N'') + d.DoctorName  AS DoctorName,
+        sp.SpecialtyName,
+        r.ReasonName,
+        a.AppointmentDate,
+        LEFT(CONVERT(VARCHAR(8), CAST(a.AppointmentDate AS TIME), 108), 5) AS AppointmentTime,
+        a.AppointmentStatusId,
+        ast.AppointmentStatusName,
+        a.Symptoms,
+        a.PatientId
+    FROM       dbo.Appointment       a
+    INNER JOIN dbo.AppointmentStatus ast ON ast.AppointmentStatusId = a.AppointmentStatusId
+    INNER JOIN dbo.SpecialtyDoctor   sd  ON sd.SpecialtyDoctorId    = a.SpecialtyDoctorId
+    INNER JOIN dbo.Doctor            d   ON d.DoctorId              = sd.DoctorId
+    INNER JOIN dbo.Specialty         sp  ON sp.SpecialtyId          = sd.SpecialtyId
+    LEFT  JOIN dbo.Reason            r   ON r.ReasonId              = a.ReasonId
+    LEFT  JOIN dbo.Sex               sx  ON sx.SexId                = d.SexId
+    WHERE a.ClinicId             = @ClinicId
+      AND CAST(a.AppointmentDate AS DATE) = @TargetDate
+      AND a.AppointmentStatusId IN (2, 4)
+      AND (@DoctorId IS NULL OR sd.DoctorId = @DoctorId)
+    ORDER BY a.AppointmentDate;
+END
+GO
+
+-- =============================================================================
 -- FIN DEL SCRIPT
 -- =============================================================================

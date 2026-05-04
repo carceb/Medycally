@@ -32,7 +32,10 @@ builder.Services.AddScoped<ISecurityUser, SecurityUser>();
 builder.Services.AddScoped<ISecurityModule, SecurityModule>();
 builder.Services.AddScoped<IDoctor, Doctor>();
 builder.Services.AddScoped<IAdminUser, AdminUser>();
+builder.Services.AddScoped<ISecurityRole, SecurityRole>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IMedicalAttention, MedicalAttention>();
+builder.Services.AddScoped<IPatientHistory, PatientHistory>();
 
 var app = builder.Build();
 

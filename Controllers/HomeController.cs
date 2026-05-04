@@ -113,6 +113,60 @@ public class HomeController : Controller
     }
 
     [HttpGet]
+    public IActionResult GetPatientDetail(int appointmentId)
+    {
+        var detail = _appointmentQuery.GetById(appointmentId);
+        if (detail == null) return NotFound(new { message = "Cita no encontrada." });
+
+        if (!detail.PatientId.HasValue)
+            return NotFound(new { message = "Paciente no registrado." });
+
+        var patient = _patient.GetById(detail.PatientId.Value);
+        if (patient == null)
+            return NotFound(new { message = "Paciente no encontrado." });
+
+        var family         = _patient.GetFamily(patient.PatientId);
+        var guardianMember = family.FirstOrDefault(f => f.Role == "guardian");
+        string? guardianName = null, guardianPhone = null, guardianIdNumber = null, relationshipName = null;
+        bool isMinor = false;
+        if (guardianMember != null)
+        {
+            isMinor          = true;
+            relationshipName = guardianMember.RelationshipName;
+            var guardian     = _patient.GetById(guardianMember.PatientId);
+            if (guardian != null)
+            {
+                guardianName     = guardian.PatientName;
+                guardianPhone    = guardian.PatientMainPhone > 0 ? guardian.PatientMainPhone.ToString() : null;
+                guardianIdNumber = guardian.PatientIdNumber?.ToString();
+            }
+        }
+
+        return Json(new
+        {
+            patientId               = patient.PatientId,
+            patientIdNumber         = patient.PatientIdNumber,
+            patientName             = patient.PatientName,
+            sexId                   = patient.SexId,
+            sexName                 = patient.SexName,
+            patientBirthdate        = patient.PatientBirthdate?.ToString("yyyy-MM-dd"),
+            patientBirthdateDisplay = patient.PatientBirthdate?.ToString("dd/MM/yyyy"),
+            age                     = patient.Age,
+            patientMainPhone        = patient.PatientMainPhone,
+            municipalityId          = patient.MunicipalityId,
+            municipalityName        = patient.MunicipalityName,
+            stateId                 = patient.StateId,
+            stateName               = patient.StateName,
+            patientAddress          = patient.PatientAddress,
+            isMinor,
+            guardianName,
+            guardianPhone,
+            guardianIdNumber,
+            relationshipName
+        });
+    }
+
+    [HttpGet]
     public IActionResult GetClinics()
     {
         try

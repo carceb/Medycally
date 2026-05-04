@@ -479,5 +479,66 @@ END
 GO
 
 -- =============================================================================
+-- PASO 12: Agregar PatientId a Appointment_GetById
+-- El C# AppointmentQuery.GetById() lee PatientId del reader.
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.Appointment_GetById
+    @AppointmentId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT
+        a.AppointmentId,
+        a.ClinicId,
+        c.ClinicName,
+        a.PatientTypeId,
+        a.PatientName,
+        a.PatientAge,
+        a.PatientIdNumber,
+        a.SexId                                                                  AS PatientSexId,
+        sx_p.SexName                                                             AS PatientSexName,
+        a.PatientPhone,
+        a.PatientAddress,
+        a.PatientBirthDate,
+        a.PatientStateId,
+        st_p.StateName                                                           AS PatientStateName,
+        a.ChildGuardianIdNumber,
+        a.ChildGuardianName,
+        r.RelationshipName,
+        a.ChildGuardianPhone,
+        a.ChildGuardianAddress,
+        a.ChildGuardianBirthDate,
+        a.ChildGuardianSexId,
+        sx_g.SexName                                                             AS ChildGuardianSexName,
+        a.ChildGuardianStateId,
+        st_g.StateName                                                           AS ChildGuardianStateName,
+        a.ReasonId,
+        rsn.ReasonName,
+        a.Symptoms,
+        s.SpecialtyName,
+        ISNULL(sx_d.DoctorAbbreviation + ' ', '') + d.DoctorName                AS DoctorName,
+        a.AppointmentDate,
+        LEFT(CONVERT(VARCHAR(8), CAST(a.AppointmentDate AS TIME), 108), 5)       AS AppointmentTime,
+        a.AppointmentStatusId,
+        ast.AppointmentStatusName,
+        a.PatientId
+    FROM      dbo.Appointment        a
+    INNER JOIN dbo.Clinic             c     ON c.ClinicId              = a.ClinicId
+    INNER JOIN dbo.SpecialtyDoctor    sd    ON sd.SpecialtyDoctorId    = a.SpecialtyDoctorId
+    INNER JOIN dbo.Specialty          s     ON s.SpecialtyId           = sd.SpecialtyId
+    INNER JOIN dbo.Doctor             d     ON d.DoctorId              = sd.DoctorId
+    INNER JOIN dbo.AppointmentStatus  ast   ON ast.AppointmentStatusId = a.AppointmentStatusId
+    LEFT  JOIN dbo.Sex                sx_p  ON sx_p.SexId              = a.SexId
+    LEFT  JOIN dbo.Sex                sx_d  ON sx_d.SexId              = d.SexId
+    LEFT  JOIN dbo.Sex                sx_g  ON sx_g.SexId              = a.ChildGuardianSexId
+    LEFT  JOIN dbo.Relationship       r     ON r.RelationshipId        = a.RelationshipId
+    LEFT  JOIN dbo.State              st_p  ON st_p.StateId            = a.PatientStateId
+    LEFT  JOIN dbo.State              st_g  ON st_g.StateId            = a.ChildGuardianStateId
+    LEFT  JOIN dbo.Reason             rsn   ON rsn.ReasonId            = a.ReasonId
+    WHERE a.AppointmentId = @AppointmentId;
+END
+GO
+
+-- =============================================================================
 -- FIN DEL SCRIPT
 -- =============================================================================

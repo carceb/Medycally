@@ -1,0 +1,486 @@
+@model Medycally.Models.PatientHistoryModel
+@{
+    ViewData["Title"] = "Historia Médica";
+    var patient       = ViewBag.Patient       as Medycally.Models.PatientModel;
+    var consultations = ViewBag.Consultations as List<Medycally.Models.MedicalAttentionModel> ?? [];
+    bool hasHistory   = Model.PatientHistoryId > 0;
+
+    string sel(int field, int val) => field == val ? "checked" : "";
+}
+
+<!-- Back link -->
+<div class="mb-3">
+    <a href="/Patient" class="text-decoration-none text-muted">
+        <i class="fas fa-arrow-left me-1"></i>Volver a Pacientes
+    </a>
+</div>
+
+<!-- Header -->
+<div class="d-flex align-items-center gap-2 mb-4">
+    <i class="fas fa-file-medical fa-lg text-primary"></i>
+    <h5 class="mb-0 fw-bold">Historia Médica</h5>
+    @if (patient != null)
+    {
+        <span class="text-muted">—</span>
+        <span class="fw-semibold">@patient.PatientName</span>
+        @if (patient.HasGuardian)
+        {
+            <span class="badge bg-warning text-dark">Menor</span>
+        }
+    }
+    @if (hasHistory)
+    {
+        <span class="badge bg-success ms-auto">
+            <i class="fas fa-check me-1"></i>Antecedentes registrados
+        </span>
+    }
+    else
+    {
+        <span class="badge bg-secondary ms-auto">Sin antecedentes</span>
+    }
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-4" id="historyTabs">
+    <li class="nav-item">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabBackground">
+            <i class="fas fa-clipboard-list me-1"></i>Antecedentes
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabConsultations">
+            <i class="fas fa-notes-medical me-1"></i>Consultas
+            <span class="badge bg-primary rounded-pill ms-1">@consultations.Count</span>
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+
+    <!-- ===================== TAB 1: ANTECEDENTES ===================== -->
+    <div class="tab-pane fade show active" id="tabBackground">
+
+        <input type="hidden" id="phPatientId" value="@Model.PatientId" />
+
+        <!-- Antecedentes Médicos Personales -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header py-2 fw-semibold">
+                <i class="fas fa-heartbeat me-2 text-danger"></i>Antecedentes Médicos Personales
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">Indique si padece o ha padecido alguna de las siguientes condiciones:</p>
+                <div class="row g-2">
+                    <div class="col-sm-6 col-lg-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkHypertension" @(Model.HasHypertension ? "checked" : "") />
+                            <label class="form-check-label" for="chkHypertension">Hipertensión Arterial</label>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkDiabetes" @(Model.HasDiabetes ? "checked" : "") />
+                            <label class="form-check-label" for="chkDiabetes">Diabetes</label>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkHeartDisease" @(Model.HasHeartDisease ? "checked" : "") />
+                            <label class="form-check-label" for="chkHeartDisease">Enfermedades cardíacas</label>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkAsthma" @(Model.HasAsthmaRespiratory ? "checked" : "") />
+                            <label class="form-check-label" for="chkAsthma">Asma / Enf. respiratorias</label>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkThyroid" @(Model.HasThyroidDisease ? "checked" : "") />
+                            <label class="form-check-label" for="chkThyroid">Problemas de tiroides</label>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkRenal" @(Model.HasRenalDisease ? "checked" : "") />
+                            <label class="form-check-label" for="chkRenal">Enfermedades renales</label>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkAnxiety" @(Model.HasAnxietyDepression ? "checked" : "") />
+                            <label class="form-check-label" for="chkAnxiety">Ansiedad / Depresión</label>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkCancer" @(Model.HasCancer ? "checked" : "")
+                                   onchange="document.getElementById('cancerDetailRow').classList.toggle('d-none', !this.checked)" />
+                            <label class="form-check-label" for="chkCancer">Cáncer (especificar tipo)</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-2 @(Model.HasCancer ? "" : "d-none")" id="cancerDetailRow">
+                    <input type="text" class="form-control form-control-sm" id="txtCancerDetail"
+                           placeholder="Tipo de cáncer" value="@(Model.CancerDetail ?? "")" maxlength="200" />
+                </div>
+                <div class="row g-3 mt-1">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Cirugías previas <span class="text-muted fw-normal">(tipo y año aproximado)</span></label>
+                        <textarea class="form-control form-control-sm" id="txtSurgeries" rows="2"
+                                  maxlength="500" placeholder="Ej: Apendicectomía 2018">@(Model.PreviousSurgeries ?? "")</textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Hospitalizaciones recientes <span class="text-muted fw-normal">(motivo y fecha)</span></label>
+                        <textarea class="form-control form-control-sm" id="txtHospitalizations" rows="2"
+                                  maxlength="500" placeholder="Ej: Neumonía, enero 2024">@(Model.RecentHospitalizations ?? "")</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alergias -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header py-2 fw-semibold">
+                <i class="fas fa-allergies me-2 text-warning"></i>Alergias
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Medicamentos <span class="text-muted fw-normal">(Ej. Penicilina, Aspirina)</span></label>
+                        <input type="text" class="form-control form-control-sm" id="txtDrugAllergies"
+                               maxlength="300" value="@(Model.DrugAllergies ?? "")" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Alimentos</label>
+                        <input type="text" class="form-control form-control-sm" id="txtFoodAllergies"
+                               maxlength="300" value="@(Model.FoodAllergies ?? "")" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Otras <span class="text-muted fw-normal">(látex, polen, insectos)</span></label>
+                        <input type="text" class="form-control form-control-sm" id="txtOtherAllergies"
+                               maxlength="300" value="@(Model.OtherAllergies ?? "")" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Medicamentos Actuales -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header py-2 fw-semibold">
+                <i class="fas fa-pills me-2 text-info"></i>Medicamentos Actuales
+            </div>
+            <div class="card-body">
+                <label class="form-label small text-muted">Enumere cualquier medicamento, vitamina o suplemento que esté tomando actualmente y su dosis (si la conoce).</label>
+                <textarea class="form-control form-control-sm" id="txtCurrentMedications" rows="3"
+                          maxlength="1000" placeholder="Ej: Metformina 500mg c/12h, Vitamina D 1000UI/día">@(Model.CurrentMedications ?? "")</textarea>
+            </div>
+        </div>
+
+        <!-- Antecedentes Familiares -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header py-2 fw-semibold">
+                <i class="fas fa-users me-2 text-secondary"></i>Antecedentes Familiares
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">¿Algún familiar directo (padres, hermanos) padece de...?</p>
+                <div class="row g-2">
+                    <div class="col-sm-6 col-lg-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkFamDiabetes" @(Model.FamilyDiabetes ? "checked" : "") />
+                            <label class="form-check-label" for="chkFamDiabetes">Diabetes</label>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkFamCancer" @(Model.FamilyCancer ? "checked" : "") />
+                            <label class="form-check-label" for="chkFamCancer">Cáncer</label>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkFamHeart" @(Model.FamilyHeartDisease ? "checked" : "") />
+                            <label class="form-check-label" for="chkFamHeart">Enf. del corazón</label>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkFamHypertension" @(Model.FamilyHypertension ? "checked" : "") />
+                            <label class="form-check-label" for="chkFamHypertension">Presión alta</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <label class="form-label small fw-semibold">Otros antecedentes familiares</label>
+                    <input type="text" class="form-control form-control-sm" id="txtFamilyOthers"
+                           maxlength="300" placeholder="Especifique..." value="@(Model.FamilyOthers ?? "")" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Hábitos y Estilo de Vida -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header py-2 fw-semibold">
+                <i class="fas fa-running me-2 text-success"></i>Hábitos y Estilo de Vida
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold d-block">Consumo de tabaco</label>
+                        <div class="d-flex gap-3 flex-wrap">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="smoking" id="smokingNever"   value="0" @sel(Model.SmokingStatus,0) />
+                                <label class="form-check-label" for="smokingNever">Nunca</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="smoking" id="smokingEx"      value="1" @sel(Model.SmokingStatus,1) />
+                                <label class="form-check-label" for="smokingEx">Ex-fumador</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="smoking" id="smokingActive"  value="2" @sel(Model.SmokingStatus,2)
+                                       onchange="document.getElementById('smokingAmountRow').classList.toggle('d-none', this.value!='2')" />
+                                <label class="form-check-label" for="smokingActive">Fumador activo</label>
+                            </div>
+                        </div>
+                        <div class="mt-2 @(Model.SmokingStatus == 2 ? "" : "d-none")" id="smokingAmountRow">
+                            <input type="text" class="form-control form-control-sm" id="txtSmokingAmount"
+                                   placeholder="Cantidad al día" maxlength="50" value="@(Model.SmokingDailyAmount ?? "")" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold d-block">Consumo de alcohol</label>
+                        <div class="d-flex gap-3 flex-wrap">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="alcohol" id="alcoholNever"     value="0" @sel(Model.AlcoholStatus,0) />
+                                <label class="form-check-label" for="alcoholNever">Nunca</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="alcohol" id="alcoholOccasional" value="1" @sel(Model.AlcoholStatus,1) />
+                                <label class="form-check-label" for="alcoholOccasional">Ocasional</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="alcohol" id="alcoholFrequent"  value="2" @sel(Model.AlcoholStatus,2) />
+                                <label class="form-check-label" for="alcoholFrequent">Frecuente</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold d-block">Actividad física</label>
+                        <div class="d-flex gap-3 flex-wrap">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="physical" id="physicalSed"      value="0" @sel(Model.PhysicalActivity,0) />
+                                <label class="form-check-label" for="physicalSed">Sedentario</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="physical" id="physicalModerate" value="1" @sel(Model.PhysicalActivity,1) />
+                                <label class="form-check-label" for="physicalModerate">Moderado (1-2/sem.)</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="physical" id="physicalActive"   value="2" @sel(Model.PhysicalActivity,2) />
+                                <label class="form-check-label" for="physicalActive">Activo (+3/sem.)</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold d-block">Consumo de sustancias / drogas</label>
+                        <div class="d-flex gap-3 flex-wrap">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="druguse" id="drugsNo"  value="0" @(Model.DrugUse ? "" : "checked") />
+                                <label class="form-check-label" for="drugsNo">No</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="druguse" id="drugsYes" value="1" @(Model.DrugUse ? "checked" : "") />
+                                <label class="form-check-label" for="drugsYes">Sí</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Revisión por Sistemas -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header py-2 fw-semibold">
+                <i class="fas fa-stethoscope me-2 text-primary"></i>Revisión por Sistemas (Breve)
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">Marque si ha tenido recientemente:</p>
+                <div class="row g-2">
+                    <div class="col-sm-6 col-lg-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkWeightLoss" @(Model.HasWeightLoss ? "checked" : "") />
+                            <label class="form-check-label" for="chkWeightLoss">Pérdida de peso inexplicable</label>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkFever" @(Model.HasFrequentFever ? "checked" : "") />
+                            <label class="form-check-label" for="chkFever">Fiebre frecuente</label>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkHeadache" @(Model.HasHeadache ? "checked" : "") />
+                            <label class="form-check-label" for="chkHeadache">Dolor de cabeza persistente</label>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkVision" @(Model.HasVisionHearingChange ? "checked" : "") />
+                            <label class="form-check-label" for="chkVision">Cambios en la visión o audición</label>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkBreathing" @(Model.HasBreathingDifficulty ? "checked" : "") />
+                            <label class="form-check-label" for="chkBreathing">Dificultad para respirar / tos crónica</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Guardar -->
+        <div class="d-flex align-items-center gap-3 mb-5">
+            <button type="button" class="btn btn-primary px-4" id="btnSaveHistory" onclick="saveHistory()">
+                <i class="fas fa-save me-2"></i>Guardar Antecedentes
+            </button>
+            <span id="saveStatus" class="small text-muted"></span>
+        </div>
+
+    </div><!-- /tab antecedentes -->
+
+    <!-- ===================== TAB 2: CONSULTAS ===================== -->
+    <div class="tab-pane fade" id="tabConsultations">
+        @if (consultations.Count == 0)
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-file-medical fa-3x mb-3 opacity-25 d-block"></i>
+                <p class="mb-0">Sin consultas registradas.</p>
+            </div>
+        }
+        else
+        {
+            <div class="accordion" id="consultAccordion">
+                @for (int i = 0; i < consultations.Count; i++)
+                {
+                    var c     = consultations[i];
+                    var colId = $"consult-{i}";
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button @(i > 0 ? "collapsed" : "")"
+                                    type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#@colId">
+                                <div class="d-flex w-100 align-items-center gap-3 flex-wrap">
+                                    <span class="fw-semibold">@c.AttentionDate.ToString("dd/MM/yyyy")</span>
+                                    @if (!string.IsNullOrEmpty(c.PatientName))
+                                    {
+                                        <span class="badge bg-warning text-dark">@c.PatientName</span>
+                                    }
+                                    <span class="text-muted small">@(c.SpecialtyName ?? "") &nbsp;·&nbsp; @(c.DoctorName ?? "")</span>
+                                </div>
+                            </button>
+                        </h2>
+                        <div id="@colId" class="accordion-collapse collapse @(i == 0 ? "show" : "")">
+                            <div class="accordion-body small">
+                                @if (!string.IsNullOrEmpty(c.Symptoms))
+                                {
+                                    <div class="mb-2"><span class="text-muted">Síntomas:&nbsp;</span>@c.Symptoms</div>
+                                }
+                                <div class="mb-2">
+                                    <div class="text-muted fw-semibold mb-1">Diagnóstico</div>
+                                    <div class="p-2 bg-light rounded">@c.Diagnosis</div>
+                                </div>
+                                <div class="mb-2">
+                                    <div class="text-muted fw-semibold mb-1">Tratamiento</div>
+                                    <div class="p-2 bg-light rounded">@c.Treatment</div>
+                                </div>
+                                @if (!string.IsNullOrEmpty(c.Notes))
+                                {
+                                    <div>
+                                        <div class="text-muted fw-semibold mb-1">Notas</div>
+                                        <div class="p-2 bg-light rounded">@c.Notes</div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div><!-- /tab consultas -->
+
+</div><!-- /tab-content -->
+
+<style>
+    .accordion-button:not(.collapsed) { background: #f0f9ff; color: #0a58ca; }
+</style>
+
+@section Scripts {
+<script>
+    // Mostrar/ocultar campo cantidad tabaco en carga de página (si ya está en activo)
+    document.querySelectorAll('input[name="smoking"]').forEach(r => {
+        r.addEventListener('change', function () {
+            document.getElementById('smokingAmountRow').classList.toggle('d-none', this.value !== '2');
+        });
+    });
+
+    async function saveHistory() {
+        const payload = {
+            patientId:              parseInt(document.getElementById('phPatientId').value),
+            hasHypertension:        document.getElementById('chkHypertension').checked,
+            hasDiabetes:            document.getElementById('chkDiabetes').checked,
+            hasHeartDisease:        document.getElementById('chkHeartDisease').checked,
+            hasAsthmaRespiratory:   document.getElementById('chkAsthma').checked,
+            hasThyroidDisease:      document.getElementById('chkThyroid').checked,
+            hasRenalDisease:        document.getElementById('chkRenal').checked,
+            hasAnxietyDepression:   document.getElementById('chkAnxiety').checked,
+            hasCancer:              document.getElementById('chkCancer').checked,
+            cancerDetail:           document.getElementById('txtCancerDetail').value.trim() || null,
+            previousSurgeries:      document.getElementById('txtSurgeries').value.trim() || null,
+            recentHospitalizations: document.getElementById('txtHospitalizations').value.trim() || null,
+            drugAllergies:          document.getElementById('txtDrugAllergies').value.trim() || null,
+            foodAllergies:          document.getElementById('txtFoodAllergies').value.trim() || null,
+            otherAllergies:         document.getElementById('txtOtherAllergies').value.trim() || null,
+            currentMedications:     document.getElementById('txtCurrentMedications').value.trim() || null,
+            familyDiabetes:         document.getElementById('chkFamDiabetes').checked,
+            familyCancer:           document.getElementById('chkFamCancer').checked,
+            familyHeartDisease:     document.getElementById('chkFamHeart').checked,
+            familyHypertension:     document.getElementById('chkFamHypertension').checked,
+            familyOthers:           document.getElementById('txtFamilyOthers').value.trim() || null,
+            smokingStatus:          parseInt(document.querySelector('input[name="smoking"]:checked')?.value ?? '0'),
+            smokingDailyAmount:     document.getElementById('txtSmokingAmount').value.trim() || null,
+            alcoholStatus:          parseInt(document.querySelector('input[name="alcohol"]:checked')?.value ?? '0'),
+            physicalActivity:       parseInt(document.querySelector('input[name="physical"]:checked')?.value ?? '0'),
+            drugUse:                document.querySelector('input[name="druguse"]:checked')?.value === '1',
+            hasWeightLoss:          document.getElementById('chkWeightLoss').checked,
+            hasFrequentFever:       document.getElementById('chkFever').checked,
+            hasHeadache:            document.getElementById('chkHeadache').checked,
+            hasVisionHearingChange: document.getElementById('chkVision').checked,
+            hasBreathingDifficulty: document.getElementById('chkBreathing').checked
+        };
+
+        const btn    = document.getElementById('btnSaveHistory');
+        const status = document.getElementById('saveStatus');
+        btn.disabled = true;
+        status.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';
+
+        try {
+            const res = await fetch('/Patient/SaveHistory', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.message ?? 'Error al guardar.');
+            }
+            status.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i>Guardado correctamente.';
+        } catch (e) {
+            status.innerHTML = `<i class="fas fa-exclamation-circle text-danger me-1"></i>${e.message}`;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+</script>
+}

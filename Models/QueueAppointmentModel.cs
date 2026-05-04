@@ -15,5 +15,6 @@ namespace Medycally.Models
         public int AppointmentStatusId { get; set; }
         public string? AppointmentStatusName { get; set; }
         public string? Symptoms { get; set; }
+        public int? PatientId { get; set; }
     }
 }

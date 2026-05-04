@@ -10,5 +10,6 @@ namespace Medycally.Models
         public string RoleName { get; set; } = string.Empty;
         public int RoleLevel { get; set; }
         public int? DoctorId { get; set; }
+        public string? ResetToken { get; set; }
     }
 }

@@ -1,0 +1,164 @@
+@model List<Medycally.Models.MedicalAttentionModel>
+@{
+    ViewData["Title"] = "Pacientes Atendidos";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">Pacientes Atendidos</h4>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+
+        <div class="row mb-3">
+            <div class="col-md-5">
+                <div class="input-group">
+                    <span class="input-group-text text-muted"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="searchInput"
+                           placeholder="Buscar por paciente, médico, especialidad o diagnóstico..."
+                           oninput="applyFilters()" />
+                    <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()" title="Limpiar">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Paciente</th>
+                        <th>Médico</th>
+                        <th>Especialidad</th>
+                        <th>Fecha Atención</th>
+                        <th>Diagnóstico</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="attendedBody"></tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <small class="text-muted" id="paginationInfo"></small>
+            <nav>
+                <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
+            </nav>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    let filteredAttended = [];
+    let currentPage      = 1;
+    const PAGE_SIZE      = 10;
+
+    const allAttended = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+
+    function renderTable() {
+        const tbody = document.getElementById('attendedBody');
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const page  = filteredAttended.slice(start, start + PAGE_SIZE);
+
+        if (filteredAttended.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No se encontraron registros.</td></tr>';
+            renderPagination();
+            return;
+        }
+
+        tbody.innerHTML = page.map(r => {
+            const date = r.AttentionDate
+                ? new Date(r.AttentionDate).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                : '—';
+            const diagnosis = (r.Diagnosis ?? '').length > 80
+                ? escapeHtml((r.Diagnosis ?? '').substring(0, 80)) + '…'
+                : escapeHtml(r.Diagnosis ?? '');
+
+            return `<tr>
+                <td>${escapeHtml(r.PatientName ?? '—')}</td>
+                <td>${escapeHtml(r.DoctorName ?? '—')}</td>
+                <td>${escapeHtml(r.SpecialtyName ?? '—')}</td>
+                <td>${date}</td>
+                <td class="text-muted small">${diagnosis}</td>
+                <td class="text-end">
+                    <a href="/Medical/Patient/${r.AppointmentId}?from=attended"
+                       class="btn btn-sm btn-outline-primary" title="Editar atención">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                </td>
+            </tr>`;
+        }).join('');
+
+        renderPagination();
+    }
+
+    function renderPagination() {
+        const total      = filteredAttended.length;
+        const totalPages = Math.ceil(total / PAGE_SIZE);
+        const pag        = document.getElementById('pagination');
+        const info       = document.getElementById('paginationInfo');
+
+        if (total === 0) { info.textContent = ''; pag.innerHTML = ''; return; }
+
+        const start = (currentPage - 1) * PAGE_SIZE + 1;
+        const end   = Math.min(currentPage * PAGE_SIZE, total);
+        info.textContent = `Mostrando ${start}–${end} de ${total}`;
+
+        if (totalPages <= 1) { pag.innerHTML = ''; return; }
+
+        const pages  = new Set([1, totalPages]);
+        for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) pages.add(i);
+        const sorted = [...pages].sort((a, b) => a - b);
+
+        let html = `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage - 1});return false;">&lsaquo;</a></li>`;
+        let prev = 0;
+        for (const p of sorted) {
+            if (p - prev > 1) html += `<li class="page-item disabled"><span class="page-link">&hellip;</span></li>`;
+            html += `<li class="page-item ${p === currentPage ? 'active' : ''}">
+                <a class="page-link" href="#" onclick="goToPage(${p});return false;">${p}</a></li>`;
+            prev = p;
+        }
+        html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage + 1});return false;">&rsaquo;</a></li>`;
+
+        pag.innerHTML = html;
+    }
+
+    function goToPage(page) {
+        const totalPages = Math.max(1, Math.ceil(filteredAttended.length / PAGE_SIZE));
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        renderTable();
+    }
+
+    function applyFilters() {
+        const q = (document.getElementById('searchInput').value ?? '').trim().toLowerCase();
+        filteredAttended = q
+            ? allAttended.filter(r =>
+                (r.PatientName   ?? '').toLowerCase().includes(q) ||
+                (r.DoctorName    ?? '').toLowerCase().includes(q) ||
+                (r.SpecialtyName ?? '').toLowerCase().includes(q) ||
+                (r.Diagnosis     ?? '').toLowerCase().includes(q))
+            : [...allAttended];
+        currentPage = 1;
+        renderTable();
+    }
+
+    function clearSearch() {
+        document.getElementById('searchInput').value = '';
+        applyFilters();
+    }
+
+    function escapeHtml(text) {
+        const d = document.createElement('div');
+        d.textContent = text ?? '';
+        return d.innerHTML;
+    }
+
+    applyFilters();
+</script>
+}

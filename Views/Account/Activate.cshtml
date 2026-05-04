@@ -1,0 +1,155 @@
+@{
+    Layout = null;
+    bool hasError = ViewBag.Error != null;
+    bool hasToken = ViewBag.Token != null && !hasError;
+}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Activar Cuenta - Medycally</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+            background:linear-gradient(135deg,#10b981 0%,#059669 100%);
+            min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
+        }
+        .login-container {
+            display:flex; max-width:900px; width:100%; background:white;
+            border-radius:20px; box-shadow:0 20px 60px rgba(0,0,0,.15); overflow:hidden;
+        }
+        .login-left {
+            flex:1; background:linear-gradient(135deg,#10b981 0%,#059669 100%);
+            padding:60px; display:flex; flex-direction:column; justify-content:center;
+            align-items:center; color:white; position:relative;
+        }
+        .login-left::before {
+            content:''; position:absolute; width:300px; height:300px;
+            background:rgba(255,255,255,.1); border-radius:50%; top:-100px; right:-100px;
+        }
+        .login-left::after {
+            content:''; position:absolute; width:200px; height:200px;
+            background:rgba(255,255,255,.1); border-radius:50%; bottom:-50px; left:-50px;
+        }
+        .left-content { position:relative; z-index:1; text-align:center; }
+        .logo { display:flex; align-items:center; justify-content:center; gap:10px; font-size:2rem; font-weight:700; margin-bottom:2rem; }
+        .login-right { flex:1; padding:60px; display:flex; flex-direction:column; justify-content:center; }
+        .form-control {
+            padding:.75rem 1rem; border:1px solid #e2e8f0; border-radius:10px; font-size:1rem; transition:all .3s;
+        }
+        .form-control:focus { border-color:#10b981; box-shadow:0 0 0 3px rgba(16,185,129,.1); }
+        .input-wrap { position:relative; }
+        .input-wrap i.icon { position:absolute; left:1rem; top:50%; transform:translateY(-50%); color:#94a3b8; }
+        .input-wrap .form-control { padding-left:2.75rem; }
+        .input-wrap .toggle { position:absolute; right:1rem; top:50%; transform:translateY(-50%); cursor:pointer; color:#94a3b8; }
+        .btn-primary-med {
+            width:100%; padding:.875rem; background:linear-gradient(135deg,#10b981,#059669);
+            border:none; border-radius:10px; color:white; font-weight:600; font-size:1rem;
+            cursor:pointer; transition:all .3s; box-shadow:0 4px 15px rgba(16,185,129,.3);
+        }
+        .btn-primary-med:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(16,185,129,.4); }
+        @@media (max-width:768px) {
+            .login-container { flex-direction:column; }
+            .login-left, .login-right { padding:40px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-left">
+            <div class="left-content">
+                <div class="logo">
+                    <i class="fas fa-heartbeat"></i>
+                    <span>Medycally</span>
+                </div>
+                <h2 style="font-size:1.8rem;font-weight:700;margin-bottom:1rem;">Activa tu cuenta</h2>
+                <p style="font-size:1.05rem;opacity:.95;line-height:1.6;">
+                    Establece tu contraseña para comenzar a usar el sistema de gestión médica.
+                </p>
+            </div>
+        </div>
+
+        <div class="login-right">
+            @if (hasError)
+            {
+                <div style="text-align:center;">
+                    <div style="font-size:4rem;color:#ef4444;margin-bottom:1.5rem;">
+                        <i class="fas fa-link-slash"></i>
+                    </div>
+                    <h2 style="color:#1e293b;margin-bottom:1rem;">Enlace inválido</h2>
+                    <div class="alert alert-danger d-flex align-items-center">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <span>@ViewBag.Error</span>
+                    </div>
+                    <a href="/Account/Login" style="color:#10b981;font-weight:600;text-decoration:none;">
+                        <i class="fas fa-arrow-left me-1"></i> Volver al inicio de sesión
+                    </a>
+                </div>
+            }
+            else if (hasToken)
+            {
+                <div style="margin-bottom:2rem;">
+                    <h2 style="font-size:1.6rem;font-weight:700;color:#1e293b;margin-bottom:.5rem;">
+                        ¡Hola, @ViewBag.UserName!
+                    </h2>
+                    <p style="color:#64748b;">@ViewBag.Email</p>
+                    <p style="color:#64748b;margin-top:.5rem;">Establece una contraseña para activar tu cuenta.</p>
+                </div>
+
+                @if (ViewBag.PasswordError != null)
+                {
+                    <div class="alert alert-danger d-flex align-items-center mb-3">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <span>@ViewBag.PasswordError</span>
+                    </div>
+                }
+
+                <form method="post" asp-action="Activate">
+                    <input type="hidden" name="token" value="@ViewBag.Token" />
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" style="color:#1e293b;">Nueva contraseña</label>
+                        <div class="input-wrap">
+                            <i class="fas fa-lock icon"></i>
+                            <input type="password" name="password" id="password" class="form-control"
+                                   placeholder="Mínimo 6 caracteres" required minlength="6" />
+                            <i class="fas fa-eye toggle" id="togglePwd"></i>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold" style="color:#1e293b;">Confirmar contraseña</label>
+                        <div class="input-wrap">
+                            <i class="fas fa-lock icon"></i>
+                            <input type="password" name="confirmPassword" id="confirmPassword" class="form-control"
+                                   placeholder="Repite la contraseña" required />
+                            <i class="fas fa-eye toggle" id="toggleConfirm"></i>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary-med">
+                        Activar cuenta <i class="fas fa-check ms-2"></i>
+                    </button>
+                </form>
+            }
+        </div>
+    </div>
+
+    <script>
+        function toggleVisibility(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const icon  = document.getElementById(iconId);
+            input.type  = input.type === 'password' ? 'text' : 'password';
+            icon.classList.toggle('fa-eye');
+            icon.classList.toggle('fa-eye-slash');
+        }
+        document.getElementById('togglePwd')?.addEventListener('click', () => toggleVisibility('password', 'togglePwd'));
+        document.getElementById('toggleConfirm')?.addEventListener('click', () => toggleVisibility('confirmPassword', 'toggleConfirm'));
+    </script>
+</body>
+</html>

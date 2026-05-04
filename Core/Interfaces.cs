@@ -85,6 +85,11 @@ namespace Medycally.Core
 	public interface ISecurityUser
 	{
 		SecurityUserModel? Login(string email, string passwordHash);
+		SecurityUserModel? GetByToken(string token);
+		bool Activate(string token, string passwordHash);
+		SecurityUserModel? ForgotPassword(string email);
+		SecurityUserModel? GetByResetToken(string token);
+		bool ResetPassword(string token, string passwordHash);
 	}
 
 	public interface ISecurityModule
@@ -103,10 +108,31 @@ namespace Medycally.Core
 
 	public interface IAdminUser
 	{
-		int AddOrEdit(AdminUserModel model);
+		AdminUserModel AddOrEdit(AdminUserModel model);
 		List<AdminUserModel> GetAll();
 		void Delete(int securityUserId);
 		List<SecurityRoleModel> GetAllRoles();
+		string? ResendToken(int securityUserId);
+	}
+
+	public interface ISecurityRole
+	{
+		int AddOrEdit(SecurityRoleModel model);
+		void Delete(int securityRoleId);
+		List<SecurityRoleModuleModel> GetModules(int securityRoleId);
+		void SaveModule(int securityRoleId, SecurityRoleModuleModel module);
+	}
+
+	public interface IEmailService
+	{
+		Task SendActivationEmailAsync(string toEmail, string userName, string activationUrl);
+		Task SendPasswordResetEmailAsync(string toEmail, string userName, string resetUrl);
+	}
+
+	public interface IPatientHistory
+	{
+		PatientHistoryModel? GetByPatientId(int patientId);
+		void Save(PatientHistoryModel model, int updatedByUserId);
 	}
 
 	public interface IMedicalAttention
@@ -116,5 +142,6 @@ namespace Medycally.Core
 		List<MedicalAttentionModel> GetHistoryByGuardian(int guardianIdNumber);
 		MedicalAttentionModel? GetByAppointment(int appointmentId);
 		int Save(MedicalAttentionModel model);
+		List<MedicalAttentionModel> GetAll();
 	}
 }
