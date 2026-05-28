@@ -1,13 +1,17 @@
 @model List<Medycally.Models.SpecialtyModel>
 @{
     ViewData["Title"] = "Especialidades";
+    var specPerms = Permissions.GetPermissions(User, "/Admin/Specialty");
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="mb-0">Especialidades</h4>
-    <button class="btn btn-primary" onclick="openModal()">
-        <i class="fas fa-plus me-1"></i> Nueva Especialidad
-    </button>
+    @if (specPerms.CanCreate)
+    {
+        <button class="btn btn-primary" onclick="openModal()">
+            <i class="fas fa-plus me-1"></i> Nueva Especialidad
+        </button>
+    }
 </div>
 
 <div class="card shadow-sm">
@@ -116,6 +120,12 @@
 
     const allSpecialties = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
 
+    const specPerms = {
+        canCreate: @(specPerms.CanCreate ? "true" : "false"),
+        canEdit:   @(specPerms.CanEdit   ? "true" : "false"),
+        canDelete: @(specPerms.CanDelete ? "true" : "false")
+    };
+
     function renderTable() {
         const tbody = document.getElementById('specialtyBody');
         const start = (currentPage - 1) * PAGE_SIZE;
@@ -133,12 +143,8 @@
                 <td>${s.SpecialtyId}</td>
                 <td>${escapeHtml(s.SpecialtyName ?? '')}</td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="openModal(${s.SpecialtyId},'${escaped}')" title="Editar">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(${s.SpecialtyId},'${escaped}')" title="Eliminar">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                    ${specPerms.canEdit ? `<button class="btn btn-sm btn-outline-primary me-1" onclick="openModal(${s.SpecialtyId},'${escaped}')" title="Editar"><i class="fas fa-edit"></i></button>` : ''}
+                    ${specPerms.canDelete ? `<button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(${s.SpecialtyId},'${escaped}')" title="Eliminar"><i class="fas fa-trash"></i></button>` : ''}
                 </td>
             </tr>`;
         }).join('');

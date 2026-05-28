@@ -4,6 +4,7 @@
     var patient       = ViewBag.Patient       as Medycally.Models.PatientModel;
     var consultations = ViewBag.Consultations as List<Medycally.Models.MedicalAttentionModel> ?? [];
     bool hasHistory   = Model.PatientHistoryId > 0;
+    var patPerms      = Permissions.GetPermissions(User, "/Patient/Index");
 
     string sel(int field, int val) => field == val ? "checked" : "";
 }
@@ -341,12 +342,15 @@
         </div>
 
         <!-- Guardar -->
-        <div class="d-flex align-items-center gap-3 mb-5">
-            <button type="button" class="btn btn-primary px-4" id="btnSaveHistory" onclick="saveHistory()">
-                <i class="fas fa-save me-2"></i>Guardar Antecedentes
-            </button>
-            <span id="saveStatus" class="small text-muted"></span>
-        </div>
+        @if (patPerms.CanEdit)
+        {
+            <div class="d-flex align-items-center gap-3 mb-5">
+                <button type="button" class="btn btn-primary px-4" id="btnSaveHistory" onclick="confirmSave()">
+                    <i class="fas fa-save me-2"></i>Guardar Antecedentes
+                </button>
+                <span id="saveStatus" class="small text-muted"></span>
+            </div>
+        }
 
     </div><!-- /tab antecedentes -->
 
@@ -412,18 +416,49 @@
 
 </div><!-- /tab-content -->
 
+<!-- Modal confirmación -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">
+                    <i class="fas fa-question-circle me-2 text-warning"></i>Confirmar guardado
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body small">
+                ¿Desea guardar los antecedentes del paciente? Esta acción actualizará la historia médica registrada.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" id="btnConfirmSave" data-bs-dismiss="modal">
+                    <i class="fas fa-save me-1"></i>Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
     .accordion-button:not(.collapsed) { background: #f0f9ff; color: #0a58ca; }
 </style>
 
 @section Scripts {
 <script>
+    document.getElementById('btnConfirmSave').addEventListener('click', saveHistory);
+
     // Mostrar/ocultar campo cantidad tabaco en carga de página (si ya está en activo)
     document.querySelectorAll('input[name="smoking"]').forEach(r => {
         r.addEventListener('change', function () {
             document.getElementById('smokingAmountRow').classList.toggle('d-none', this.value !== '2');
         });
     });
+
+    function confirmSave() {
+        new bootstrap.Modal(document.getElementById('confirmModal')).show();
+    }
 
     async function saveHistory() {
         const payload = {

@@ -1,53 +1,55 @@
 @model List<Medycally.Models.NavigationModuleModel>
 @{
     var currentPath = ViewData["CurrentPath"] as string ?? "";
+
+    Func<string?, bool> IsActive = url =>
+        !string.IsNullOrEmpty(url)
+        && (currentPath.Equals(url, StringComparison.OrdinalIgnoreCase)
+            || currentPath.StartsWith(url + "/", StringComparison.OrdinalIgnoreCase));
+
+    var topLevel = Model.Where(m => m.ParentSecurityModuleId == null).ToList();
 }
 
-@foreach (var module in Model)
+@foreach (var parent in topLevel)
 {
-    var isMedical = string.Equals(module.ModuleUrl, "/Medical/Index", StringComparison.OrdinalIgnoreCase);
+    var children = Model.Where(m => m.ParentSecurityModuleId == parent.SecurityModuleId).ToList();
 
-    if (isMedical)
+    if (children.Count == 0)
     {
-        var isMedicalActive = currentPath.StartsWith("/Medical", StringComparison.OrdinalIgnoreCase);
-        var isQueueActive   = isMedicalActive && !currentPath.StartsWith("/Medical/AttendedPatients", StringComparison.OrdinalIgnoreCase);
-        var isAttendedActive = currentPath.StartsWith("/Medical/AttendedPatients", StringComparison.OrdinalIgnoreCase);
+        var isActive = IsActive(parent.ModuleUrl);
         <li class="sidebar-item">
-            <a class="sidebar-link sidebar-link-parent @(isMedicalActive ? "active" : "")"
-               data-bs-toggle="collapse" data-bs-target="#medicalMenu"
-               href="#" role="button"
-               aria-expanded="@(isMedicalActive ? "true" : "false")">
-                <i class="fas @module.ModuleIcon"></i>
-                <span>@module.ModuleName</span>
-                <i class="fas fa-chevron-right sidebar-chevron"></i>
+            <a href="@parent.ModuleUrl" class="sidebar-link @(isActive ? "active" : "")">
+                <i class="fas @(parent.ModuleIcon ?? "fa-circle")"></i>
+                <span>@parent.ModuleName</span>
             </a>
-            <ul class="sidebar-dropdown collapse @(isMedicalActive ? "show" : "")" id="medicalMenu">
-                <li class="sidebar-item">
-                    <a href="/Medical/Index"
-                       class="sidebar-link @(isQueueActive ? "active" : "")">
-                        <i class="fas fa-list-ul"></i>
-                        <span>Cola de Pacientes</span>
-                    </a>
-                </li>
-                <li class="sidebar-item">
-                    <a href="/Medical/AttendedPatients"
-                       class="sidebar-link @(isAttendedActive ? "active" : "")">
-                        <i class="fas fa-user-check"></i>
-                        <span>Pacientes Atendidos</span>
-                    </a>
-                </li>
-            </ul>
         </li>
     }
     else
     {
-        var isActive = !string.IsNullOrEmpty(module.ModuleUrl)
-            && currentPath.StartsWith(module.ModuleUrl, StringComparison.OrdinalIgnoreCase);
+        var isParentActive = children.Any(c => IsActive(c.ModuleUrl));
+        var menuId = $"sidebarMenu_{parent.SecurityModuleId}";
         <li class="sidebar-item">
-            <a href="@module.ModuleUrl" class="sidebar-link @(isActive ? "active" : "")">
-                <i class="fas @module.ModuleIcon"></i>
-                <span>@module.ModuleName</span>
+            <a class="sidebar-link sidebar-link-parent @(isParentActive ? "active" : "")"
+               data-bs-toggle="collapse" data-bs-target="#@menuId"
+               href="#" role="button"
+               aria-expanded="@(isParentActive ? "true" : "false")">
+                <i class="fas @(parent.ModuleIcon ?? "fa-circle")"></i>
+                <span>@parent.ModuleName</span>
+                <i class="fas fa-chevron-right sidebar-chevron"></i>
             </a>
+            <ul class="sidebar-dropdown collapse @(isParentActive ? "show" : "")" id="@menuId">
+                @foreach (var child in children)
+                {
+                    var isChildActive = IsActive(child.ModuleUrl);
+                    <li class="sidebar-item">
+                        <a href="@child.ModuleUrl"
+                           class="sidebar-link @(isChildActive ? "active" : "")">
+                            <i class="fas @(child.ModuleIcon ?? "fa-circle")"></i>
+                            <span>@child.ModuleName</span>
+                        </a>
+                    </li>
+                }
+            </ul>
         </li>
     }
 }

@@ -1,6 +1,8 @@
 @using System.Text.Json
 @{
     ViewData["Title"] = "Citas Médicas";
+    var dashPerms        = Permissions.GetPermissions(User, "/Home/Index");
+    var canCreateAppointment = Permissions.HasPermission(User, "/Appointment/Wizard", PermissionAction.Create);
 }
 
 <style>
@@ -23,6 +25,14 @@
     .status-select.status-confirmed { color: #10b981; }
     .status-select.status-cancelled { color: #ef4444; }
     .status-select:disabled { opacity: 0.5; cursor: wait; }
+    .status-locked-badge {
+        display: inline-flex; align-items: center; gap: .3rem;
+        font-size: .8rem; font-weight: 500;
+        color: #6f42c1; background: #f3ecfd;
+        border: 1px solid #d8b9f5; border-radius: 20px;
+        padding: .2rem .65rem; white-space: nowrap;
+    }
+    .status-locked-badge i { font-size: .7rem; }
 
     /* Modal detalle de cita */
     .detail-section-title {
@@ -70,9 +80,12 @@
         </div>
         <div class="d-flex gap-2 align-items-center">
             <input type="date" class="form-control" id="dashDate" style="width:auto" />
-            <a href="/Appointment/Wizard" class="btn btn-success">
-                <i class="fas fa-plus me-2"></i>Nueva Cita
-            </a>
+            @if (canCreateAppointment)
+            {
+                <a href="/Appointment/Wizard" class="btn btn-success">
+                    <i class="fas fa-plus me-2"></i>Nueva Cita
+                </a>
+            }
         </div>
     </div>
 </div>
@@ -294,6 +307,10 @@
                             <label class="form-label">Teléfono <span class="text-danger">*</span></label>
                             <input type="tel" class="form-control reg-phone" id="regPat_phone" placeholder="Ej: 04141234567">
                         </div>
+                        <div class="col-12" id="regPat_emailGroup">
+                            <label class="form-label">Correo electrónico <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="regPat_email" maxlength="150" placeholder="nombre@correo.com">
+                        </div>
                         <div class="col-12" id="regPat_addressGroup">
                             <label class="form-label">Dirección <span class="text-danger">*</span></label>
                             <input type="text" class="form-control reg-text" id="regPat_address" maxlength="150">
@@ -345,6 +362,10 @@
                             <div class="col-sm-6">
                                 <label class="form-label">Teléfono <span class="text-danger">*</span></label>
                                 <input type="tel" class="form-control reg-phone" id="regPat_guardianPhone" placeholder="Ej: 04141234567">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Correo electrónico <span class="text-danger">*</span></label>
+                                <input type="email" class="form-control" id="regPat_guardianEmail" maxlength="150" placeholder="nombre@correo.com">
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Dirección <span class="text-danger">*</span></label>
@@ -438,6 +459,12 @@
     const AVATAR_COLORS  = ['ff6b6b','4ecdc4','a29bfe','74b9ff','ffd93d','55efc4','fd79a8','e17055'];
     const STATUS_CSS     = { 1: 'status-pending', 2: 'status-confirmed', 3: 'status-cancelled' };
 
+    const dashPerms = {
+        canCreate: @(dashPerms.CanCreate ? "true" : "false"),
+        canEdit:   @(dashPerms.CanEdit   ? "true" : "false"),
+        canDelete: @(dashPerms.CanDelete ? "true" : "false")
+    };
+
     const allStatuses          = @Html.Raw(JsonSerializer.Serialize(ViewBag.Statuses       as IEnumerable<Medycally.Models.AppointmentStatusModel> ?? new List<Medycally.Models.AppointmentStatusModel>()));
     const allRegSexes          = @Html.Raw(JsonSerializer.Serialize(ViewBag.Sexes          as IEnumerable<Medycally.Models.SexModel>              ?? new List<Medycally.Models.SexModel>()));
     const allRegRelationships  = @Html.Raw(JsonSerializer.Serialize(ViewBag.Relationships  as IEnumerable<Medycally.Models.RelationshipModel>     ?? new List<Medycally.Models.RelationshipModel>()));
@@ -503,14 +530,10 @@
     });
 
     function refreshClinicLabel() {
-        const cached = JSON.parse(localStorage.getItem('medycallyClinicsV2') || 'null');
-        if (cached) {
-            const found = cached.find(c => c.clinicId === activeClinicId);
-            document.getElementById('dashClinicName').textContent =
-                found ? found.clinicName : `Clínica #${activeClinicId}`;
-        } else {
-            document.getElementById('dashClinicName').textContent = `Clínica #${activeClinicId}`;
-        }
+        const list = (typeof _userClinics !== 'undefined') ? _userClinics : [];
+        const found = list.find(c => c.ClinicId === activeClinicId);
+        document.getElementById('dashClinicName').textContent =
+            found ? found.ClinicName : `Clínica #${activeClinicId}`;
     }
 
     // ── Load & render ────────────────────────────────────────────────────────
@@ -600,9 +623,29 @@
         document.getElementById('dashBody').innerHTML = page.map(a => {
             const color     = AVATAR_COLORS[a.appointmentId % AVATAR_COLORS.length];
             const statusCss = STATUS_CSS[a.appointmentStatusId] ?? 'status-pending';
-            const btnEdit   = a.isRegistered
-                ? `<button class="btn btn-sm btn-icon" title="Paciente ya registrado" disabled><i class="far fa-edit"></i></button>`
-                : `<button class="btn btn-sm btn-icon" title="Registrar Paciente" onclick="openRegisterPatient(${a.appointmentId})"><i class="far fa-edit"></i></button>`;
+
+            let btnRegister = '';
+            if (!a.isRegistered && dashPerms.canCreate) {
+                btnRegister = `<button class="btn btn-sm btn-icon" title="Registrar Paciente" onclick="openRegisterPatient(${a.appointmentId})"><i class="far fa-edit"></i></button>`;
+            } else if (a.isRegistered) {
+                btnRegister = `<button class="btn btn-sm btn-icon" title="Paciente ya registrado" disabled><i class="far fa-edit"></i></button>`;
+            }
+
+            const btnDelete = dashPerms.canDelete
+                ? `<button class="btn btn-sm btn-icon text-danger" title="Eliminar" onclick="confirmDeleteAppointment(${a.appointmentId},'${escHtml(a.patientName ?? '')}')"><i class="fas fa-trash-alt"></i></button>`
+                : '';
+
+            let statusCell;
+            if (a.appointmentStatusId === 5 && a.isRegistered) {
+                statusCell = `<span class="status-locked-badge" title="Cita atendida con paciente registrado — no modificable"><i class="fas fa-lock"></i>${escHtml(a.appointmentStatusName ?? 'Atendido')}</span>`;
+            } else if (dashPerms.canEdit) {
+                statusCell = `<select class="status-select ${statusCss}" onchange="updateAppointmentStatus(${a.appointmentId}, this.value, this)">
+                                   ${allStatuses.map(s => `<option value="${s.AppointmentStatusId}"${s.AppointmentStatusId === a.appointmentStatusId ? ' selected' : ''}>${escHtml(s.AppointmentStatusName ?? '')}</option>`).join('')}
+                               </select>`;
+            } else {
+                statusCell = `<span class="${statusCss}" style="font-size:.875rem;font-weight:500;">${escHtml(a.appointmentStatusName ?? '—')}</span>`;
+            }
+
             return `<tr>
                 <td>
                     <div class="user-info">
@@ -615,12 +658,7 @@
                     </div>
                 </td>
                 <td><span class="role-badge">${escHtml(a.doctorName ?? '—')}</span></td>
-                <td>
-                    <select class="status-select ${statusCss}"
-                            onchange="updateAppointmentStatus(${a.appointmentId}, this.value, this)">
-                        ${allStatuses.map(s => `<option value="${s.AppointmentStatusId}"${s.AppointmentStatusId === a.appointmentStatusId ? ' selected' : ''}>${escHtml(s.AppointmentStatusName ?? '')}</option>`).join('')}
-                    </select>
-                </td>
+                <td>${statusCell}</td>
                 <td>
                     ${a.isRegistered
                         ? `<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="fas fa-check-circle me-1"></i>Registrado</span>`
@@ -631,8 +669,8 @@
                 <td>
                     <div class="action-buttons">
                         <button class="btn btn-sm btn-icon" title="Ver" onclick="openEyeDetail(${a.appointmentId}, ${a.isRegistered})"><i class="far fa-eye"></i></button>
-                        ${btnEdit}
-                        <button class="btn btn-sm btn-icon text-danger" title="Eliminar" onclick="confirmDeleteAppointment(${a.appointmentId},'${escHtml(a.patientName ?? '')}')"><i class="fas fa-trash-alt"></i></button>
+                        ${btnRegister}
+                        ${btnDelete}
                     </div>
                 </td>
             </tr>`;
@@ -830,7 +868,7 @@
 
                 document.getElementById('regPat_idNumberGroup').classList.toggle('d-none', isMinor);
                 document.getElementById('regPat_guardianSection').classList.toggle('d-none', !isMinor);
-                ['regPat_phoneGroup','regPat_addressGroup','regPat_stateGroup','regPat_municipalityGroup']
+                ['regPat_phoneGroup','regPat_emailGroup','regPat_addressGroup','regPat_stateGroup','regPat_municipalityGroup']
                     .forEach(id => document.getElementById(id).classList.toggle('d-none', isMinor));
 
                 // Datos del paciente / menor
@@ -840,6 +878,7 @@
                 document.getElementById('regPat_birthdate').value =
                     d.patientBirthDate ? d.patientBirthDate.slice(0, 10) : '';
                 document.getElementById('regPat_phone').value   = (d.patientPhone   ?? '').replace(/\D/g, '');
+                document.getElementById('regPat_email').value   = d.patientEmail    ?? '';
                 document.getElementById('regPat_address').value = d.patientAddress  ?? '';
                 loadRegMunicipalities(d.patientStateId || 0, 0);
                 document.getElementById('regPat_stateId').value = d.patientStateId  || '';
@@ -851,6 +890,7 @@
                     document.getElementById('regPat_guardianBirthdate').value =
                         d.childGuardianBirthDate ? d.childGuardianBirthDate.slice(0, 10) : '';
                     document.getElementById('regPat_guardianPhone').value   = (d.childGuardianPhone   ?? '').replace(/\D/g, '');
+                    document.getElementById('regPat_guardianEmail').value   = d.childGuardianEmail    ?? '';
                     document.getElementById('regPat_guardianAddress').value = d.childGuardianAddress  ?? '';
                     loadRegGuardianMunicipalities(d.childGuardianStateId || 0, 0);
                     document.getElementById('regPat_guardianStateId').value = d.childGuardianStateId  || '';
@@ -888,25 +928,41 @@
         const sexId       = regPatRequired('regPat_sexId',          'Sexo');
         const birthdate   = regPatRequired('regPat_birthdate',      'Fecha de Nacimiento');
         const phone       = isMinor ? true : regPatRequired('regPat_phone',          'Teléfono');
+        const email       = isMinor ? true : regPatRequired('regPat_email',          'Correo electrónico');
         const address     = isMinor ? true : regPatRequired('regPat_address',        'Dirección');
         const stateId     = isMinor ? true : regPatRequired('regPat_stateId',        'Estado');
         const municipalId = isMinor ? true : regPatRequired('regPat_municipalityId', 'Municipio');
         const idNumber    = isMinor ? true : regPatRequired('regPat_idNumber', 'Cédula');
 
-        let gName, gSex, gBirth, gPhone, gAddress, gState, gMun, relId;
+        const emailRe = /^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/;
+        if (!isMinor && email && !emailRe.test(email)) {
+            document.getElementById('regPat_email').classList.add('is-invalid');
+            errMsg.textContent = 'El correo electrónico no es válido.';
+            errMsg.classList.remove('d-none');
+            return;
+        }
+
+        let gName, gSex, gBirth, gPhone, gEmail, gAddress, gState, gMun, relId;
         if (isMinor) {
             gName    = regPatRequired('regPat_guardianName',           'Nombre del Representante');
             gSex     = regPatRequired('regPat_guardianSexId',          'Sexo del Representante');
             gBirth   = regPatRequired('regPat_guardianBirthdate',      'Fecha de Nacimiento del Representante');
             gPhone   = regPatRequired('regPat_guardianPhone',          'Teléfono del Representante');
+            gEmail   = regPatRequired('regPat_guardianEmail',          'Correo del Representante');
             gAddress = regPatRequired('regPat_guardianAddress',        'Dirección del Representante');
             gState   = regPatRequired('regPat_guardianStateId',        'Estado del Representante');
             gMun     = regPatRequired('regPat_guardianMunicipalityId', 'Municipio del Representante');
             relId    = regPatRequired('regPat_relationshipId',         'Parentesco');
+            if (gEmail && !emailRe.test(gEmail)) {
+                document.getElementById('regPat_guardianEmail').classList.add('is-invalid');
+                errMsg.textContent = 'El correo del representante no es válido.';
+                errMsg.classList.remove('d-none');
+                return;
+            }
         }
 
-        const patientOk  = name && sexId && birthdate && phone && address && stateId && municipalId && idNumber;
-        const guardianOk = !isMinor || (gName && gSex && gBirth && gPhone && gAddress && gState && gMun && relId);
+        const patientOk  = name && sexId && birthdate && phone && email && address && stateId && municipalId && idNumber;
+        const guardianOk = !isMinor || (gName && gSex && gBirth && gPhone && gEmail && gAddress && gState && gMun && relId);
 
         if (!patientOk || !guardianOk) {
             errMsg.textContent = 'Por favor complete todos los campos obligatorios.';
@@ -931,12 +987,16 @@
 
         const apptId = parseInt(g('regPat_appointmentId').value) || 0;
 
+        const guardianEmailVal = isMinor ? strVal('regPat_guardianEmail') : '';
+
         const payload = {
             appointmentId: apptId,
             patient: {
                 patientId:        parseInt(g('regPat_patientId').value) || 0,
                 patientIdNumber:  isMinor ? null : (parseInt(g('regPat_idNumber').value) || null),
                 patientName:      strVal('regPat_name'),
+                // Para menores: Patient.PatientEmail es NOT NULL, así que reutilizamos el del representante.
+                patientEmail:     isMinor ? guardianEmailVal : strVal('regPat_email'),
                 sexId:            intVal('regPat_sexId'),
                 patientBirthdate: strVal('regPat_birthdate'),
                 patientAddress:   isMinor ? null : strVal('regPat_address'),
@@ -947,6 +1007,7 @@
                 patientId:        0,
                 patientIdNumber:  parseInt(g('regPat_guardianIdNumber').value) || null,
                 patientName:      strVal('regPat_guardianName'),
+                patientEmail:     guardianEmailVal,
                 sexId:            intVal('regPat_guardianSexId'),
                 patientBirthdate: strVal('regPat_guardianBirthdate'),
                 patientAddress:   strVal('regPat_guardianAddress'),

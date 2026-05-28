@@ -41,7 +41,7 @@ namespace Medycally.Core
                         UserIdNumber   = dr.GetInt32(dr.GetOrdinal("UserIdNumber")),
                         SecurityRoleId = dr.GetInt32(dr.GetOrdinal("SecurityRoleId")),
                         RoleName       = dr.GetString(dr.GetOrdinal("RoleName")),
-                        RoleLevel      = dr.GetByte(dr.GetOrdinal("RoleLevel")),
+                        IsSuperAdmin   = dr.GetBoolean(dr.GetOrdinal("IsSuperAdmin")),
                         DoctorId       = dr.IsDBNull(doctorIdOrd) ? null : dr.GetInt32(doctorIdOrd)
                     };
                 }

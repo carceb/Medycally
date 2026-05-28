@@ -29,6 +29,7 @@ namespace Medycally.Core
 					Value = model.PatientIdNumber.HasValue ? (object)model.PatientIdNumber.Value : DBNull.Value
 				});
 				cmd.Parameters.AddWithValue("@PatientName",      (object?)model.PatientName      ?? DBNull.Value);
+				cmd.Parameters.AddWithValue("@PatientEmail",     (object?)model.PatientEmail     ?? DBNull.Value);
 				cmd.Parameters.AddWithValue("@SexId",            model.SexId);
 				cmd.Parameters.Add(new SqlParameter("@PatientBirthdate", SqlDbType.Date)
 				{
@@ -119,6 +120,7 @@ namespace Medycally.Core
 						PatientId        = dr.GetInt32(dr.GetOrdinal("PatientId")),
 						PatientIdNumber  = dr.IsDBNull(dr.GetOrdinal("PatientIdNumber"))  ? null : dr.GetInt32(dr.GetOrdinal("PatientIdNumber")),
 						PatientName      = dr.IsDBNull(dr.GetOrdinal("PatientName"))      ? null : dr.GetString(dr.GetOrdinal("PatientName")),
+						PatientEmail     = dr.IsDBNull(dr.GetOrdinal("PatientEmail"))     ? null : dr.GetString(dr.GetOrdinal("PatientEmail")),
 						SexId            = dr.IsDBNull(dr.GetOrdinal("SexId"))            ? 0    : dr.GetInt32(dr.GetOrdinal("SexId")),
 						SexName          = dr.IsDBNull(dr.GetOrdinal("SexName"))          ? null : dr.GetString(dr.GetOrdinal("SexName")),
 						RelationshipId   = dr.IsDBNull(dr.GetOrdinal("RelationshipId"))   ? 0    : dr.GetInt32(dr.GetOrdinal("RelationshipId")),
@@ -188,7 +190,7 @@ namespace Medycally.Core
 				using SqlConnection connection = _connectionFactory.CreateConnection();
 				connection.Open();
 				SqlCommand cmd = new(
-					"SELECT PatientId, PatientIdNumber, PatientName, SexId, SexName, PatientBirthdate, " +
+					"SELECT PatientId, PatientIdNumber, PatientName, PatientEmail, SexId, SexName, PatientBirthdate, " +
 					"PatientAddress, MunicipalityId, MunicipalityName, StateId, StateName, PatientMainPhone " +
 					"FROM dbo.Patient_GetByIdNumber WHERE PatientId = @PatientId",
 					connection)
@@ -222,7 +224,7 @@ namespace Medycally.Core
 				using SqlConnection connection = _connectionFactory.CreateConnection();
 				connection.Open();
 				SqlCommand cmd = new(
-					"SELECT PatientId, PatientIdNumber, PatientName, SexId, SexName, PatientBirthdate, " +
+					"SELECT PatientId, PatientIdNumber, PatientName, PatientEmail, SexId, SexName, PatientBirthdate, " +
 					"PatientAddress, MunicipalityId, MunicipalityName, StateId, StateName, PatientMainPhone " +
 					"FROM Patient_GetByIdNumber WHERE PatientIdNumber = @PatientIdNumber",
 					connection)
@@ -249,6 +251,7 @@ namespace Medycally.Core
 			p.PatientId        = dr.GetInt32(dr.GetOrdinal("PatientId"));
 			p.PatientIdNumber  = dr.IsDBNull(dr.GetOrdinal("PatientIdNumber"))  ? null : dr.GetInt32(dr.GetOrdinal("PatientIdNumber"));
 			p.PatientName      = dr.IsDBNull(dr.GetOrdinal("PatientName"))      ? null : dr.GetString(dr.GetOrdinal("PatientName"));
+			p.PatientEmail     = dr.IsDBNull(dr.GetOrdinal("PatientEmail"))     ? null : dr.GetString(dr.GetOrdinal("PatientEmail"));
 			p.SexId            = dr.GetInt32(dr.GetOrdinal("SexId"));
 			p.SexName          = dr.IsDBNull(dr.GetOrdinal("SexName"))          ? null : dr.GetString(dr.GetOrdinal("SexName"));
 			p.PatientBirthdate = dr.IsDBNull(dr.GetOrdinal("PatientBirthdate")) ? null : dr.GetDateTime(dr.GetOrdinal("PatientBirthdate"));

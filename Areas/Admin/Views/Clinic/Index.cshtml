@@ -4,13 +4,17 @@
     var clinicTypes    = ViewBag.ClinicTypes    as List<Medycally.Models.ClinicTypeModel> ?? [];
     var states         = ViewBag.States         as List<Medycally.Models.GeographyModel>  ?? [];
     var municipalities = ViewBag.Municipalities as List<Medycally.Models.GeographyModel>  ?? [];
+    var clinicPerms    = Permissions.GetPermissions(User, "/Admin/Clinic");
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="mb-0">Clínicas</h4>
-    <button class="btn btn-primary" onclick="openModal()">
-        <i class="fas fa-plus me-1"></i> Nueva Clínica
-    </button>
+    @if (clinicPerms.CanCreate)
+    {
+        <button class="btn btn-primary" onclick="openModal()">
+            <i class="fas fa-plus me-1"></i> Nueva Clínica
+        </button>
+    }
 </div>
 
 <div class="card shadow-sm">
@@ -343,6 +347,12 @@
     let currentDoctorClinicId = 0;
 
     const allClinics        = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+
+    const clinicPerms = {
+        canCreate: @(clinicPerms.CanCreate ? "true" : "false"),
+        canEdit:   @(clinicPerms.CanEdit   ? "true" : "false"),
+        canDelete: @(clinicPerms.CanDelete ? "true" : "false")
+    };
     const allClinicTypes    = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(clinicTypes));
     const allStates         = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(states));
     const allMunicipalities = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(municipalities));
@@ -446,10 +456,10 @@
                 <td>${typeName}</td>
                 <td>${badge}</td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editClinic(${c.ClinicId})" title="Editar"><i class="fas fa-edit"></i></button>
-                    <button class="btn btn-sm btn-outline-info me-1" onclick="openDoctorsModal(${c.ClinicId},'${escaped}')" title="Médicos"><i class="fas fa-user-md"></i></button>
-                    <button class="btn btn-sm btn-outline-success me-1" onclick="openScheduleModal(${c.ClinicId},'${escaped}')" title="Horarios"><i class="fas fa-calendar-alt"></i></button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(${c.ClinicId},'${escaped}')" title="Eliminar"><i class="fas fa-trash"></i></button>
+                    ${clinicPerms.canEdit   ? `<button class="btn btn-sm btn-outline-primary me-1" onclick="editClinic(${c.ClinicId})" title="Editar"><i class="fas fa-edit"></i></button>` : ''}
+                    ${clinicPerms.canEdit   ? `<button class="btn btn-sm btn-outline-info me-1" onclick="openDoctorsModal(${c.ClinicId},'${escaped}')" title="Médicos"><i class="fas fa-user-md"></i></button>` : ''}
+                    ${clinicPerms.canEdit   ? `<button class="btn btn-sm btn-outline-success me-1" onclick="openScheduleModal(${c.ClinicId},'${escaped}')" title="Horarios"><i class="fas fa-calendar-alt"></i></button>` : ''}
+                    ${clinicPerms.canDelete ? `<button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(${c.ClinicId},'${escaped}')" title="Eliminar"><i class="fas fa-trash"></i></button>` : ''}
                 </td>
             </tr>`;
         }).join('');

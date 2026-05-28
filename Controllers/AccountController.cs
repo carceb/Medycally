@@ -10,15 +10,25 @@ namespace Medycally.Controllers
 {
     public class AccountController : Controller
     {
-        private readonly ISecurityUser _securityUser;
+        private readonly ISecurityUser       _securityUser;
         private readonly IWebHostEnvironment _env;
-        private readonly IEmailService _email;
+        private readonly IEmailService       _email;
+        private readonly IConfiguration      _config;
 
-        public AccountController(ISecurityUser securityUser, IWebHostEnvironment env, IEmailService email)
+        public AccountController(ISecurityUser securityUser, IWebHostEnvironment env, IEmailService email, IConfiguration config)
         {
             _securityUser = securityUser;
             _env          = env;
             _email        = email;
+            _config       = config;
+        }
+
+        private string GetBaseUrl()
+        {
+            var configured = _config["Email:PublicBaseUrl"];
+            if (!string.IsNullOrWhiteSpace(configured))
+                return configured.TrimEnd('/');
+            return $"{Request.Scheme}://{Request.Host}";
         }
 
         public IActionResult Login()
@@ -80,6 +90,12 @@ namespace Medycally.Controllers
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return RedirectToAction("Login");
+        }
+
+        public IActionResult AccessDenied(string? returnUrl = null)
+        {
+            ViewBag.ReturnUrl = returnUrl;
+            return View();
         }
 
         [HttpGet]
@@ -158,8 +174,7 @@ namespace Medycally.Controllers
             {
                 try
                 {
-                    var baseUrl  = $"{Request.Scheme}://{Request.Host}";
-                    var resetUrl = $"{baseUrl}/Account/ResetPassword?token={user.ResetToken}";
+                    var resetUrl = $"{GetBaseUrl()}/Account/ResetPassword?token={user.ResetToken}";
                     await _email.SendPasswordResetEmailAsync(user.UserEmail, user.UserName, resetUrl);
                 }
                 catch { /* silencioso — no revelar si el email existe */ }
@@ -237,7 +252,7 @@ namespace Medycally.Controllers
                 new(ClaimTypes.Email,           user.UserEmail),
                 new("SecurityRoleId",           user.SecurityRoleId.ToString()),
                 new(ClaimTypes.Role,            user.RoleName),
-                new("RoleLevel",                user.RoleLevel.ToString())
+                new("IsSuperAdmin",             user.IsSuperAdmin ? "true" : "false")
             };
             if (user.DoctorId.HasValue)
                 claims.Add(new("DoctorId", user.DoctorId.Value.ToString()));

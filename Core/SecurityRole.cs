@@ -18,7 +18,6 @@ namespace Medycally.Core
             using var cmd = new SqlCommand("SecurityRole_AddOrEdit", conn) { CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@SecurityRoleId", model.SecurityRoleId);
             cmd.Parameters.AddWithValue("@RoleName",       model.RoleName);
-            cmd.Parameters.Add("@RoleLevel", SqlDbType.TinyInt).Value = (byte)model.RoleLevel;
 
             var result = cmd.ExecuteScalar();
             return result != null && result != DBNull.Value ? Convert.ToInt32(result) : model.SecurityRoleId;
@@ -41,19 +40,21 @@ namespace Medycally.Core
             using var cmd = new SqlCommand("SecurityRoleModule_GetByRole", conn) { CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@SecurityRoleId", securityRoleId);
             using var r = cmd.ExecuteReader();
+            int parentOrd = r.GetOrdinal("ParentSecurityModuleId");
             while (r.Read())
             {
                 list.Add(new SecurityRoleModuleModel
                 {
-                    SecurityModuleId = r.GetInt32(r.GetOrdinal("SecurityModuleId")),
-                    ModuleName       = r.GetString(r.GetOrdinal("ModuleName")),
-                    ModuleUrl        = r.IsDBNull(r.GetOrdinal("ModuleUrl"))  ? null : r.GetString(r.GetOrdinal("ModuleUrl")),
-                    ModuleIcon       = r.IsDBNull(r.GetOrdinal("ModuleIcon")) ? null : r.GetString(r.GetOrdinal("ModuleIcon")),
-                    ModuleOrder      = r.GetByte(r.GetOrdinal("ModuleOrder")),
-                    CanView          = r.GetBoolean(r.GetOrdinal("CanView")),
-                    CanCreate        = r.GetBoolean(r.GetOrdinal("CanCreate")),
-                    CanEdit          = r.GetBoolean(r.GetOrdinal("CanEdit")),
-                    CanDelete        = r.GetBoolean(r.GetOrdinal("CanDelete")),
+                    SecurityModuleId       = r.GetInt32(r.GetOrdinal("SecurityModuleId")),
+                    ParentSecurityModuleId = r.IsDBNull(parentOrd) ? null : r.GetInt32(parentOrd),
+                    ModuleName             = r.GetString(r.GetOrdinal("ModuleName")),
+                    ModuleUrl              = r.IsDBNull(r.GetOrdinal("ModuleUrl"))  ? null : r.GetString(r.GetOrdinal("ModuleUrl")),
+                    ModuleIcon             = r.IsDBNull(r.GetOrdinal("ModuleIcon")) ? null : r.GetString(r.GetOrdinal("ModuleIcon")),
+                    ModuleOrder            = r.GetByte(r.GetOrdinal("ModuleOrder")),
+                    CanView                = r.GetBoolean(r.GetOrdinal("CanView")),
+                    CanCreate              = r.GetBoolean(r.GetOrdinal("CanCreate")),
+                    CanEdit                = r.GetBoolean(r.GetOrdinal("CanEdit")),
+                    CanDelete              = r.GetBoolean(r.GetOrdinal("CanDelete")),
                 });
             }
             return list;

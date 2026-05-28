@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using Medycally.Core;
+using Medycally.Core.Security;
 using Medycally.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,22 +11,30 @@ namespace Medycally.Areas.Admin.Controllers
 	[Authorize]
 	public class ClinicController : Controller
 	{
-		private readonly IClinic         _clinic;
-		private readonly IClinicType     _clinicType;
-		private readonly IGeography      _geography;
-		private readonly IDoctorSchedule _schedule;
+		private const string ModuleUrl = "/Admin/Clinic";
 
-		public ClinicController(IClinic clinic, IClinicType clinicType, IGeography geography, IDoctorSchedule schedule)
+		private readonly IClinic            _clinic;
+		private readonly IClinicType        _clinicType;
+		private readonly IGeography         _geography;
+		private readonly IDoctorSchedule    _schedule;
+		private readonly IPermissionService _permissions;
+
+		public ClinicController(IClinic clinic, IClinicType clinicType, IGeography geography, IDoctorSchedule schedule, IPermissionService permissions)
 		{
 			_clinic      = clinic;
 			_clinicType  = clinicType;
 			_geography   = geography;
 			_schedule    = schedule;
+			_permissions = permissions;
 		}
 
 		public IActionResult Index()
 		{
-			var clinics = _clinic.GetAll();
+			int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int securityUserId);
+			bool isSuperAdmin = string.Equals(User.FindFirst("IsSuperAdmin")?.Value, "true", StringComparison.OrdinalIgnoreCase);
+			int? doctorId = int.TryParse(User.FindFirst("DoctorId")?.Value, out int did) ? did : null;
+
+			var clinics = _clinic.GetByUser(securityUserId, isSuperAdmin, doctorId);
 			ViewBag.ClinicTypes    = _clinicType.GetAll();
 			ViewBag.States         = _geography.GetAllStates();
 			ViewBag.Municipalities = _geography.GetAllMunicipalities();
@@ -47,11 +57,16 @@ namespace Medycally.Areas.Admin.Controllers
 			if (model.MunicipalityId == 0)
 				return BadRequest(new { message = "Debe seleccionar un municipio." });
 
+			var required = model.ClinicId == 0 ? PermissionAction.Create : PermissionAction.Edit;
+			if (!_permissions.HasPermission(User, ModuleUrl, required))
+				return StatusCode(StatusCodes.Status403Forbidden, new { message = "No tienes permiso para realizar esta acción." });
+
 			var id = _clinic.AddOrEdit(model);
 			return Ok(new { clinicId = id });
 		}
 
 		[HttpPost]
+		[RequiresModulePermission(PermissionAction.Delete)]
 		public IActionResult Delete([FromBody] int clinicId)
 		{
 			_clinic.Delete(clinicId);
@@ -73,6 +88,7 @@ namespace Medycally.Areas.Admin.Controllers
 		}
 
 		[HttpPost]
+		[RequiresModulePermission(PermissionAction.Edit)]
 		public IActionResult SaveDoctors([FromBody] SaveDoctorsRequest request)
 		{
 			_clinic.SaveDoctors(request.ClinicId, request.DoctorIds ?? []);
@@ -98,6 +114,10 @@ namespace Medycally.Areas.Admin.Controllers
 		{
 			try
 			{
+				var required = model.DoctorScheduleId == 0 ? PermissionAction.Create : PermissionAction.Edit;
+				if (!_permissions.HasPermission(User, ModuleUrl, required))
+					return StatusCode(StatusCodes.Status403Forbidden, new { message = "No tienes permiso para realizar esta acción." });
+
 				var id = _schedule.SaveSchedule(model);
 				return Ok(new { scheduleId = id });
 			}
@@ -108,6 +128,7 @@ namespace Medycally.Areas.Admin.Controllers
 		}
 
 		[HttpPost]
+		[RequiresModulePermission(PermissionAction.Delete)]
 		public IActionResult DeleteSchedule([FromBody] int doctorScheduleId)
 		{
 			try

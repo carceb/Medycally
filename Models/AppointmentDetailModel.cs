@@ -13,6 +13,7 @@ namespace Medycally.Models
         public int PatientIdNumber { get; set; }
         public string? PatientSexName { get; set; }
         public string? PatientPhone { get; set; }
+        public string? PatientEmail { get; set; }
         public string? PatientAddress { get; set; }
         public DateTime? PatientBirthDate { get; set; }
         public string? PatientStateName { get; set; }
@@ -26,6 +27,7 @@ namespace Medycally.Models
         public string? ChildGuardianName { get; set; }
         public string? RelationshipName { get; set; }
         public string? ChildGuardianPhone { get; set; }
+        public string? ChildGuardianEmail { get; set; }
         public string? ChildGuardianAddress { get; set; }
         public DateTime? ChildGuardianBirthDate { get; set; }
         public int ChildGuardianSexId         { get; set; }

@@ -1,0 +1,393 @@
+@model List<Medycally.Models.SecurityModuleAdminModel>
+@{
+    ViewData["Title"] = "Módulos";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">Módulos del Sistema</h4>
+    <button class="btn btn-primary" onclick="openModuleModal()">
+        <i class="fas fa-plus me-1"></i> Nuevo Módulo
+    </button>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+
+        <div class="row mb-3">
+            <div class="col-md-5">
+                <div class="input-group">
+                    <span class="input-group-text text-muted"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="searchInput"
+                           placeholder="Buscar por nombre, URL o padre..."
+                           oninput="applyFilters()" />
+                    <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()" title="Limpiar">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Módulo</th>
+                        <th>URL</th>
+                        <th>Padre</th>
+                        <th class="text-center">Orden</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="moduleBody"></tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+<!-- Save Modal -->
+<div class="modal fade" id="moduleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="moduleModalTitle">Nuevo Módulo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="securityModuleId" value="0" />
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label">Nombre del módulo <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="moduleName" maxlength="80" />
+                        <div class="invalid-feedback" id="nameError"></div>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label">Padre</label>
+                        <select class="form-select" id="parentId" onchange="onParentChange()">
+                            <option value="">— Sin padre (módulo de primer nivel) —</option>
+                        </select>
+                        <div class="form-text">Los padres son agrupadores colapsables sin URL propia.</div>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label">URL <small class="text-muted">(deja vacío para crear un padre puro)</small></label>
+                        <input type="text" class="form-control" id="moduleUrl" maxlength="150" placeholder="/Area/Controller" />
+                        <div class="invalid-feedback" id="urlError"></div>
+                    </div>
+
+                    <div class="col-md-7">
+                        <label class="form-label">Ícono <small class="text-muted">(Font Awesome, sin "fa-")</small></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i id="iconPreview" class="fas fa-circle"></i></span>
+                            <input type="text" class="form-control" id="moduleIcon" maxlength="50"
+                                   placeholder="user-md" oninput="updateIconPreview()" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-5">
+                        <label class="form-label">Orden</label>
+                        <input type="number" class="form-control" id="moduleOrder" min="0" max="255" value="50" />
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="isActive" checked />
+                            <label class="form-check-label" for="isActive">Activo</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSave" onclick="saveModule()">
+                    <i class="fas fa-save me-1"></i> Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Eliminar Módulo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Eliminar el módulo <strong id="deleteName"></strong>?<br>
+                <small class="text-muted">Se eliminarán también los permisos asociados en todos los roles.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnDelete" onclick="deleteModule()">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="toast" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMessage"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<style>
+    .mod-status { display:inline-flex; align-items:center; gap:5px; font-size:.78rem; font-weight:600; padding:3px 10px; border-radius:20px; }
+    .mod-active   { background:#d1fae5; color:#065f46; }
+    .mod-inactive { background:#fee2e2; color:#991b1b; }
+    .mod-url-code { font-family: ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace; font-size:.85rem; color:#475569; }
+    .mod-empty    { color:#94a3b8; font-style:italic; }
+</style>
+<script>
+    const moduleModal = new bootstrap.Modal(document.getElementById('moduleModal'));
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    const toast       = new bootstrap.Toast(document.getElementById('toast'), { delay: 3500 });
+
+    let pendingDeleteId = 0;
+    let filteredModules = [];
+
+    const allModules = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+
+    function showToast(message, success) {
+        const el = document.getElementById('toast');
+        el.classList.remove('bg-success', 'bg-danger');
+        el.classList.add(success ? 'bg-success' : 'bg-danger');
+        document.getElementById('toastMessage').textContent = message;
+        toast.show();
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('moduleBody');
+        if (filteredModules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No se encontraron módulos.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = filteredModules.map(m => {
+            const escaped     = (m.ModuleName ?? '').replace(/'/g, "\\'");
+            const icon        = m.ModuleIcon ?? 'fa-circle';
+            const urlCell     = m.ModuleUrl
+                ? `<code class="mod-url-code">${escapeHtml(m.ModuleUrl)}</code>`
+                : '<span class="mod-empty">— padre —</span>';
+            const parentCell  = m.ParentModuleName
+                ? escapeHtml(m.ParentModuleName)
+                : '<span class="mod-empty">—</span>';
+            const statusCls   = m.IsActive ? 'mod-active' : 'mod-inactive';
+            const statusLabel = m.IsActive ? 'Activo' : 'Inactivo';
+            const indent      = m.ParentSecurityModuleId ? 'padding-left:1.5rem' : '';
+            return `<tr>
+                <td>${m.SecurityModuleId}</td>
+                <td style="${indent}">
+                    <i class="fas ${escapeHtml(icon)} me-2 text-muted"></i>${escapeHtml(m.ModuleName)}
+                </td>
+                <td>${urlCell}</td>
+                <td>${parentCell}</td>
+                <td class="text-center">${m.ModuleOrder}</td>
+                <td class="text-center"><span class="mod-status ${statusCls}"><i class="fas fa-circle"></i> ${statusLabel}</span></td>
+                <td class="text-end">
+                    <div class="action-buttons">
+                        <button class="btn-icon" onclick="editModule(${m.SecurityModuleId})" title="Editar"><i class="fas fa-edit"></i></button>
+                        <button class="btn-icon" onclick="confirmDelete(${m.SecurityModuleId},'${escaped}')" title="Eliminar"><i class="fas fa-trash text-danger"></i></button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    function applyFilters() {
+        const q = (document.getElementById('searchInput').value ?? '').trim().toLowerCase();
+        filteredModules = q
+            ? allModules.filter(m => {
+                const name   = (m.ModuleName ?? '').toLowerCase();
+                const url    = (m.ModuleUrl ?? '').toLowerCase();
+                const parent = (m.ParentModuleName ?? '').toLowerCase();
+                return name.includes(q) || url.includes(q) || parent.includes(q);
+            })
+            : [...allModules];
+        renderTable();
+    }
+
+    function clearSearch() {
+        document.getElementById('searchInput').value = '';
+        applyFilters();
+    }
+
+    function populateParentOptions(excludeId) {
+        const sel = document.getElementById('parentId');
+        sel.innerHTML = '<option value="">— Sin padre (módulo de primer nivel) —</option>';
+        // Solo módulos que ya son padres puros (sin URL) o que podrían serlo (sin padre y distintos del actual)
+        allModules
+            .filter(m => m.ParentSecurityModuleId == null && m.SecurityModuleId !== excludeId)
+            .sort((a, b) => (a.ModuleName ?? '').localeCompare(b.ModuleName ?? ''))
+            .forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.SecurityModuleId;
+                opt.textContent = m.ModuleName + (m.ModuleUrl ? ` (${m.ModuleUrl})` : '');
+                sel.appendChild(opt);
+            });
+    }
+
+    function openModuleModal() {
+        document.getElementById('securityModuleId').value = '0';
+        document.getElementById('moduleName').value       = '';
+        document.getElementById('moduleUrl').value        = '';
+        document.getElementById('moduleIcon').value       = '';
+        document.getElementById('moduleOrder').value      = '50';
+        document.getElementById('isActive').checked       = true;
+        document.getElementById('moduleModalTitle').textContent = 'Nuevo Módulo';
+        populateParentOptions(0);
+        document.getElementById('parentId').value = '';
+        clearValidation();
+        updateIconPreview();
+        moduleModal.show();
+        setTimeout(() => document.getElementById('moduleName').focus(), 300);
+    }
+
+    function editModule(id) {
+        const m = allModules.find(x => x.SecurityModuleId === id);
+        if (!m) return;
+        document.getElementById('securityModuleId').value = m.SecurityModuleId;
+        document.getElementById('moduleName').value       = m.ModuleName ?? '';
+        document.getElementById('moduleUrl').value        = m.ModuleUrl  ?? '';
+        document.getElementById('moduleIcon').value       = (m.ModuleIcon ?? '').replace(/^fa-/, '');
+        document.getElementById('moduleOrder').value      = m.ModuleOrder ?? 50;
+        document.getElementById('isActive').checked       = !!m.IsActive;
+        document.getElementById('moduleModalTitle').textContent = 'Editar Módulo';
+        populateParentOptions(id);
+        document.getElementById('parentId').value = m.ParentSecurityModuleId ?? '';
+        clearValidation();
+        updateIconPreview();
+        moduleModal.show();
+    }
+
+    function onParentChange() {
+        // Si elige un padre, sugerimos que NO ponga URL (los hijos sí pueden tener URL).
+        // Pura UI: limpiamos la URL si el módulo se vuelve un hijo de un padre puro.
+        // No es bloqueante.
+    }
+
+    function updateIconPreview() {
+        const value = document.getElementById('moduleIcon').value.trim().replace(/^fa-/, '');
+        const preview = document.getElementById('iconPreview');
+        preview.className = `fas fa-${value || 'circle'}`;
+    }
+
+    function clearValidation() {
+        ['moduleName', 'moduleUrl'].forEach(id => {
+            document.getElementById(id).classList.remove('is-invalid');
+        });
+    }
+
+    function saveModule() {
+        clearValidation();
+        const id    = parseInt(document.getElementById('securityModuleId').value);
+        const name  = document.getElementById('moduleName').value.trim();
+        const url   = document.getElementById('moduleUrl').value.trim();
+        const icon  = document.getElementById('moduleIcon').value.trim().replace(/^fa-/, '');
+        const order = parseInt(document.getElementById('moduleOrder').value) || 50;
+        const parentRaw = document.getElementById('parentId').value;
+
+        if (!name) {
+            document.getElementById('moduleName').classList.add('is-invalid');
+            document.getElementById('nameError').textContent = 'El nombre es requerido.';
+            return;
+        }
+        if (url && !url.startsWith('/')) {
+            document.getElementById('moduleUrl').classList.add('is-invalid');
+            document.getElementById('urlError').textContent = 'La URL debe comenzar con "/".';
+            return;
+        }
+
+        const payload = {
+            securityModuleId:       id,
+            parentSecurityModuleId: parentRaw ? parseInt(parentRaw) : null,
+            moduleName:             name,
+            moduleUrl:              url || null,
+            moduleIcon:             icon ? `fa-${icon}` : null,
+            moduleOrder:            order,
+            isActive:               document.getElementById('isActive').checked,
+        };
+
+        document.getElementById('btnSave').disabled = true;
+
+        fetch('/Admin/Module/Save', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload)
+        })
+        .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)))
+        .then(data => {
+            moduleModal.hide();
+            const newId = id === 0 ? data.securityModuleId : id;
+            const parent = payload.parentSecurityModuleId
+                ? allModules.find(m => m.SecurityModuleId === payload.parentSecurityModuleId)
+                : null;
+            const newDoc = {
+                SecurityModuleId:       newId,
+                ParentSecurityModuleId: payload.parentSecurityModuleId,
+                ParentModuleName:       parent?.ModuleName ?? null,
+                ModuleName:             name,
+                ModuleUrl:              payload.moduleUrl,
+                ModuleIcon:             payload.moduleIcon,
+                ModuleOrder:            order,
+                IsActive:               payload.isActive,
+            };
+            if (id === 0) {
+                allModules.push(newDoc);
+                showToast('Módulo creado correctamente.', true);
+            } else {
+                const idx = allModules.findIndex(x => x.SecurityModuleId === id);
+                if (idx >= 0) allModules[idx] = newDoc;
+                showToast('Módulo actualizado correctamente.', true);
+            }
+            applyFilters();
+        })
+        .catch(err => showToast(err?.message ?? 'Error al guardar el módulo.', false))
+        .finally(() => { document.getElementById('btnSave').disabled = false; });
+    }
+
+    function confirmDelete(id, name) {
+        pendingDeleteId = id;
+        document.getElementById('deleteName').textContent = name;
+        deleteModal.show();
+    }
+
+    function deleteModule() {
+        document.getElementById('btnDelete').disabled = true;
+        fetch('/Admin/Module/Delete', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(pendingDeleteId)
+        })
+        .then(r => r.ok ? null : r.json().then(e => Promise.reject(e)))
+        .then(() => {
+            deleteModal.hide();
+            const idx = allModules.findIndex(x => x.SecurityModuleId === pendingDeleteId);
+            if (idx >= 0) allModules.splice(idx, 1);
+            applyFilters();
+            showToast('Módulo eliminado correctamente.', true);
+        })
+        .catch(err => showToast(err?.message ?? 'Error al eliminar el módulo.', false))
+        .finally(() => { document.getElementById('btnDelete').disabled = false; });
+    }
+
+    function escapeHtml(text) {
+        const d = document.createElement('div');
+        d.textContent = text ?? '';
+        return d.innerHTML;
+    }
+
+    applyFilters();
+</script>
+}

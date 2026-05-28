@@ -26,17 +26,24 @@ namespace Medycally.Areas.Admin.Controllers
         }
 
         [HttpPost]
-        public IActionResult Save([FromBody] SecurityRoleModel model)
+        public IActionResult Save([FromBody] SaveRoleRequest request)
         {
             if (!IsSuperAdmin()) return Forbid();
 
-            if (string.IsNullOrWhiteSpace(model.RoleName))
+            if (string.IsNullOrWhiteSpace(request.RoleName))
                 return BadRequest(new { message = "El nombre del rol es requerido." });
 
-            if (model.RoleLevel < 1 || model.RoleLevel > 10)
-                return BadRequest(new { message = "El nivel debe estar entre 1 y 10." });
+            var role = new SecurityRoleModel
+            {
+                SecurityRoleId = request.SecurityRoleId,
+                RoleName       = request.RoleName.Trim()
+            };
 
-            var id = _securityRole.AddOrEdit(model);
+            int id = _securityRole.AddOrEdit(role);
+
+            foreach (var m in request.Modules ?? [])
+                _securityRole.SaveModule(id, m);
+
             return Ok(new { securityRoleId = id });
         }
 
@@ -56,27 +63,14 @@ namespace Medycally.Areas.Admin.Controllers
             return Ok(modules);
         }
 
-        [HttpPost]
-        public IActionResult SaveModules([FromBody] SaveModulesRequest request)
-        {
-            if (!IsSuperAdmin()) return Forbid();
-
-            foreach (var m in request.Modules)
-                _securityRole.SaveModule(request.SecurityRoleId, m);
-
-            return Ok();
-        }
-
         private bool IsSuperAdmin()
-        {
-            var level = User.FindFirst("RoleLevel")?.Value;
-            return level == "1";
-        }
+            => string.Equals(User.FindFirst("IsSuperAdmin")?.Value, "true", StringComparison.OrdinalIgnoreCase);
     }
 
-    public class SaveModulesRequest
+    public class SaveRoleRequest
     {
-        public int SecurityRoleId { get; set; }
+        public int    SecurityRoleId { get; set; }
+        public string RoleName       { get; set; } = string.Empty;
         public List<SecurityRoleModuleModel> Modules { get; set; } = [];
     }
 }

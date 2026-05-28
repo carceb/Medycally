@@ -375,14 +375,50 @@ body {
     border-top: 1px solid #e3e6f0;
 }
 
+/* ===== Sidebar backdrop (mobile only) ===== */
+.sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    z-index: 1040;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.sidebar-backdrop.show {
+    display: block;
+    opacity: 1;
+}
+
 /* ===== Responsive ===== */
-@media (max-width: 768px) {
+@media (max-width: 767.98px) {
     .sidebar {
-        margin-left: calc(var(--sidebar-width) * -1);
+        /* Slide off-screen by default on mobile */
+        transform: translateX(-100%);
+        z-index: 1050; /* above backdrop (1040) */
+        box-shadow: 4px 0 16px rgba(0, 0, 0, 0.15);
     }
 
     .sidebar.show {
-        margin-left: 0;
+        transform: translateX(0);
+    }
+
+    /* On mobile, ignore the desktop "collapsed" state — only show/hide matters */
+    .sidebar.collapsed {
+        min-width: var(--sidebar-width);
+        max-width: var(--sidebar-width);
+    }
+
+    .sidebar.collapsed .sidebar-link span,
+    .sidebar.collapsed .sidebar-brand span,
+    .sidebar.collapsed .sidebar-footer .sidebar-link span,
+    .sidebar.collapsed .sidebar-chevron {
+        display: inline;
+    }
+
+    .sidebar.collapsed #adminMenu {
+        display: block;
     }
 
     .main {
@@ -390,8 +426,18 @@ body {
         width: 100%;
     }
 
+    /* Hide the desktop search bar on small screens (already had d-none d-md-flex) */
     .navbar .input-group {
         width: 200px;
+    }
+
+    /* Make sure the navbar fits and the content has breathing room */
+    .navbar {
+        padding: 0.625rem 1rem;
+    }
+
+    .content {
+        padding: 1rem;
     }
 }
 

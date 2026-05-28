@@ -77,6 +77,35 @@ namespace Medycally.Core
             }
         }
 
+        public List<ClinicModel> GetByUser(int securityUserId, bool isSuperAdmin, int? doctorId)
+        {
+            try
+            {
+                using SqlConnection connection = _connectionFactory.CreateConnection();
+                connection.Open();
+
+                SqlCommand cmd = new("Clinic_GetByUser", connection)
+                {
+                    CommandType = CommandType.StoredProcedure
+                };
+                cmd.Parameters.AddWithValue("@SecurityUserId", securityUserId);
+                cmd.Parameters.AddWithValue("@IsSuperAdmin",   isSuperAdmin);
+                cmd.Parameters.AddWithValue("@DoctorId",       doctorId.HasValue ? (object)doctorId.Value : DBNull.Value);
+
+                List<ClinicModel> clinics = [];
+                using SqlDataReader reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    clinics.Add(MapClinic(reader));
+                }
+                return clinics;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al obtener las clinicas del usuario", ex);
+            }
+        }
+
         public ClinicModel GetById(int clinicId)
         {
             try

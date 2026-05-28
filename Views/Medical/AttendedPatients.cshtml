@@ -15,7 +15,7 @@
                 <div class="input-group">
                     <span class="input-group-text text-muted"><i class="fas fa-search"></i></span>
                     <input type="text" class="form-control" id="searchInput"
-                           placeholder="Buscar por paciente, médico, especialidad o diagnóstico..."
+                           placeholder="Buscar por paciente, cédula, médico o especialidad..."
                            oninput="applyFilters()" />
                     <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()" title="Limpiar">
                         <i class="fas fa-times"></i>
@@ -29,10 +29,12 @@
                 <thead class="table-light">
                     <tr>
                         <th>Paciente</th>
+                        <th>Cédula</th>
+                        <th>Sexo</th>
+                        <th class="text-center">Edad</th>
+                        <th>Estado</th>
                         <th>Médico</th>
                         <th>Especialidad</th>
-                        <th>Fecha Atención</th>
-                        <th>Diagnóstico</th>
                         <th class="text-end">Acciones</th>
                     </tr>
                 </thead>
@@ -64,25 +66,25 @@
         const page  = filteredAttended.slice(start, start + PAGE_SIZE);
 
         if (filteredAttended.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No se encontraron registros.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">No se encontraron registros.</td></tr>';
             renderPagination();
             return;
         }
 
         tbody.innerHTML = page.map(r => {
-            const date = r.AttentionDate
-                ? new Date(r.AttentionDate).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                : '—';
-            const diagnosis = (r.Diagnosis ?? '').length > 80
-                ? escapeHtml((r.Diagnosis ?? '').substring(0, 80)) + '…'
-                : escapeHtml(r.Diagnosis ?? '');
+            const cedula = (r.IsMinor || !r.PatientIdNumber || r.PatientIdNumber <= 0)
+                ? '<span class="text-muted">—</span>'
+                : 'V-' + r.PatientIdNumber;
+            const edad = (r.PatientAge != null && r.PatientAge > 0) ? r.PatientAge : '—';
 
             return `<tr>
                 <td>${escapeHtml(r.PatientName ?? '—')}</td>
+                <td>${cedula}</td>
+                <td>${escapeHtml(r.SexName ?? '—')}</td>
+                <td class="text-center">${edad}</td>
+                <td>${escapeHtml(r.StateName ?? '—')}</td>
                 <td>${escapeHtml(r.DoctorName ?? '—')}</td>
                 <td>${escapeHtml(r.SpecialtyName ?? '—')}</td>
-                <td>${date}</td>
-                <td class="text-muted small">${diagnosis}</td>
                 <td class="text-end">
                     <a href="/Medical/Patient/${r.AppointmentId}?from=attended"
                        class="btn btn-sm btn-outline-primary" title="Editar atención">
@@ -140,9 +142,10 @@
         filteredAttended = q
             ? allAttended.filter(r =>
                 (r.PatientName   ?? '').toLowerCase().includes(q) ||
+                (String(r.PatientIdNumber ?? '')).toLowerCase().includes(q) ||
                 (r.DoctorName    ?? '').toLowerCase().includes(q) ||
                 (r.SpecialtyName ?? '').toLowerCase().includes(q) ||
-                (r.Diagnosis     ?? '').toLowerCase().includes(q))
+                (r.StateName     ?? '').toLowerCase().includes(q))
             : [...allAttended];
         currentPage = 1;
         renderTable();

@@ -1,3 +1,34 @@
+@using System.Security.Claims
+@using System.Text.Json
+@inject Medycally.Core.IClinic ClinicService
+@{
+    List<Medycally.Models.ClinicModel> userClinics = new();
+    if (Context.User?.Identity?.IsAuthenticated == true)
+    {
+        int.TryParse(Context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int _securityUserId);
+        bool _isSuperAdminClinics = string.Equals(
+            Context.User.FindFirst("IsSuperAdmin")?.Value, "true",
+            StringComparison.OrdinalIgnoreCase);
+        int? _doctorIdClinics = int.TryParse(Context.User.FindFirst("DoctorId")?.Value, out int _did) ? _did : null;
+        try
+        {
+            userClinics = ClinicService.GetByUser(_securityUserId, _isSuperAdminClinics, _doctorIdClinics);
+        }
+        catch
+        {
+            userClinics = new();
+        }
+    }
+    var userClinicsJs = userClinics.Select(c => new
+    {
+        c.ClinicId,
+        ClinicName       = (c.ClinicTypeName != null ? c.ClinicTypeName + " " : "") + (c.ClinicName ?? ""),
+        c.StateName,
+        c.MunicipalityName
+    }).ToList();
+    bool showClinicSwitcher = userClinicsJs.Count > 1;
+    int defaultClinicId    = userClinicsJs.Count > 0 ? userClinicsJs[0].ClinicId : 0;
+}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -19,6 +50,9 @@
 </head>
 <body>
     <div class="wrapper">
+        <!-- Mobile backdrop (only visible when sidebar is open on mobile) -->
+        <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+
         <!-- Sidebar -->
         <aside id="sidebar" class="sidebar">
             <div class="sidebar-header">
@@ -31,15 +65,14 @@
             @{
                 var currentPath   = Context.Request.Path.Value ?? "";
                 var isAdminActive = currentPath.StartsWith("/Admin", StringComparison.OrdinalIgnoreCase);
-                var roleLevelStr  = Context.User.FindFirst("RoleLevel")?.Value ?? "99";
-                int.TryParse(roleLevelStr, out int sidebarRoleLevel);
-                bool isSuperAdmin  = sidebarRoleLevel == 1;
-                bool isClinicAdmin = sidebarRoleLevel <= 3;
+                bool isSuperAdmin = string.Equals(
+                    Context.User.FindFirst("IsSuperAdmin")?.Value, "true",
+                    StringComparison.OrdinalIgnoreCase);
             }
             <ul class="sidebar-nav">
                 @await Component.InvokeAsync("Sidebar")
 
-                @if (isClinicAdmin)
+                @if (isSuperAdmin)
                 {
                 <li class="sidebar-item">
                     <a class="sidebar-link sidebar-link-parent @(isAdminActive ? "active" : "")"
@@ -51,8 +84,6 @@
                         <i class="fas fa-chevron-right sidebar-chevron"></i>
                     </a>
                     <ul class="sidebar-dropdown collapse @(isAdminActive ? "show" : "")" id="adminMenu">
-                        @if (isSuperAdmin)
-                        {
                         <li class="sidebar-item">
                             <a href="/Admin/Specialty"
                                class="sidebar-link @(currentPath.StartsWith("/Admin/Specialty", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
@@ -74,7 +105,6 @@
                                 <span>Médicos</span>
                             </a>
                         </li>
-                        }
                         <li class="sidebar-item">
                             <a href="/Admin/User"
                                class="sidebar-link @(currentPath.StartsWith("/Admin/User", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
@@ -82,8 +112,13 @@
                                 <span>Usuarios</span>
                             </a>
                         </li>
-                        @if (isSuperAdmin)
-                        {
+                        <li class="sidebar-item">
+                            <a href="/Admin/Fee"
+                               class="sidebar-link @(currentPath.StartsWith("/Admin/Fee", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
+                                <i class="fas fa-dollar-sign"></i>
+                                <span>Tarifas</span>
+                            </a>
+                        </li>
                         <li class="sidebar-item">
                             <a href="/Admin/Role"
                                class="sidebar-link @(currentPath.StartsWith("/Admin/Role", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
@@ -91,7 +126,13 @@
                                 <span>Roles</span>
                             </a>
                         </li>
-                        }
+                        <li class="sidebar-item">
+                            <a href="/Admin/Module"
+                               class="sidebar-link @(currentPath.StartsWith("/Admin/Module", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
+                                <i class="fas fa-th-list"></i>
+                                <span>Módulos</span>
+                            </a>
+                        </li>
                     </ul>
                 </li>
                 }
@@ -114,16 +155,26 @@
                         <i class="fas fa-bars"></i>
                     </button>
 
-                    <form class="d-none d-md-flex ms-3 me-auto">
+@*                     <form class="d-none d-md-flex ms-3 me-auto">
                         <div class="input-group">
                             <span class="input-group-text bg-white border-end-0">
                                 <i class="fas fa-search text-muted"></i>
                             </span>
                             <input type="text" class="form-control border-start-0" placeholder="Buscar...">
                         </div>
-                    </form>
+                    </form> *@
 
                     <ul class="navbar-nav ms-auto">
+
+                        <!-- Exchange Rates BCV -->
+                        <li class="nav-item me-3 d-none d-md-flex align-items-center">
+                            <span class="text-muted small">
+                                <i class="fas fa-coins text-warning me-1"></i>
+                                <span id="bcvUsdRate" title="Tasa BCV USD/VES">$ —</span>
+                                <span class="mx-1">|</span>
+                                <span id="bcvEurRate" title="Tasa BCV EUR/VES">€ —</span>
+                            </span>
+                        </li>
 
                             <!-- Active Clinic -->
                         <li class="nav-item me-2 d-none d-md-flex align-items-center">
@@ -151,11 +202,14 @@
                                         <i class="fas fa-cog me-2"></i>Configuración
                                     </a>
                                 </li>
+                                @if (showClinicSwitcher)
+                                {
                                 <li>
                                     <a class="dropdown-item" href="#" onclick="openClinicSelector(); return false;">
                                         <i class="fas fa-exchange-alt me-2"></i>Cambiar Clínica
                                     </a>
                                 </li>
+                                }
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
                                     <a class="dropdown-item" asp-controller="Account" asp-action="Logout">
@@ -226,34 +280,28 @@
     <script>
         // ── Clinic selector (global, available on all pages) ─────────────────────
 
-        let _clinicSelectorData = null;
-        let _clinicSelectorModal = null;
+        // Lista de clínicas del usuario actual, render server-side (sin caché cross-user).
+        const _userClinics = @Html.Raw(JsonSerializer.Serialize(userClinicsJs));
+        const _defaultClinicId = @defaultClinicId;
+        let   _clinicSelectorData = _userClinics;
+        let   _clinicSelectorModal = null;
 
         function _getActiveClinicId() {
-            return parseInt(localStorage.getItem('activeClinicId') || '1');
+            const stored = parseInt(localStorage.getItem('activeClinicId') || '0');
+            // Si la activa no pertenece al usuario, caer en la default del servidor.
+            if (stored && _userClinics.some(c => c.ClinicId === stored)) return stored;
+            if (_defaultClinicId) {
+                localStorage.setItem('activeClinicId', _defaultClinicId);
+            }
+            return _defaultClinicId;
         }
 
         function _initClinicLabel() {
-            const cached = JSON.parse(localStorage.getItem('medycallyClinicsV2') || 'null');
-            const id     = _getActiveClinicId();
-            const label  = document.getElementById('activeClinicLabel');
+            const id    = _getActiveClinicId();
+            const label = document.getElementById('activeClinicLabel');
             if (!label) return;
-
-            if (cached) {
-                const found = cached.find(c => c.clinicId === id);
-                label.textContent = found ? found.clinicName : `Clínica #${id}`;
-            } else {
-                label.textContent = `Clínica #${id}`;
-                fetch('/Home/GetClinics')
-                    .then(r => r.ok ? r.json() : null)
-                    .then(data => {
-                        if (!data) return;
-                        localStorage.setItem('medycallyClinicsV2', JSON.stringify(data));
-                        const found = data.find(c => c.clinicId === id);
-                        if (found) label.textContent = found.clinicName;
-                    })
-                    .catch(() => {});
-            }
+            const found = _userClinics.find(c => c.ClinicId === id);
+            label.textContent = found ? found.ClinicName : (id ? `Clínica #${id}` : '—');
         }
 
         function openClinicSelector() {
@@ -261,35 +309,16 @@
                 _clinicSelectorModal = new bootstrap.Modal(document.getElementById('clinicSelectorModal'));
             }
             document.getElementById('clinicSelectorSearch').value = '';
+            _clinicSelectorData = _userClinics;
+            _renderClinicSelector(_userClinics);
             _clinicSelectorModal.show();
-
-            const cached = JSON.parse(localStorage.getItem('medycallyClinicsV2') || 'null');
-            if (cached) {
-                _clinicSelectorData = cached;
-                _renderClinicSelector(cached);
-            } else {
-                document.getElementById('clinicSelectorList').innerHTML =
-                    '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div></div>';
-                fetch('/Home/GetClinics')
-                    .then(r => r.ok ? r.json() : null)
-                    .then(data => {
-                        if (!data) return;
-                        localStorage.setItem('medycallyClinicsV2', JSON.stringify(data));
-                        _clinicSelectorData = data;
-                        _renderClinicSelector(data);
-                    })
-                    .catch(() => {
-                        document.getElementById('clinicSelectorList').innerHTML =
-                            '<p class="text-danger text-center small py-2">Error al cargar las clínicas.</p>';
-                    });
-            }
         }
 
         function filterClinicSelector() {
             if (!_clinicSelectorData) return;
             const q = document.getElementById('clinicSelectorSearch').value.trim().toLowerCase();
             const filtered = q
-                ? _clinicSelectorData.filter(c => (c.clinicName ?? '').toLowerCase().includes(q))
+                ? _clinicSelectorData.filter(c => (c.ClinicName ?? '').toLowerCase().includes(q))
                 : _clinicSelectorData;
             _renderClinicSelector(filtered);
         }
@@ -302,13 +331,13 @@
                 return;
             }
             list.innerHTML = clinics.map(c => {
-                const isActive  = c.clinicId === activeId;
-                const location  = [c.stateName, c.municipalityName].filter(Boolean).join(', ');
-                const escaped   = (c.clinicName ?? '').replace(/'/g, "\\'");
+                const isActive  = c.ClinicId === activeId;
+                const location  = [c.StateName, c.MunicipalityName].filter(Boolean).join(', ');
+                const escaped   = (c.ClinicName ?? '').replace(/'/g, "\\'");
                 return `<a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center${isActive ? ' active' : ''}"
-                            onclick="selectClinic(${c.clinicId}, '${escaped}'); return false;">
+                            onclick="selectClinic(${c.ClinicId}, '${escaped}'); return false;">
                     <div>
-                        <div class="fw-semibold">${_escHtml(c.clinicName ?? '')}</div>
+                        <div class="fw-semibold">${_escHtml(c.ClinicName ?? '')}</div>
                         ${location ? `<small class="${isActive ? '' : 'text-muted'}">${_escHtml(location)}</small>` : ''}
                     </div>
                     ${isActive ? '<i class="fas fa-check-circle ms-2"></i>' : ''}
@@ -334,6 +363,22 @@
         }
 
         document.addEventListener('DOMContentLoaded', _initClinicLabel);
+
+        // ── Tasas de cambio BCV ──────────────────────────────────────────────────
+        function _initExchangeRates() {
+            fetch('/ExchangeRate/GetRates')
+                .then(r => r.ok ? r.json() : null)
+                .then(data => {
+                    if (!data || !data.length) return;
+                    const fmt = n => n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                    const usd = data.find(r => r.currencyCode === 'USD');
+                    const eur = data.find(r => r.currencyCode === 'EUR');
+                    if (usd) document.getElementById('bcvUsdRate').textContent = '$ ' + fmt(usd.rate);
+                    if (eur) document.getElementById('bcvEurRate').textContent = '€ ' + fmt(eur.rate);
+                })
+                .catch(() => {});
+        }
+        document.addEventListener('DOMContentLoaded', _initExchangeRates);
     </script>
 </body>
 </html>

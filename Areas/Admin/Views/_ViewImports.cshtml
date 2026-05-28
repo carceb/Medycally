@@ -1,4 +1,6 @@
 @using Medycally
 @using Medycally.Models
 @using Medycally.Areas.Admin
+@using Medycally.Core.Security
 @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@inject Medycally.Core.Security.IPermissionService Permissions

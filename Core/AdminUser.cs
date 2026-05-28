@@ -32,7 +32,7 @@ namespace Medycally.Core
                     UserIdNumber   = r["UserIdNumber"] == DBNull.Value ? 0 : Convert.ToInt32(r["UserIdNumber"]),
                     SecurityRoleId = Convert.ToInt32(r["SecurityRoleId"]),
                     RoleName       = r["RoleName"]     == DBNull.Value ? null : r["RoleName"].ToString(),
-                    RoleLevel      = r["RoleLevel"]    == DBNull.Value ? 0 : Convert.ToInt32(r["RoleLevel"]),
+                    IsSuperAdmin   = r["IsSuperAdmin"] != DBNull.Value && Convert.ToBoolean(r["IsSuperAdmin"]),
                     StatusId       = Convert.ToInt32(r["StatusId"]),
                     IsActivated    = r["IsActivated"]  != DBNull.Value && Convert.ToBoolean(r["IsActivated"]),
                     DoctorId       = r.IsDBNull(doctorIdOrd)   ? null : r.GetInt32(doctorIdOrd),
@@ -87,10 +87,43 @@ namespace Medycally.Core
                 {
                     SecurityRoleId = Convert.ToInt32(r["SecurityRoleId"]),
                     RoleName       = r["RoleName"].ToString() ?? string.Empty,
-                    RoleLevel      = r["RoleLevel"] == DBNull.Value ? 0 : Convert.ToInt32(r["RoleLevel"]),
+                    IsSuperAdmin   = r["IsSuperAdmin"] != DBNull.Value && Convert.ToBoolean(r["IsSuperAdmin"]),
                 });
             }
             return list;
+        }
+
+        public List<UserClinicModel> GetUserClinics(int securityUserId)
+        {
+            var list = new List<UserClinicModel>();
+            using var conn = _db.CreateConnection();
+            conn.Open();
+            using var cmd = new SqlCommand("SecurityUserClinic_GetByUser", conn) { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@SecurityUserId", securityUserId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                list.Add(new UserClinicModel
+                {
+                    ClinicId   = Convert.ToInt32(r["ClinicId"]),
+                    ClinicName = r["ClinicName"] == DBNull.Value ? null : r["ClinicName"].ToString(),
+                    StateName  = r["StateName"]  == DBNull.Value ? null : r["StateName"].ToString(),
+                    IsAssigned = r["IsAssigned"] != DBNull.Value && Convert.ToBoolean(r["IsAssigned"]),
+                });
+            }
+            return list;
+        }
+
+        public void SaveUserClinics(int securityUserId, List<int> clinicIds)
+        {
+            using var conn = _db.CreateConnection();
+            conn.Open();
+            using var cmd = new SqlCommand("SecurityUserClinic_Save", conn) { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@SecurityUserId", securityUserId);
+            cmd.Parameters.AddWithValue("@ClinicIds", clinicIds.Count > 0
+                ? (object)string.Join(",", clinicIds)
+                : DBNull.Value);
+            cmd.ExecuteNonQuery();
         }
 
         public string? ResendToken(int securityUserId)

@@ -88,6 +88,7 @@ namespace Medycally.Core
                     PatientSexId            = r.IsDBNull(r.GetOrdinal("PatientSexId"))              ? 0    : r.GetInt32(r.GetOrdinal("PatientSexId")),
                     PatientSexName          = r.IsDBNull(r.GetOrdinal("PatientSexName"))            ? null : r.GetString(r.GetOrdinal("PatientSexName")),
                     PatientPhone            = r.IsDBNull(r.GetOrdinal("PatientPhone"))              ? null : r.GetString(r.GetOrdinal("PatientPhone")),
+                    PatientEmail            = r.IsDBNull(r.GetOrdinal("PatientEmail"))              ? null : r.GetString(r.GetOrdinal("PatientEmail")),
                     PatientAddress          = r.IsDBNull(r.GetOrdinal("PatientAddress"))            ? null : r.GetString(r.GetOrdinal("PatientAddress")),
                     PatientBirthDate        = r.IsDBNull(r.GetOrdinal("PatientBirthDate"))          ? null : r.GetDateTime(r.GetOrdinal("PatientBirthDate")),
                     PatientStateId          = r.IsDBNull(r.GetOrdinal("PatientStateId"))            ? 0    : r.GetInt32(r.GetOrdinal("PatientStateId")),
@@ -96,6 +97,7 @@ namespace Medycally.Core
                     ChildGuardianName       = r.IsDBNull(r.GetOrdinal("ChildGuardianName"))         ? null : r.GetString(r.GetOrdinal("ChildGuardianName")),
                     RelationshipName        = r.IsDBNull(r.GetOrdinal("RelationshipName"))          ? null : r.GetString(r.GetOrdinal("RelationshipName")),
                     ChildGuardianPhone      = r.IsDBNull(r.GetOrdinal("ChildGuardianPhone"))        ? null : r.GetString(r.GetOrdinal("ChildGuardianPhone")),
+                    ChildGuardianEmail      = r.IsDBNull(r.GetOrdinal("ChildGuardianEmail"))        ? null : r.GetString(r.GetOrdinal("ChildGuardianEmail")),
                     ChildGuardianAddress    = r.IsDBNull(r.GetOrdinal("ChildGuardianAddress"))      ? null : r.GetString(r.GetOrdinal("ChildGuardianAddress")),
                     ChildGuardianBirthDate  = r.IsDBNull(r.GetOrdinal("ChildGuardianBirthDate"))    ? null : r.GetDateTime(r.GetOrdinal("ChildGuardianBirthDate")),
                     ChildGuardianSexId      = r.IsDBNull(r.GetOrdinal("ChildGuardianSexId"))        ? 0    : r.GetInt32(r.GetOrdinal("ChildGuardianSexId")),
@@ -156,6 +158,48 @@ namespace Medycally.Core
             catch (Exception ex)
             {
                 throw new Exception("Error al vincular paciente con la cita", ex);
+            }
+        }
+
+        public List<CalendarAppointmentModel> GetForCalendar(int? doctorId, DateTime start, DateTime end)
+        {
+            try
+            {
+                using SqlConnection connection = _connectionFactory.CreateConnection();
+                connection.Open();
+                SqlCommand cmd = new("Appointment_GetForCalendar", connection)
+                {
+                    CommandType = CommandType.StoredProcedure
+                };
+                cmd.Parameters.Add(new SqlParameter("@DoctorId", SqlDbType.Int)
+                {
+                    Value = doctorId.HasValue ? (object)doctorId.Value : DBNull.Value
+                });
+                cmd.Parameters.Add(new SqlParameter("@StartDate", SqlDbType.Date) { Value = start.Date });
+                cmd.Parameters.Add(new SqlParameter("@EndDate",   SqlDbType.Date) { Value = end.Date });
+
+                var list = new List<CalendarAppointmentModel>();
+                using SqlDataReader r = cmd.ExecuteReader();
+                while (r.Read())
+                {
+                    list.Add(new CalendarAppointmentModel
+                    {
+                        AppointmentId         = r.GetInt32(r.GetOrdinal("AppointmentId")),
+                        PatientName           = r.IsDBNull(r.GetOrdinal("PatientName"))           ? null : r.GetString(r.GetOrdinal("PatientName")),
+                        DoctorId              = r.GetInt32(r.GetOrdinal("DoctorId")),
+                        DoctorName            = r.IsDBNull(r.GetOrdinal("DoctorName"))            ? null : r.GetString(r.GetOrdinal("DoctorName")),
+                        SpecialtyName         = r.IsDBNull(r.GetOrdinal("SpecialtyName"))         ? null : r.GetString(r.GetOrdinal("SpecialtyName")),
+                        AppointmentDate       = r.GetDateTime(r.GetOrdinal("AppointmentDate")),
+                        AppointmentTime       = r.IsDBNull(r.GetOrdinal("AppointmentTime"))       ? null : r.GetString(r.GetOrdinal("AppointmentTime")),
+                        AppointmentStatusId   = r.GetInt32(r.GetOrdinal("AppointmentStatusId")),
+                        AppointmentStatusName = r.IsDBNull(r.GetOrdinal("AppointmentStatusName")) ? null : r.GetString(r.GetOrdinal("AppointmentStatusName")),
+                    });
+                }
+                return list;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al obtener las citas para el calendario", ex);
             }
         }
 

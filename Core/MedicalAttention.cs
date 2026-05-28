@@ -70,8 +70,12 @@ namespace Medycally.Core
             using var dr = cmd.ExecuteReader();
             while (dr.Read())
             {
-                int notesOrd = dr.GetOrdinal("Notes");
-                int sympOrd  = dr.GetOrdinal("Symptoms");
+                int notesOrd    = dr.GetOrdinal("Notes");
+                int sympOrd     = dr.GetOrdinal("Symptoms");
+                int chiefOrd    = dr.GetOrdinal("ChiefComplaint");
+                int currentOrd  = dr.GetOrdinal("CurrentIlness");
+                int labTestsOrd = dr.GetOrdinal("LaboratoryTests");
+                int testReqOrd  = dr.GetOrdinal("TestRequisition");
 
                 list.Add(new MedicalAttentionModel
                 {
@@ -82,9 +86,13 @@ namespace Medycally.Core
                     AttentionDate   = dr.GetDateTime(dr.GetOrdinal("AttentionDate")),
                     Diagnosis       = dr.GetString(dr.GetOrdinal("Diagnosis")),
                     Treatment       = dr.GetString(dr.GetOrdinal("Treatment")),
-                    Notes           = dr.IsDBNull(notesOrd) ? null : dr.GetString(notesOrd),
+                    Notes           = dr.IsDBNull(notesOrd)    ? null : dr.GetString(notesOrd),
                     AppointmentDate = dr.GetDateTime(dr.GetOrdinal("AppointmentDate")),
-                    Symptoms        = dr.IsDBNull(sympOrd)  ? null : dr.GetString(sympOrd),
+                    Symptoms        = dr.IsDBNull(sympOrd)     ? null : dr.GetString(sympOrd),
+                    ChiefComplaint  = dr.IsDBNull(chiefOrd)    ? null : dr.GetString(chiefOrd),
+                    CurrentIlness   = dr.IsDBNull(currentOrd)  ? null : dr.GetString(currentOrd),
+                    LaboratoryTests = dr.IsDBNull(labTestsOrd) ? null : dr.GetString(labTestsOrd),
+                    TestRequisition = dr.IsDBNull(testReqOrd)  ? null : dr.GetString(testReqOrd),
                 });
             }
             return list;
@@ -109,6 +117,10 @@ namespace Medycally.Core
                 int notesOrd        = dr.GetOrdinal("Notes");
                 int sympOrd         = dr.GetOrdinal("Symptoms");
                 int patientNameOrd  = dr.GetOrdinal("PatientName");
+                int chiefOrd        = dr.GetOrdinal("ChiefComplaint");
+                int currentOrd      = dr.GetOrdinal("CurrentIlness");
+                int labTestsOrd     = dr.GetOrdinal("LaboratoryTests");
+                int testReqOrd      = dr.GetOrdinal("TestRequisition");
 
                 list.Add(new MedicalAttentionModel
                 {
@@ -119,10 +131,14 @@ namespace Medycally.Core
                     AttentionDate   = dr.GetDateTime(dr.GetOrdinal("AttentionDate")),
                     Diagnosis       = dr.GetString(dr.GetOrdinal("Diagnosis")),
                     Treatment       = dr.GetString(dr.GetOrdinal("Treatment")),
-                    Notes           = dr.IsDBNull(notesOrd)       ? null : dr.GetString(notesOrd),
+                    Notes           = dr.IsDBNull(notesOrd)        ? null : dr.GetString(notesOrd),
                     AppointmentDate = dr.GetDateTime(dr.GetOrdinal("AppointmentDate")),
-                    Symptoms        = dr.IsDBNull(sympOrd)        ? null : dr.GetString(sympOrd),
-                    PatientName     = dr.IsDBNull(patientNameOrd) ? null : dr.GetString(patientNameOrd),
+                    Symptoms        = dr.IsDBNull(sympOrd)         ? null : dr.GetString(sympOrd),
+                    PatientName     = dr.IsDBNull(patientNameOrd)  ? null : dr.GetString(patientNameOrd),
+                    ChiefComplaint  = dr.IsDBNull(chiefOrd)        ? null : dr.GetString(chiefOrd),
+                    CurrentIlness   = dr.IsDBNull(currentOrd)      ? null : dr.GetString(currentOrd),
+                    LaboratoryTests = dr.IsDBNull(labTestsOrd)     ? null : dr.GetString(labTestsOrd),
+                    TestRequisition = dr.IsDBNull(testReqOrd)      ? null : dr.GetString(testReqOrd),
                 });
             }
             return list;
@@ -141,22 +157,30 @@ namespace Medycally.Core
             using var dr = cmd.ExecuteReader();
             if (dr.Read())
             {
-                int notesOrd    = dr.GetOrdinal("Notes");
-                int sympOrd     = dr.GetOrdinal("Symptoms");
-                int reasonIdOrd = dr.GetOrdinal("ReasonId");
-                int reasonNmOrd = dr.GetOrdinal("ReasonName");
+                int notesOrd      = dr.GetOrdinal("Notes");
+                int sympOrd       = dr.GetOrdinal("Symptoms");
+                int reasonIdOrd   = dr.GetOrdinal("ReasonId");
+                int reasonNmOrd   = dr.GetOrdinal("ReasonName");
+                int chiefOrd      = dr.GetOrdinal("ChiefComplaint");
+                int currentOrd    = dr.GetOrdinal("CurrentIlness");
+                int labTestsOrd   = dr.GetOrdinal("LaboratoryTests");
+                int testReqOrd    = dr.GetOrdinal("TestRequisition");
                 return new MedicalAttentionModel
                 {
-                    AttentionId   = dr.GetInt32(dr.GetOrdinal("AttentionId")),
-                    AppointmentId = dr.GetInt32(dr.GetOrdinal("AppointmentId")),
-                    DoctorName    = dr.GetString(dr.GetOrdinal("DoctorName")),
-                    AttentionDate = dr.GetDateTime(dr.GetOrdinal("AttentionDate")),
-                    Diagnosis     = dr.GetString(dr.GetOrdinal("Diagnosis")),
-                    Treatment     = dr.GetString(dr.GetOrdinal("Treatment")),
-                    Notes         = dr.IsDBNull(notesOrd)    ? null : dr.GetString(notesOrd),
-                    Symptoms      = dr.IsDBNull(sympOrd)     ? null : dr.GetString(sympOrd),
-                    ReasonId      = dr.IsDBNull(reasonIdOrd) ? null : dr.GetInt32(reasonIdOrd),
-                    ReasonName    = dr.IsDBNull(reasonNmOrd) ? null : dr.GetString(reasonNmOrd),
+                    AttentionId     = dr.GetInt32(dr.GetOrdinal("AttentionId")),
+                    AppointmentId   = dr.GetInt32(dr.GetOrdinal("AppointmentId")),
+                    DoctorName      = dr.GetString(dr.GetOrdinal("DoctorName")),
+                    AttentionDate   = dr.GetDateTime(dr.GetOrdinal("AttentionDate")),
+                    Diagnosis       = dr.GetString(dr.GetOrdinal("Diagnosis")),
+                    Treatment       = dr.GetString(dr.GetOrdinal("Treatment")),
+                    Notes           = dr.IsDBNull(notesOrd)    ? null : dr.GetString(notesOrd),
+                    Symptoms        = dr.IsDBNull(sympOrd)     ? null : dr.GetString(sympOrd),
+                    ReasonId        = dr.IsDBNull(reasonIdOrd) ? null : dr.GetInt32(reasonIdOrd),
+                    ReasonName     = dr.IsDBNull(reasonNmOrd) ? null : dr.GetString(reasonNmOrd),
+                    ChiefComplaint  = dr.IsDBNull(chiefOrd)    ? null : dr.GetString(chiefOrd),
+                    CurrentIlness   = dr.IsDBNull(currentOrd)  ? null : dr.GetString(currentOrd),
+                    LaboratoryTests = dr.IsDBNull(labTestsOrd) ? null : dr.GetString(labTestsOrd),
+                    TestRequisition = dr.IsDBNull(testReqOrd)  ? null : dr.GetString(testReqOrd),
                 };
             }
             return null;
@@ -170,11 +194,15 @@ namespace Medycally.Core
             {
                 CommandType = CommandType.StoredProcedure
             };
-            cmd.Parameters.AddWithValue("@AttentionId",   model.AttentionId);
-            cmd.Parameters.AddWithValue("@AppointmentId", model.AppointmentId);
-            cmd.Parameters.AddWithValue("@Diagnosis",     model.Diagnosis     ?? string.Empty);
-            cmd.Parameters.AddWithValue("@Treatment",     model.Treatment     ?? string.Empty);
-            cmd.Parameters.AddWithValue("@Notes",         string.IsNullOrWhiteSpace(model.Notes) ? (object)DBNull.Value : model.Notes);
+            cmd.Parameters.AddWithValue("@AttentionId",     model.AttentionId);
+            cmd.Parameters.AddWithValue("@AppointmentId",   model.AppointmentId);
+            cmd.Parameters.AddWithValue("@Diagnosis",       model.Diagnosis ?? string.Empty);
+            cmd.Parameters.AddWithValue("@Treatment",       model.Treatment ?? string.Empty);
+            cmd.Parameters.AddWithValue("@Notes",           string.IsNullOrWhiteSpace(model.Notes)           ? (object)DBNull.Value : model.Notes);
+            cmd.Parameters.AddWithValue("@ChiefComplaint",  string.IsNullOrWhiteSpace(model.ChiefComplaint)  ? (object)DBNull.Value : model.ChiefComplaint);
+            cmd.Parameters.AddWithValue("@CurrentIlness",   string.IsNullOrWhiteSpace(model.CurrentIlness)   ? (object)DBNull.Value : model.CurrentIlness);
+            cmd.Parameters.AddWithValue("@LaboratoryTests", string.IsNullOrWhiteSpace(model.LaboratoryTests) ? (object)DBNull.Value : model.LaboratoryTests);
+            cmd.Parameters.AddWithValue("@TestRequisition", string.IsNullOrWhiteSpace(model.TestRequisition) ? (object)DBNull.Value : model.TestRequisition);
 
             var result = cmd.ExecuteScalar();
             return result != null && result != DBNull.Value ? Convert.ToInt32(result) : model.AttentionId;
@@ -193,22 +221,28 @@ namespace Medycally.Core
             using var dr = cmd.ExecuteReader();
             while (dr.Read())
             {
-                int patientIdOrd = dr.GetOrdinal("PatientId");
-                int notesOrd     = dr.GetOrdinal("Notes");
+                int patientIdOrd       = dr.GetOrdinal("PatientId");
+                int sexNameOrd         = dr.GetOrdinal("SexName");
+                int stateNameOrd       = dr.GetOrdinal("StateName");
+                int patientIdNumberOrd = dr.GetOrdinal("PatientIdNumber");
+                int patientAgeOrd      = dr.GetOrdinal("PatientAge");
+                int isMinorOrd         = dr.GetOrdinal("IsMinor");
 
                 list.Add(new MedicalAttentionModel
                 {
-                    AttentionId   = dr.GetInt32(dr.GetOrdinal("AttentionId")),
-                    AppointmentId = dr.GetInt32(dr.GetOrdinal("AppointmentId")),
-                    PatientId     = dr.IsDBNull(patientIdOrd) ? null : dr.GetInt32(patientIdOrd),
-                    PatientName   = dr.GetString(dr.GetOrdinal("PatientName")),
-                    DoctorId      = dr.GetInt32(dr.GetOrdinal("DoctorId")),
-                    DoctorName    = dr.GetString(dr.GetOrdinal("DoctorName")),
-                    SpecialtyName = dr.GetString(dr.GetOrdinal("SpecialtyName")),
-                    AttentionDate = dr.GetDateTime(dr.GetOrdinal("AttentionDate")),
-                    Diagnosis     = dr.GetString(dr.GetOrdinal("Diagnosis")),
-                    Treatment     = dr.GetString(dr.GetOrdinal("Treatment")),
-                    Notes         = dr.IsDBNull(notesOrd) ? null : dr.GetString(notesOrd),
+                    AttentionId     = dr.GetInt32(dr.GetOrdinal("AttentionId")),
+                    AppointmentId   = dr.GetInt32(dr.GetOrdinal("AppointmentId")),
+                    PatientId       = dr.IsDBNull(patientIdOrd) ? null : dr.GetInt32(patientIdOrd),
+                    PatientName     = dr.GetString(dr.GetOrdinal("PatientName")),
+                    PatientIdNumber = dr.IsDBNull(patientIdNumberOrd) ? 0    : dr.GetInt32(patientIdNumberOrd),
+                    PatientAge      = dr.IsDBNull(patientAgeOrd)      ? 0    : dr.GetInt32(patientAgeOrd),
+                    SexName         = dr.IsDBNull(sexNameOrd)         ? null : dr.GetString(sexNameOrd),
+                    StateName       = dr.IsDBNull(stateNameOrd)       ? null : dr.GetString(stateNameOrd),
+                    IsMinor         = !dr.IsDBNull(isMinorOrd)        && dr.GetBoolean(isMinorOrd),
+                    DoctorId        = dr.GetInt32(dr.GetOrdinal("DoctorId")),
+                    DoctorName      = dr.GetString(dr.GetOrdinal("DoctorName")),
+                    SpecialtyName   = dr.GetString(dr.GetOrdinal("SpecialtyName")),
+                    AttentionDate   = dr.GetDateTime(dr.GetOrdinal("AttentionDate")),
                 });
             }
             return list;

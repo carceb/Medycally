@@ -5,13 +5,17 @@
     var states         = ViewBag.States         as List<Medycally.Models.GeographyModel>    ?? [];
     var municipalities = ViewBag.Municipalities as List<Medycally.Models.GeographyModel>    ?? [];
     var relationships  = ViewBag.Relationships  as List<Medycally.Models.RelationshipModel> ?? [];
+    var patPerms       = Permissions.GetPermissions(User, "/Patient/Index");
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="mb-0">Pacientes</h4>
-    <button class="btn btn-primary" onclick="openModal()">
-        <i class="fas fa-plus me-1"></i> Nuevo Paciente
-    </button>
+    @if (patPerms.CanCreate)
+    {
+        <button class="btn btn-primary" onclick="openModal()">
+            <i class="fas fa-plus me-1"></i> Nuevo Paciente
+        </button>
+    }
 </div>
 
 <div class="card shadow-sm">
@@ -132,6 +136,12 @@
                                    inputmode="numeric" placeholder="Ej: 04141234567" />
                             <div class="invalid-feedback" id="phoneError"></div>
                         </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Correo electrónico <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="patientEmail" maxlength="150"
+                                   placeholder="nombre@correo.com" />
+                            <div class="invalid-feedback" id="emailError"></div>
+                        </div>
                     </div>
                     <h6 class="text-muted mb-3">Ubicación</h6>
                     <div class="row g-3">
@@ -251,6 +261,12 @@
                             <div class="invalid-feedback" id="guardianPhoneError"></div>
                         </div>
                         <div class="col-md-4">
+                            <label class="form-label">Correo electrónico <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="guardianEmail" maxlength="150"
+                                   placeholder="nombre@correo.com" />
+                            <div class="invalid-feedback" id="guardianEmailError"></div>
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label">Estado</label>
                             <select class="form-select" id="guardianStateId"
                                     onchange="loadGuardianMunicipalities(this.value, 0)">
@@ -352,6 +368,12 @@
     const allStates         = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(states));
     const allMunicipalities = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(municipalities));
 
+    const patPerms = {
+        canCreate: @(patPerms.CanCreate ? "true" : "false"),
+        canEdit:   @(patPerms.CanEdit   ? "true" : "false"),
+        canDelete: @(patPerms.CanDelete ? "true" : "false")
+    };
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     function showToast(message, success) {
@@ -419,6 +441,12 @@
             const family  = p.FamilyCount > 0
                 ? `<span class="badge bg-info text-dark"><i class="fas fa-users me-1"></i>${p.FamilyCount}</span>`
                 : '<span class="text-muted small">—</span>';
+            const btnEdit   = patPerms.canEdit
+                ? `<button class="btn btn-sm btn-outline-primary me-1" onclick="editPatient(${p.PatientId})" title="Editar"><i class="fas fa-edit"></i></button>`
+                : '';
+            const btnDelete = patPerms.canDelete
+                ? `<button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(${p.PatientId},'${nameEscaped}')" title="Eliminar"><i class="fas fa-trash"></i></button>`
+                : '';
             return `<tr data-id="${p.PatientId}">
                 <td>${p.PatientId}</td>
                 <td>${escapeHtml(p.PatientName ?? '')}</td>
@@ -428,9 +456,9 @@
                 <td>${state}</td>
                 <td>${family}</td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editPatient(${p.PatientId})" title="Editar"><i class="fas fa-edit"></i></button>
+                    ${btnEdit}
                     <a class="btn btn-sm btn-outline-info me-1" href="/Patient/History/${p.PatientId}" title="Historia Médica"><i class="fas fa-file-medical"></i></a>
-                    <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(${p.PatientId},'${nameEscaped}')" title="Eliminar"><i class="fas fa-trash"></i></button>
+                    ${btnDelete}
                 </td>
             </tr>`;
         }).join('');
@@ -572,7 +600,7 @@
 
     function resetAdultFields() {
         ['patientName','patientSexId','patientIdNumber','patientBirthdate',
-         'patientMainPhone','patientAddress'].forEach(id => {
+         'patientMainPhone','patientEmail','patientAddress'].forEach(id => {
             const el = document.getElementById(id);
             if (el) { el.value = el.tagName === 'SELECT' ? '0' : ''; el.classList.remove('is-invalid'); }
         });
@@ -584,7 +612,7 @@
     function resetMinorFields() {
         ['minorName','minorSexId','minorBirthdate',
          'guardianIdNumber','guardianName','guardianAddress','guardianSexId',
-         'guardianBirthdate','guardianPhone','guardianStateId','guardianRelationshipIdNew'].forEach(id => {
+         'guardianBirthdate','guardianPhone','guardianEmail','guardianStateId','guardianRelationshipIdNew'].forEach(id => {
             const el = document.getElementById(id);
             if (el) { el.value = el.tagName === 'SELECT' ? '0' : ''; el.classList.remove('is-invalid'); }
         });
@@ -618,6 +646,7 @@
                 document.getElementById('guardianSexId').value     = data.sexId ?? 0;
                 document.getElementById('guardianBirthdate').value = formatDateForInput(data.patientBirthdate);
                 document.getElementById('guardianPhone').value     = data.patientMainPhone ? String(data.patientMainPhone) : '';
+                document.getElementById('guardianEmail').value     = data.patientEmail ?? '';
                 document.getElementById('guardianAddress').value   = data.patientAddress ?? '';
                 const stateId = data.stateId ?? 0;
                 document.getElementById('guardianStateId').value   = stateId;
@@ -635,7 +664,7 @@
 
     function clearGuardianDataFields() {
         ['guardianName','guardianSexId','guardianBirthdate',
-         'guardianPhone','guardianAddress','guardianStateId'].forEach(id => {
+         'guardianPhone','guardianEmail','guardianAddress','guardianStateId'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = el.tagName === 'SELECT' ? '0' : '';
         });
@@ -690,6 +719,7 @@
                     document.getElementById('guardianBirthdate').value   = formatDateForInput(g.patientBirthdate  ?? g.PatientBirthdate);
                     document.getElementById('guardianPhone').value       = (g.patientMainPhone ?? g.PatientMainPhone)
                         ? String(g.patientMainPhone ?? g.PatientMainPhone) : '';
+                    document.getElementById('guardianEmail').value       = g.patientEmail ?? g.PatientEmail ?? '';
                     document.getElementById('guardianAddress').value     = g.patientAddress   ?? g.PatientAddress   ?? '';
                     document.getElementById('guardianRelationshipIdNew').value = g.relationshipId ?? g.RelationshipId ?? 0;
                     const stateId = g.stateId ?? g.StateId ?? 0;
@@ -712,6 +742,7 @@
             document.getElementById('patientIdNumber').value  = p.PatientIdNumber ?? '';
             document.getElementById('patientBirthdate').value = formatDateForInput(p.PatientBirthdate);
             document.getElementById('patientMainPhone').value = p.PatientMainPhone ? String(p.PatientMainPhone) : '';
+            document.getElementById('patientEmail').value     = p.PatientEmail ?? '';
             document.getElementById('patientStateId').value   = p.StateId ?? 0;
             loadMunicipalities(p.StateId ?? 0, p.MunicipalityId ?? 0);
             document.getElementById('patientAddress').value   = p.PatientAddress ?? '';
@@ -765,6 +796,12 @@
         if (!phoneRaw) { setInvalid('patientMainPhone', 'phoneError', 'El teléfono es requerido.'); valid = false; }
         else clearInvalid('patientMainPhone');
 
+        const emailRe = /^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/;
+        const emailVal = document.getElementById('patientEmail').value.trim();
+        if (!emailVal)          { setInvalid('patientEmail', 'emailError', 'El correo electrónico es requerido.');  valid = false; }
+        else if (!emailRe.test(emailVal)) { setInvalid('patientEmail', 'emailError', 'El correo electrónico no es válido.'); valid = false; }
+        else clearInvalid('patientEmail');
+
         if (!valid) return;
 
         const id       = parseInt(document.getElementById('patientId').value);
@@ -778,6 +815,7 @@
         const payload = {
             patientId:        id,
             patientName:      name,
+            patientEmail:     emailVal,
             sexId:            sexId,
             patientIdNumber:  parseInt(cedulaStr) || null,
             patientBirthdate: birthdate,
@@ -801,6 +839,7 @@
             const newDoc = {
                 PatientId:        newId,
                 PatientName:      name,
+                PatientEmail:     emailVal,
                 SexId:            sexId,
                 SexName:          sexEntry?.SexName ?? null,
                 PatientIdNumber:  payload.patientIdNumber,
@@ -855,6 +894,12 @@
         if (!guardianPhoneRaw) { setInvalid('guardianPhone', 'guardianPhoneError', 'El teléfono del representante es requerido.'); valid = false; }
         else clearInvalid('guardianPhone');
 
+        const emailRe = /^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/;
+        const guardianEmailVal = document.getElementById('guardianEmail').value.trim();
+        if (!guardianEmailVal)          { setInvalid('guardianEmail', 'guardianEmailError', 'El correo del representante es requerido.');  valid = false; }
+        else if (!emailRe.test(guardianEmailVal)) { setInvalid('guardianEmail', 'guardianEmailError', 'El correo electrónico no es válido.'); valid = false; }
+        else clearInvalid('guardianEmail');
+
         if (!valid) return;
 
         const minorPatientId = parseInt(document.getElementById('patientId').value);
@@ -872,6 +917,7 @@
         const guardianPayload = {
             patientId:        guardianId,
             patientName:      guardianName,
+            patientEmail:     guardianEmailVal,
             sexId:            guardianSexId,
             patientIdNumber:  parseInt(guardianCedula) || null,
             patientBirthdate: document.getElementById('guardianBirthdate').value || null,
@@ -884,6 +930,8 @@
         const minorPayload = {
             patientId:        minorPatientId,
             patientName:      minorName,
+            // Patient.PatientEmail es NOT NULL → reutilizamos el del representante.
+            patientEmail:     guardianEmailVal,
             sexId:            minorSexId,
             patientIdNumber:  null,
             patientBirthdate: minorBirthdate,
@@ -940,6 +988,7 @@
             const newDoc = {
                 PatientId:        minorId,
                 PatientName:      minorName,
+                PatientEmail:     guardianEmailVal,
                 SexId:            minorSexId,
                 SexName:          minorSexEntry?.SexName ?? null,
                 PatientIdNumber:  null,

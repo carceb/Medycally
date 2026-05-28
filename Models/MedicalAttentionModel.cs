@@ -17,5 +17,16 @@ namespace Medycally.Models
         public int? ReasonId { get; set; }
         public string? ReasonName { get; set; }
         public string? PatientName { get; set; }
+        public string? ChiefComplaint { get; set; }
+        public string? CurrentIlness { get; set; }
+        public string? LaboratoryTests { get; set; }
+        public string? TestRequisition { get; set; }
+
+        // Campos para "Pacientes Atendidos" (lista distinct por paciente)
+        public int     PatientIdNumber { get; set; }
+        public string? SexName         { get; set; }
+        public int     PatientAge      { get; set; }
+        public string? StateName       { get; set; }
+        public bool    IsMinor         { get; set; }
     }
 }

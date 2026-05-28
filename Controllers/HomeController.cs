@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Medycally.Models;
 using Medycally.Core;
+using Medycally.Core.Security;
 
 namespace Medycally.Controllers;
 
@@ -42,10 +44,15 @@ public class HomeController : Controller
     }
 
     [HttpPost]
+    [RequiresModulePermission(PermissionAction.Edit)]
     public IActionResult UpdateAppointmentStatus([FromBody] UpdateStatusRequest request)
     {
         try
         {
+            var current = _appointmentQuery.GetById(request.AppointmentId);
+            if (current?.AppointmentStatusId == 5 && current.PatientId != null)
+                return BadRequest(new { message = "No se puede modificar el estatus: la cita ya fue atendida y el paciente está registrado." });
+
             _appointmentQuery.UpdateStatus(request.AppointmentId, request.AppointmentStatusId);
             return Ok();
         }
@@ -85,6 +92,7 @@ public class HomeController : Controller
     }
 
     [HttpPost]
+    [RequiresModulePermission(PermissionAction.Create)]
     public IActionResult RegisterPatient([FromBody] RegisterPatientRequest request)
     {
         try
@@ -127,7 +135,7 @@ public class HomeController : Controller
 
         var family         = _patient.GetFamily(patient.PatientId);
         var guardianMember = family.FirstOrDefault(f => f.Role == "guardian");
-        string? guardianName = null, guardianPhone = null, guardianIdNumber = null, relationshipName = null;
+        string? guardianName = null, guardianPhone = null, guardianIdNumber = null, relationshipName = null, guardianEmail = null;
         bool isMinor = false;
         if (guardianMember != null)
         {
@@ -139,6 +147,7 @@ public class HomeController : Controller
                 guardianName     = guardian.PatientName;
                 guardianPhone    = guardian.PatientMainPhone > 0 ? guardian.PatientMainPhone.ToString() : null;
                 guardianIdNumber = guardian.PatientIdNumber?.ToString();
+                guardianEmail    = guardian.PatientEmail;
             }
         }
 
@@ -147,6 +156,7 @@ public class HomeController : Controller
             patientId               = patient.PatientId,
             patientIdNumber         = patient.PatientIdNumber,
             patientName             = patient.PatientName,
+            patientEmail            = patient.PatientEmail,
             sexId                   = patient.SexId,
             sexName                 = patient.SexName,
             patientBirthdate        = patient.PatientBirthdate?.ToString("yyyy-MM-dd"),
@@ -161,6 +171,7 @@ public class HomeController : Controller
             isMinor,
             guardianName,
             guardianPhone,
+            guardianEmail,
             guardianIdNumber,
             relationshipName
         });
@@ -171,7 +182,11 @@ public class HomeController : Controller
     {
         try
         {
-            var clinics = _clinic.GetAll();
+            int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int securityUserId);
+            bool isSuperAdmin = string.Equals(User.FindFirst("IsSuperAdmin")?.Value, "true", StringComparison.OrdinalIgnoreCase);
+            int? doctorId = int.TryParse(User.FindFirst("DoctorId")?.Value, out int did) ? did : null;
+
+            var clinics = _clinic.GetByUser(securityUserId, isSuperAdmin, doctorId);
             return Json(clinics.Select(c => new
             {
                 c.ClinicId,
@@ -187,6 +202,7 @@ public class HomeController : Controller
     }
 
     [HttpPost]
+    [RequiresModulePermission(PermissionAction.Delete)]
     public IActionResult DeleteAppointment([FromBody] int appointmentId)
     {
         try

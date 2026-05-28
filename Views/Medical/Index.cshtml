@@ -1,5 +1,6 @@
 @{
     ViewData["Title"] = "Atención Médica";
+    var medPerms = Permissions.GetPermissions(User, "/Medical/Index");
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -36,6 +37,14 @@
         </div>
     </div>
 </div>
+
+@if (TempData["MedicalError"] is string medicalError)
+{
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i>@medicalError
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
 
 <div id="queueContainer">
     <div class="text-center py-5 text-muted">
@@ -75,6 +84,12 @@
 <script>
     const TODAY = new Date().toISOString().substring(0, 10);
     document.getElementById('queueDate').value = TODAY;
+
+    const medPerms = {
+        canCreate: @(medPerms.CanCreate ? "true" : "false"),
+        canEdit:   @(medPerms.CanEdit   ? "true" : "false"),
+        canDelete: @(medPerms.CanDelete ? "true" : "false")
+    };
 
     let activeClinicId   = parseInt(localStorage.getItem('activeClinicId') || '1');
     let activeClinicName = '';
@@ -151,10 +166,25 @@
                 : '';
 
             const btnLabel  = isInAtt ? 'Continuar' : 'Atender';
-            const btnAttend = `<button type="button" class="btn btn-sm ${isInAtt ? 'btn-info' : 'btn-primary'} px-3"
-                                       onclick="attendPatient(${q.appointmentId}, ${q.appointmentStatusId})">
-                                   <i class="fas fa-user-check me-1"></i>${btnLabel}
-                               </button>`;
+            const hasPatient = q.patientId && q.patientId > 0;
+            let btnAttend;
+            if (!hasPatient) {
+                btnAttend = `<button type="button" class="btn btn-sm btn-secondary px-3" disabled
+                                     title="Este paciente no está registrado. Completa su registro antes de iniciar la atención.">
+                                 <i class="fas fa-user-slash me-1"></i>No registrado
+                             </button>`;
+            } else if (!medPerms.canEdit && !medPerms.canCreate) {
+                btnAttend = '';
+            } else {
+                btnAttend = `<button type="button" class="btn btn-sm ${isInAtt ? 'btn-info' : 'btn-primary'} px-3"
+                                     onclick="attendPatient(${q.appointmentId}, ${q.appointmentStatusId})">
+                                 <i class="fas fa-user-check me-1"></i>${btnLabel}
+                             </button>`;
+            }
+
+            const unregisteredWarn = hasPatient
+                ? ''
+                : `<div class="queue-symptoms text-danger"><i class="fas fa-exclamation-triangle me-1"></i>Paciente no registrado en el sistema.</div>`;
 
             return `
             <div class="queue-card ${cardClass}">
@@ -175,6 +205,7 @@
                     </div>
                     <div class="queue-meta mt-1">${reason}</div>
                     ${symptoms}
+                    ${unregisteredWarn}
                 </div>
                 <div class="ms-auto text-end">
                     ${btnAttend}
@@ -193,7 +224,14 @@
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(appointmentId)
             });
-            if (!res.ok) throw new Error('No se pudo iniciar la atención.');
+            if (!res.ok) {
+                let msg = 'No se pudo iniciar la atención.';
+                try {
+                    const data = await res.json();
+                    if (data?.message) msg = data.message;
+                } catch { }
+                throw new Error(msg);
+            }
             window.location.href = `/Medical/Patient/${appointmentId}`;
         } catch (e) { alert(e.message); }
     }
@@ -202,20 +240,13 @@
         return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    (function init() {
-        updateClinicLabel();
-        const cached = localStorage.getItem('medycallyClinicsV2');
-        if (cached) {
-            try {
-                const clinics = JSON.parse(cached);
-                const c = clinics.find(x => x.ClinicId === activeClinicId);
-                if (c) {
-                    activeClinicName = (c.ClinicTypeName ? c.ClinicTypeName + ' ' : '') + c.ClinicName;
-                    updateClinicLabel();
-                }
-            } catch { }
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof _userClinics !== 'undefined') {
+            const c = _userClinics.find(x => x.ClinicId === activeClinicId);
+            if (c) activeClinicName = c.ClinicName;
         }
+        updateClinicLabel();
         loadQueue();
-    })();
+    });
 </script>
 }

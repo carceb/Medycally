@@ -1,0 +1,437 @@
+@{
+    ViewData["Title"] = "Tarifas";
+    var feePerms = Permissions.GetPermissions(User, "/Admin/Fee");
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h4 class="mb-0">Tarifas por Especialidad</h4>
+    <span class="badge bg-light text-dark border fs-6 px-3 py-2" id="exchangeRateBadge">
+        <i class="fas fa-coins text-warning me-1"></i>Tasa BCV: —
+    </span>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+
+        <!-- Fila de filtros: selector de clínica + buscador -->
+        <div class="row mb-3 g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label small text-muted mb-1">
+                    <i class="fas fa-hospital me-1"></i>Clínica
+                </label>
+                <select class="form-select" id="clinicSelect" onchange="onClinicChange()">
+                    <option value="0">— Cargando clínicas... —</option>
+                </select>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label small text-muted mb-1">
+                    <i class="fas fa-search me-1"></i>Buscar
+                </label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="searchInput"
+                           placeholder="Buscar especialidad..." oninput="applyFilters()" />
+                    <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()" title="Limpiar">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Especialidad</th>
+                        <th class="text-end">Tarifa (USD)</th>
+                        <th class="text-end">Tarifa (Bs.)</th>
+                        <th class="text-center">Tasa usada</th>
+                        <th class="text-center">Última actualización</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="feeBody">
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            <div class="spinner-border spinner-border-sm me-2"></div>Cargando...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <small class="text-muted" id="paginationInfo"></small>
+            <nav><ul class="pagination pagination-sm mb-0" id="pagination"></ul></nav>
+        </div>
+
+    </div>
+</div>
+
+<!-- Save Modal -->
+<div class="modal fade" id="feeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Establecer Tarifa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="modalSpecialtyId" />
+                <input type="hidden" id="modalClinicId" />
+
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Especialidad</label>
+                    <p class="fw-semibold mb-0" id="modalSpecialtyName"></p>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Tarifa en dólares (USD) <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" class="form-control" id="modalFeeUSD"
+                               min="0.01" step="0.01" placeholder="0.00"
+                               oninput="recalcVES()" />
+                        <div class="invalid-feedback" id="feeUSDError"></div>
+                    </div>
+                </div>
+
+                <div class="mb-1">
+                    <label class="form-label">Equivalente en bolívares (Bs.)</label>
+                    <div class="input-group">
+                        <span class="input-group-text">Bs.</span>
+                        <input type="text" class="form-control bg-light" id="modalFeeVES" readonly />
+                    </div>
+                </div>
+                <small class="text-muted" id="modalRateInfo"></small>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSave" onclick="saveFee()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="toast" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMessage"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const feeModal = new bootstrap.Modal(document.getElementById('feeModal'));
+    const toast    = new bootstrap.Toast(document.getElementById('toast'), { delay: 3500 });
+
+    const feePerms = {
+        canCreate: @(feePerms.CanCreate ? "true" : "false"),
+        canEdit:   @(feePerms.CanEdit   ? "true" : "false"),
+        canDelete: @(feePerms.CanDelete ? "true" : "false")
+    };
+
+    let allFees      = [];
+    let filteredFees = [];
+    let currentPage  = 1;
+    const PAGE_SIZE  = 10;
+    let currentUsdRate = 0;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await Promise.all([loadExchangeRate(), loadClinics()]);
+    });
+
+    // ── Exchange rate ────────────────────────────────────────────────────────────
+    async function loadExchangeRate() {
+        try {
+            const r = await fetch('/ExchangeRate/GetRates');
+            if (!r.ok) return;
+            const rates = await r.json();
+            const usd = rates.find(x => x.currencyCode === 'USD');
+            if (usd) {
+                currentUsdRate = usd.rate;
+                document.getElementById('exchangeRateBadge').innerHTML =
+                    `<i class="fas fa-coins text-warning me-1"></i>Tasa BCV: Bs. ${fmtN(usd.rate, 4)}`;
+            }
+        } catch (_) {}
+    }
+
+    // ── Clinics selector ─────────────────────────────────────────────────────────
+    async function loadClinics() {
+        try {
+            // Lista de clínicas del usuario, expuesta por el layout (server-side, per-user).
+            let clinics = (typeof _userClinics !== 'undefined') ? _userClinics : null;
+            if (!clinics || clinics.length === 0) {
+                const r = await fetch('/Home/GetClinics');
+                if (!r.ok) return;
+                clinics = await r.json();
+            }
+
+            const activeId = parseInt(localStorage.getItem('activeClinicId') || '0');
+            const select   = document.getElementById('clinicSelect');
+
+            select.innerHTML = clinics.map(c => {
+                const label = c.clinicName + (c.stateName ? ` — ${c.stateName}` : '');
+                return `<option value="${c.clinicId}" ${c.clinicId === activeId ? 'selected' : ''}>${escHtml(label)}</option>`;
+            }).join('');
+
+            // Si no había clínica activa, toma la primera
+            if (!activeId && clinics.length > 0) {
+                select.value = clinics[0].clinicId;
+            }
+
+            loadFees();
+        } catch (_) {
+            document.getElementById('clinicSelect').innerHTML =
+                '<option value="0">— Error al cargar clínicas —</option>';
+            document.getElementById('feeBody').innerHTML =
+                '<tr><td colspan="7" class="text-center text-danger py-4">Error al cargar las clínicas.</td></tr>';
+        }
+    }
+
+    function onClinicChange() {
+        const clinicId   = getSelectedClinicId();
+        const clinicName = document.getElementById('clinicSelect').selectedOptions[0]?.text ?? '';
+        // Sincroniza con el selector global del navbar
+        localStorage.setItem('activeClinicId', clinicId);
+        const label = document.getElementById('activeClinicLabel');
+        if (label) label.textContent = clinicName.split(' — ')[0];
+        loadFees();
+    }
+
+    function getSelectedClinicId() {
+        return parseInt(document.getElementById('clinicSelect').value || '0');
+    }
+
+    // ── Load fees ────────────────────────────────────────────────────────────────
+    function loadFees() {
+        const clinicId = getSelectedClinicId();
+        if (!clinicId) {
+            document.getElementById('feeBody').innerHTML =
+                '<tr><td colspan="7" class="text-center text-muted py-4">Selecciona una clínica.</td></tr>';
+            return;
+        }
+
+        document.getElementById('feeBody').innerHTML =
+            '<tr><td colspan="7" class="text-center text-muted py-4">' +
+            '<div class="spinner-border spinner-border-sm me-2"></div>Cargando...</td></tr>';
+
+        fetch(`/Admin/Fee/GetByClinic?clinicId=${clinicId}`)
+            .then(r => r.ok ? r.json() : Promise.reject())
+            .then(data => {
+                allFees = data;
+                applyFilters();
+            })
+            .catch(() => showToast('Error al cargar las tarifas.', false));
+    }
+
+    // ── Table ────────────────────────────────────────────────────────────────────
+    function applyFilters() {
+        const q = (document.getElementById('searchInput').value ?? '').trim().toLowerCase();
+        filteredFees = q
+            ? allFees.filter(f => (f.specialtyName ?? '').toLowerCase().includes(q))
+            : [...allFees];
+        currentPage = 1;
+        renderTable();
+    }
+
+    function clearSearch() {
+        document.getElementById('searchInput').value = '';
+        applyFilters();
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('feeBody');
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const page  = filteredFees.slice(start, start + PAGE_SIZE);
+
+        if (filteredFees.length === 0) {
+            const clinicId = getSelectedClinicId();
+            const msg = clinicId
+                ? 'Esta clínica no tiene médicos con especialidades asignadas.'
+                : 'Selecciona una clínica.';
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">${msg}</td></tr>`;
+            renderPagination();
+            return;
+        }
+
+        tbody.innerHTML = page.map((f, i) => {
+            const hasRate = f.clinicSpecialtyFeeId > 0;
+            const rowNum  = start + i + 1;
+            const feeUSD  = hasRate
+                ? `<span class="fw-semibold text-success">$ ${fmtN(f.feeUSD, 2)}</span>`
+                : '<span class="text-muted fst-italic">Sin tarifa</span>';
+            const feeVES  = hasRate ? `<span class="fw-semibold">Bs. ${fmtN(f.feeVES, 2)}</span>` : '—';
+            const rate    = hasRate ? `<small class="text-muted">${fmtN(f.exchangeRateUsed, 4)}</small>` : '—';
+            const updated = hasRate && f.updatedAt ? `<small class="text-muted">${fmtDate(f.updatedAt)}</small>` : '—';
+            const escaped = (f.specialtyName ?? '').replace(/'/g, "\\'");
+
+            return `<tr>
+                <td>${rowNum}</td>
+                <td>${escHtml(f.specialtyName ?? '')}</td>
+                <td class="text-end">${feeUSD}</td>
+                <td class="text-end">${feeVES}</td>
+                <td class="text-center">${rate}</td>
+                <td class="text-center">${updated}</td>
+                <td class="text-end">
+                    ${(hasRate ? feePerms.canEdit : feePerms.canCreate)
+                        ? `<button class="btn btn-sm btn-outline-primary"
+                                   onclick="openModal(${f.specialtyId},'${escaped}',${f.feeUSD})"
+                                   title="${hasRate ? 'Editar tarifa' : 'Establecer tarifa'}">
+                                <i class="fas fa-${hasRate ? 'edit' : 'plus'}"></i>
+                                <span class="d-none d-lg-inline ms-1">${hasRate ? 'Editar' : 'Establecer'}</span>
+                           </button>`
+                        : ''}
+                </td>
+            </tr>`;
+        }).join('');
+
+        renderPagination();
+    }
+
+    function renderPagination() {
+        const total      = filteredFees.length;
+        const totalPages = Math.ceil(total / PAGE_SIZE);
+        const pag        = document.getElementById('pagination');
+        const info       = document.getElementById('paginationInfo');
+
+        if (total === 0) { info.textContent = ''; pag.innerHTML = ''; return; }
+
+        const start = (currentPage - 1) * PAGE_SIZE + 1;
+        const end   = Math.min(currentPage * PAGE_SIZE, total);
+        info.textContent = `Mostrando ${start}–${end} de ${total}`;
+
+        if (totalPages <= 1) { pag.innerHTML = ''; return; }
+
+        const pages  = new Set([1, totalPages]);
+        for (let p = Math.max(1, currentPage - 2); p <= Math.min(totalPages, currentPage + 2); p++) pages.add(p);
+        const sorted = [...pages].sort((a, b) => a - b);
+
+        let html = `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage - 1});return false;">&lsaquo;</a></li>`;
+        let prev = 0;
+        for (const p of sorted) {
+            if (p - prev > 1) html += `<li class="page-item disabled"><span class="page-link">&hellip;</span></li>`;
+            html += `<li class="page-item ${p === currentPage ? 'active' : ''}">
+                <a class="page-link" href="#" onclick="goToPage(${p});return false;">${p}</a></li>`;
+            prev = p;
+        }
+        html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage + 1});return false;">&rsaquo;</a></li>`;
+        pag.innerHTML = html;
+    }
+
+    function goToPage(page) {
+        const totalPages = Math.max(1, Math.ceil(filteredFees.length / PAGE_SIZE));
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        renderTable();
+    }
+
+    // ── Modal ────────────────────────────────────────────────────────────────────
+    function openModal(specialtyId, specialtyName, currentFeeUSD) {
+        const clinicId = getSelectedClinicId();
+        document.getElementById('modalSpecialtyId').value          = specialtyId;
+        document.getElementById('modalClinicId').value             = clinicId;
+        document.getElementById('modalSpecialtyName').textContent  = specialtyName;
+        document.getElementById('modalFeeUSD').value               = currentFeeUSD > 0 ? currentFeeUSD : '';
+        document.getElementById('modalFeeUSD').classList.remove('is-invalid');
+        document.getElementById('modalRateInfo').textContent =
+            currentUsdRate > 0
+                ? `Tasa BCV vigente: Bs. ${fmtN(currentUsdRate, 4)} por USD`
+                : 'Tasa BCV no disponible — la tasa se cargará al guardar';
+        recalcVES();
+        feeModal.show();
+        setTimeout(() => document.getElementById('modalFeeUSD').focus(), 300);
+    }
+
+    function recalcVES() {
+        const usd = parseFloat(document.getElementById('modalFeeUSD').value) || 0;
+        document.getElementById('modalFeeVES').value =
+            usd > 0 && currentUsdRate > 0 ? fmtN(usd * currentUsdRate, 2) : '';
+    }
+
+    function saveFee() {
+        const specialtyId = parseInt(document.getElementById('modalSpecialtyId').value);
+        const clinicId    = parseInt(document.getElementById('modalClinicId').value);
+        const feeUSD      = parseFloat(document.getElementById('modalFeeUSD').value);
+
+        const input = document.getElementById('modalFeeUSD');
+        if (!feeUSD || feeUSD <= 0) {
+            input.classList.add('is-invalid');
+            document.getElementById('feeUSDError').textContent = 'Ingresa una tarifa mayor a cero.';
+            return;
+        }
+        input.classList.remove('is-invalid');
+        document.getElementById('btnSave').disabled = true;
+
+        fetch('/Admin/Fee/Save', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ clinicId, specialtyId, feeUSD })
+        })
+        .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)))
+        .then(data => {
+            feeModal.hide();
+            const idx = allFees.findIndex(f => f.specialtyId === specialtyId);
+            if (idx >= 0) {
+                allFees[idx] = {
+                    specialtyId:          specialtyId,
+                    specialtyName:        allFees[idx].specialtyName,
+                    clinicSpecialtyFeeId: data.clinicSpecialtyFeeId,
+                    feeUSD:               data.feeUSD,
+                    feeVES:               data.feeVES,
+                    exchangeRateUsed:     data.exchangeRateUsed,
+                    updatedAt:            data.updatedAt
+                };
+            }
+            applyFilters();
+            showToast('Tarifa guardada correctamente.', true);
+        })
+        .catch(err => showToast(err?.message ?? 'Error al guardar la tarifa.', false))
+        .finally(() => { document.getElementById('btnSave').disabled = false; });
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────────
+    function showToast(message, success) {
+        const el = document.getElementById('toast');
+        el.classList.remove('bg-success', 'bg-danger');
+        el.classList.add(success ? 'bg-success' : 'bg-danger');
+        document.getElementById('toastMessage').textContent = message;
+        toast.show();
+    }
+
+    function fmtN(n, decimals) {
+        return Number(n).toLocaleString('es-VE', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        });
+    }
+
+    function fmtDate(dateStr) {
+        const d = new Date(dateStr);
+        if (isNaN(d)) return dateStr;
+        return d.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+               ' ' + d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function escHtml(text) {
+        const d = document.createElement('div');
+        d.textContent = text ?? '';
+        return d.innerHTML;
+    }
+
+    // Recarga cuando el usuario cambia la clínica desde el navbar global
+    window.addEventListener('clinicChanged', e => {
+        const { clinicId } = e.detail;
+        const select = document.getElementById('clinicSelect');
+        if (select && clinicId) {
+            select.value = clinicId;
+            loadFees();
+        }
+    });
+</script>
+}

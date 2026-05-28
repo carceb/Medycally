@@ -1,4 +1,5 @@
 using Medycally.Core;
+using Medycally.Core.Security;
 using Medycally.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,20 +10,24 @@ namespace Medycally.Controllers
     [Authorize]
     public class PatientController : Controller
     {
-        private readonly IPatient         _patient;
-        private readonly IGeography       _geography;
-        private readonly ICommonData      _commonData;
-        private readonly IPatientHistory  _patientHistory;
-        private readonly IMedicalAttention _medical;
+        private const string ModuleUrl = "/Patient/Index";
+
+        private readonly IPatient           _patient;
+        private readonly IGeography         _geography;
+        private readonly ICommonData        _commonData;
+        private readonly IPatientHistory    _patientHistory;
+        private readonly IMedicalAttention  _medical;
+        private readonly IPermissionService _permissions;
 
         public PatientController(IPatient patient, IGeography geography, ICommonData commonData,
-            IPatientHistory patientHistory, IMedicalAttention medical)
+            IPatientHistory patientHistory, IMedicalAttention medical, IPermissionService permissions)
         {
             _patient        = patient;
             _geography      = geography;
             _commonData     = commonData;
             _patientHistory = patientHistory;
             _medical        = medical;
+            _permissions    = permissions;
         }
 
         public IActionResult Index()
@@ -70,11 +75,16 @@ namespace Medycally.Controllers
             if (string.IsNullOrWhiteSpace(model.PatientName))
                 return BadRequest(new { message = "El nombre del paciente es requerido." });
 
+            var required = model.PatientId == 0 ? PermissionAction.Create : PermissionAction.Edit;
+            if (!_permissions.HasPermission(User, ModuleUrl, required))
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "No tienes permiso para realizar esta acción." });
+
             var id = _patient.AddOrEdit(model);
             return Ok(new { patientId = id });
         }
 
         [HttpPost]
+        [RequiresModulePermission(PermissionAction.Delete)]
         public IActionResult Delete([FromBody] int patientId)
         {
             try
@@ -89,6 +99,7 @@ namespace Medycally.Controllers
         }
 
         [HttpPost]
+        [RequiresModulePermission(PermissionAction.Edit)]
         public IActionResult SaveGuardian([FromBody] SaveGuardianRequest request)
         {
             try
@@ -131,6 +142,7 @@ namespace Medycally.Controllers
         }
 
         [HttpPost]
+        [RequiresModulePermission(PermissionAction.Edit)]
         public IActionResult SaveHistory([FromBody] PatientHistoryModel model)
         {
             try
@@ -146,6 +158,7 @@ namespace Medycally.Controllers
         }
 
         [HttpPost]
+        [RequiresModulePermission(PermissionAction.Edit)]
         public IActionResult RemoveGuardian([FromBody] RemoveGuardianRequest request)
         {
             try

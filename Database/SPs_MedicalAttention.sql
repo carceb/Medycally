@@ -712,5 +712,228 @@ END
 GO
 
 -- =============================================================================
+-- PASO 24: MedicalAttention_Save — aceptar ChiefComplaint, CurrentIlness,
+--          LaboratoryTests y TestRequisition.
+--          Las columnas se asumen ya creadas en la tabla MedicalAttention.
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.MedicalAttention_Save
+    @AttentionId     INT,
+    @AppointmentId   INT,
+    @Diagnosis       NVARCHAR(3000),
+    @Treatment       NVARCHAR(3000),
+    @Notes           NVARCHAR(1000) = NULL,
+    @ChiefComplaint  NVARCHAR(1000) = NULL,
+    @CurrentIlness   NVARCHAR(3000) = NULL,
+    @LaboratoryTests NVARCHAR(3000) = NULL,
+    @TestRequisition NVARCHAR(3000) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @DoctorId INT, @PatientId INT, @Symptoms NVARCHAR(500), @ReasonId INT;
+    SELECT @DoctorId  = sd.DoctorId,
+           @PatientId = a.PatientId,
+           @Symptoms  = a.Symptoms,
+           @ReasonId  = a.ReasonId
+    FROM       dbo.Appointment     a
+    INNER JOIN dbo.SpecialtyDoctor sd ON sd.SpecialtyDoctorId = a.SpecialtyDoctorId
+    WHERE  a.AppointmentId = @AppointmentId;
+
+    IF @AttentionId = 0
+    BEGIN
+        INSERT INTO dbo.MedicalAttention
+            (AppointmentId, DoctorId, PatientId, Symptoms, ReasonId,
+             Diagnosis, Treatment, Notes,
+             ChiefComplaint, CurrentIlness, LaboratoryTests, TestRequisition)
+        VALUES
+            (@AppointmentId, @DoctorId, @PatientId, @Symptoms, @ReasonId,
+             @Diagnosis, @Treatment, @Notes,
+             @ChiefComplaint, @CurrentIlness, @LaboratoryTests, @TestRequisition);
+        SELECT CAST(SCOPE_IDENTITY() AS INT);
+    END
+    ELSE
+    BEGIN
+        UPDATE dbo.MedicalAttention
+        SET    Diagnosis       = @Diagnosis,
+               Treatment       = @Treatment,
+               Notes           = @Notes,
+               ChiefComplaint  = @ChiefComplaint,
+               CurrentIlness   = @CurrentIlness,
+               LaboratoryTests = @LaboratoryTests,
+               TestRequisition = @TestRequisition,
+               PatientId       = ISNULL(PatientId, @PatientId),
+               Symptoms        = ISNULL(Symptoms,  @Symptoms),
+               ReasonId        = ISNULL(ReasonId,  @ReasonId)
+        WHERE  AttentionId = @AttentionId;
+        SELECT @AttentionId;
+    END
+
+    UPDATE dbo.Appointment
+    SET    AppointmentStatusId = 5
+    WHERE  AppointmentId = @AppointmentId;
+END
+GO
+
+-- =============================================================================
+-- PASO 25: MedicalAttention_GetByAppointment — devolver los 4 campos nuevos
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.MedicalAttention_GetByAppointment
+    @AppointmentId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        ma.AttentionId,
+        ma.AppointmentId,
+        ma.AttentionDate,
+        ma.Diagnosis,
+        ma.Treatment,
+        ma.Notes,
+        ma.Symptoms,
+        ma.ReasonId,
+        r.ReasonName,
+        ma.ChiefComplaint,
+        ma.CurrentIlness,
+        ma.LaboratoryTests,
+        ma.TestRequisition,
+        ISNULL(sx.DoctorAbbreviation + N' ', N'') + d.DoctorName AS DoctorName
+    FROM       dbo.MedicalAttention  ma
+    INNER JOIN dbo.Doctor            d  ON d.DoctorId  = ma.DoctorId
+    LEFT  JOIN dbo.Sex               sx ON sx.SexId    = d.SexId
+    LEFT  JOIN dbo.Reason            r  ON r.ReasonId  = ma.ReasonId
+    WHERE ma.AppointmentId = @AppointmentId;
+END
+GO
+
+-- =============================================================================
+-- PASO 26: MedicalAttention_GetByPatient — devolver los 4 campos nuevos
+--          para que el acordeón de Consultas en /Medical/Patient los muestre.
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.MedicalAttention_GetByPatient
+    @PatientIdNumber INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        ma.AttentionId,
+        ma.AppointmentId,
+        ma.AttentionDate,
+        ma.Diagnosis,
+        ma.Treatment,
+        ma.Notes,
+        ISNULL(sx.DoctorAbbreviation + N' ', N'') + d.DoctorName  AS DoctorName,
+        sp.SpecialtyName,
+        a.AppointmentDate,
+        ISNULL(ma.Symptoms, a.Symptoms)                            AS Symptoms,
+        ma.ChiefComplaint,
+        ma.CurrentIlness,
+        ma.LaboratoryTests,
+        ma.TestRequisition
+    FROM       dbo.MedicalAttention  ma
+    INNER JOIN dbo.Appointment       a   ON a.AppointmentId      = ma.AppointmentId
+    INNER JOIN dbo.Doctor            d   ON d.DoctorId           = ma.DoctorId
+    INNER JOIN dbo.SpecialtyDoctor   sd  ON sd.SpecialtyDoctorId = a.SpecialtyDoctorId
+    INNER JOIN dbo.Specialty         sp  ON sp.SpecialtyId       = sd.SpecialtyId
+    LEFT  JOIN dbo.Sex               sx  ON sx.SexId             = d.SexId
+    WHERE  a.PatientIdNumber = @PatientIdNumber
+    ORDER  BY ma.AttentionDate DESC;
+END
+GO
+
+-- =============================================================================
+-- PASO 27: MedicalAttention_GetByGuardian — devolver los 4 campos nuevos
+--          para el acordeón de Consultas de menores sin cédula propia.
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.MedicalAttention_GetByGuardian
+    @ChildGuardianIdNumber INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        ma.AttentionId,
+        ma.AppointmentId,
+        ma.AttentionDate,
+        ma.Diagnosis,
+        ma.Treatment,
+        ma.Notes,
+        ISNULL(sx.DoctorAbbreviation + N' ', N'') + d.DoctorName  AS DoctorName,
+        sp.SpecialtyName,
+        a.AppointmentDate,
+        ISNULL(ma.Symptoms, a.Symptoms)                            AS Symptoms,
+        a.PatientName,
+        ma.ChiefComplaint,
+        ma.CurrentIlness,
+        ma.LaboratoryTests,
+        ma.TestRequisition
+    FROM       dbo.MedicalAttention  ma
+    INNER JOIN dbo.Appointment       a   ON a.AppointmentId      = ma.AppointmentId
+    INNER JOIN dbo.Doctor            d   ON d.DoctorId           = ma.DoctorId
+    INNER JOIN dbo.SpecialtyDoctor   sd  ON sd.SpecialtyDoctorId = a.SpecialtyDoctorId
+    INNER JOIN dbo.Specialty         sp  ON sp.SpecialtyId       = sd.SpecialtyId
+    LEFT  JOIN dbo.Sex               sx  ON sx.SexId             = d.SexId
+    WHERE  a.ChildGuardianIdNumber = @ChildGuardianIdNumber
+    ORDER  BY ma.AttentionDate DESC;
+END
+GO
+
+-- =============================================================================
+-- PASO 28: MedicalAttention_GetAll — un solo registro por paciente con datos
+--          personales (cédula, sexo, edad, estado) e IsMinor para ocultar
+--          la cédula en menores. Se conserva la última atención del paciente.
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.MedicalAttention_GetAll
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    ;WITH LatestAttention AS (
+        SELECT
+            ma.AttentionId,
+            ma.AppointmentId,
+            ma.PatientId,
+            ma.DoctorId,
+            ma.AttentionDate,
+            ROW_NUMBER() OVER (PARTITION BY ma.PatientId ORDER BY ma.AttentionDate DESC, ma.AttentionId DESC) AS rn
+        FROM   dbo.MedicalAttention ma
+        WHERE  ma.PatientId IS NOT NULL
+    )
+    SELECT
+        la.AttentionId,
+        la.AppointmentId,
+        la.PatientId,
+        p.PatientName,
+        ISNULL(p.PatientIdNumber, 0)                                       AS PatientIdNumber,
+        sx.SexName,
+        CASE WHEN p.PatientBirthdate IS NULL THEN 0
+             ELSE DATEDIFF(YEAR, p.PatientBirthdate, GETDATE())
+                  - CASE WHEN DATEADD(YEAR, DATEDIFF(YEAR, p.PatientBirthdate, GETDATE()), p.PatientBirthdate) > GETDATE()
+                         THEN 1 ELSE 0 END
+        END                                                                AS PatientAge,
+        st.StateName,
+        CAST(CASE WHEN EXISTS (SELECT 1 FROM dbo.PatientGuardian g WHERE g.PatientId = p.PatientId)
+                  THEN 1 ELSE 0 END AS BIT)                                AS IsMinor,
+        la.DoctorId,
+        ISNULL(dsx.DoctorAbbreviation + N' ', N'') + d.DoctorName          AS DoctorName,
+        sp.SpecialtyName,
+        la.AttentionDate
+    FROM       LatestAttention      la
+    INNER JOIN dbo.Patient          p   ON p.PatientId          = la.PatientId
+    INNER JOIN dbo.Doctor           d   ON d.DoctorId           = la.DoctorId
+    INNER JOIN dbo.Appointment      a   ON a.AppointmentId      = la.AppointmentId
+    INNER JOIN dbo.SpecialtyDoctor  sd  ON sd.SpecialtyDoctorId = a.SpecialtyDoctorId
+    INNER JOIN dbo.Specialty        sp  ON sp.SpecialtyId       = sd.SpecialtyId
+    LEFT  JOIN dbo.Sex              sx  ON sx.SexId             = p.SexId
+    LEFT  JOIN dbo.Sex              dsx ON dsx.SexId            = d.SexId
+    LEFT  JOIN dbo.Municipality     m   ON m.MunicipalityId     = p.MunicipalityId
+    LEFT  JOIN dbo.State            st  ON st.StateId           = m.StateId
+    WHERE  la.rn = 1
+    ORDER BY la.AttentionDate DESC;
+END
+GO
+
+-- =============================================================================
 -- FIN DEL SCRIPT
 -- =============================================================================

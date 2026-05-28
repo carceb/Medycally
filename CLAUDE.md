@@ -37,15 +37,17 @@ Reading rules (always follow):
 3. `Core/Xxx.cs` implementing it — add `using Medycally.Core.Data;`
 4. `builder.Services.AddScoped<IXxx, Xxx>()` in `Program.cs`
 5. Inject into the controller
+6. If the entity has its own page/module: register the URL in `SecurityModule` and gate mutating endpoints + buttons per the **Module permissions** section below.
 
 ### DI registration (Program.cs)
 
 ```csharp
 builder.Services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
 // All others: AddScoped<IXxx, Xxx>()
 // IClinic, ISpecialty, IDoctorSchedule, IPatient, IReason, IGeography,
 // ICommonData, IAppointment, IAppointmentQuery, ISecurityUser, ISecurityModule,
-// IDoctor, IAdminUser, IMedicalAttention, IPatientHistory
+// IDoctor, IAdminUser, IMedicalAttention, IPatientHistory, IExchangeRate, IClinicSpecialtyFee
 ```
 
 ### Routes
@@ -60,7 +62,7 @@ builder.Services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
 
 ## Authentication
 
-Cookie auth with 8-hour sliding expiration. Claims stored: `NameIdentifier`=SecurityUserId, `Name`=UserName, `Email`=UserEmail, `"SecurityRoleId"`, `Role`=RoleName, `"RoleLevel"`.
+Cookie auth with 8-hour sliding expiration. Claims stored: `NameIdentifier`=SecurityUserId, `Name`=UserName, `Email`=UserEmail, `"SecurityRoleId"`, `Role`=RoleName, `"IsSuperAdmin"` (`"true"`/`"false"`), `"DoctorId"` (only when not null).
 
 Password hashing: `SHA256.HashData(Encoding.UTF8.GetBytes(password))` → `Convert.ToHexString().ToLower()`
 
@@ -69,6 +71,65 @@ To compute a hash from SQL: `SELECT LOWER(CONVERT(VARCHAR(256), HASHBYTES('SHA2_
 Demo user: `admin@medycally.com` / `Admin123` — hash: `3b612c75a7b5048a435fb6ec81e52ff92d6d795a8b5a9c17070f6a63c97a53b2`
 
 QuickLogin button appears in `Views/Account/Login.cshtml` only in Development — auto-logs in as the demo user.
+
+## Module permissions (CanView / CanCreate / CanEdit / CanDelete)
+
+Every module row in `SecurityModule` carries 4 flags per role (matrix at `/Admin/Role`). Enforcement is transversal — apply to **every** new mutating endpoint and button.
+
+**Pieces** (all in `Core/Security/`):
+- `IPermissionService` — `GetPermissions(user, moduleUrl)`, `HasPermission(user, moduleUrl, action)`. SuperAdmin always returns `Full`. Modules not registered in `SecurityModule` return `None` (denied for everyone except SuperAdmin).
+- `[RequiresModulePermission(action, moduleUrl?)]` — declarative attribute. Derives moduleUrl from `/Area/Controller/Index` if not passed.
+- `ModulePermissionFilter` (global) — gates GET access by `CanView` on the matching module URL.
+- `@inject IPermissionService Permissions` — already in both `_ViewImports.cshtml` (root + Admin).
+
+### Wiring a new module
+
+1. **Register the module URL** (`/Foo/Index`) via `/Admin/Module` UI or seed script. Without this, no enforcement applies (backward compat).
+2. **Controller** — inject `IPermissionService` only if you need dynamic Create/Edit. Static actions use the attribute:
+
+```csharp
+public class FooController : Controller
+{
+    private const string ModuleUrl = "/Foo/Index";
+    private readonly IPermissionService _permissions;
+    public FooController(..., IPermissionService permissions) { _permissions = permissions; }
+
+    [HttpPost]
+    public IActionResult Save([FromBody] FooModel model)
+    {
+        var required = model.FooId == 0 ? PermissionAction.Create : PermissionAction.Edit;
+        if (!_permissions.HasPermission(User, ModuleUrl, required))
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "No tienes permiso para realizar esta acción." });
+        ...
+    }
+
+    [HttpPost]
+    [RequiresModulePermission(PermissionAction.Delete)]
+    public IActionResult Delete([FromBody] int id) { ... }
+}
+```
+
+3. **View** — read perms once, then gate Razor and JS:
+
+```cshtml
+@{ var fooPerms = Permissions.GetPermissions(User, "/Foo/Index"); }
+@if (fooPerms.CanCreate) { <button onclick="openModal()">Nuevo</button> }
+
+<script>
+    const fooPerms = {
+        canCreate: @(fooPerms.CanCreate ? "true" : "false"),
+        canEdit:   @(fooPerms.CanEdit   ? "true" : "false"),
+        canDelete: @(fooPerms.CanDelete ? "true" : "false")
+    };
+    // In renderTable():
+    //   ${fooPerms.canEdit   ? `<button onclick="edit(...)">…</button>`   : ''}
+    //   ${fooPerms.canDelete ? `<button onclick="delete(...)">…</button>` : ''}
+</script>
+```
+
+**When the controller's landing URL doesn't end in `/Index`** (e.g. `/Appointment/Wizard`), pass the moduleUrl explicitly: `[RequiresModulePermission(PermissionAction.Create, "/Appointment/Wizard")]`. The auto-derivation only works when the registered URL is `/Area/Controller/Index`.
+
+**Don't use the attribute for dynamic Create/Edit** — the action body must inspect the model's id and call `_permissions.HasPermission` manually.
 
 ## Admin Area (`Areas/Admin/`)
 

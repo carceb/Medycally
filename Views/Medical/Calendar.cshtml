@@ -1,0 +1,277 @@
+@{
+    ViewData["Title"] = "Calendario de Citas";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-0"><i class="fas fa-calendar-alt me-2 text-primary"></i>Calendario de Citas</h4>
+        <small class="text-muted" id="calendarSubtitle">Cargando...</small>
+    </div>
+</div>
+
+<!-- Leyenda de estados -->
+<div class="d-flex flex-wrap gap-3 mb-3">
+    <span class="d-flex align-items-center gap-1 small">
+        <span class="status-dot" style="background:#198754"></span>Confirmada
+    </span>
+    <span class="d-flex align-items-center gap-1 small">
+        <span class="status-dot" style="background:#0dcaf0"></span>En Atención
+    </span>
+    <span class="d-flex align-items-center gap-1 small">
+        <span class="status-dot" style="background:#6f42c1"></span>Atendida
+    </span>
+    <span class="d-flex align-items-center gap-1 small">
+        <span class="status-dot" style="background:#dc3545"></span>Cancelada
+    </span>
+    <span class="d-flex align-items-center gap-1 small">
+        <span class="status-dot" style="background:#6c757d"></span>Pendiente
+    </span>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-3">
+        <div id="medicalCalendar"></div>
+    </div>
+</div>
+
+<!-- Modal detalle de cita -->
+<div class="modal fade" id="eventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0" id="eventModalHeader">
+                <h6 class="modal-title fw-semibold" id="eventModalTitle"></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <div class="d-flex flex-column gap-2">
+                    <div class="d-flex align-items-start gap-2">
+                        <i class="fas fa-clock text-muted mt-1" style="width:16px"></i>
+                        <span id="eventTime" class="text-muted small"></span>
+                    </div>
+                    <div class="d-flex align-items-start gap-2">
+                        <i class="fas fa-user-md text-muted mt-1" style="width:16px"></i>
+                        <span id="eventDoctor" class="small"></span>
+                    </div>
+                    <div class="d-flex align-items-start gap-2">
+                        <i class="fas fa-stethoscope text-muted mt-1" style="width:16px"></i>
+                        <span id="eventSpecialty" class="small"></span>
+                    </div>
+                    <div class="d-flex align-items-start gap-2">
+                        <i class="fas fa-circle-dot text-muted mt-1" style="width:16px"></i>
+                        <span id="eventStatus" class="badge rounded-pill small"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <a href="#" id="btnAttendPatient" class="btn btn-sm btn-primary">
+                    <i class="fas fa-user-check me-1"></i>Ir a Atención
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    #medicalCalendar {
+        min-height: 650px;
+    }
+    .status-dot {
+        display: inline-block;
+        width: 10px; height: 10px;
+        border-radius: 50%;
+    }
+    /* Google Calendar-like toolbar */
+    .fc .fc-toolbar-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #3c4043;
+    }
+    .fc .fc-button {
+        background: #fff;
+        border: 1px solid #dadce0;
+        color: #3c4043;
+        font-size: .8rem;
+        padding: .3rem .75rem;
+        border-radius: 4px;
+        box-shadow: none !important;
+    }
+    .fc .fc-button:hover {
+        background: #f1f3f4;
+    }
+    .fc .fc-button-active,
+    .fc .fc-button.fc-button-active {
+        background: #e8f0fe !important;
+        border-color: #1a73e8 !important;
+        color: #1a73e8 !important;
+    }
+    .fc .fc-button-primary:not(:disabled):active,
+    .fc .fc-button-primary:not(:disabled).fc-button-active {
+        background: #e8f0fe;
+        border-color: #1a73e8;
+        color: #1a73e8;
+    }
+    .fc .fc-today-button {
+        border-color: #dadce0;
+    }
+    .fc-day-today {
+        background: #f0f7ff !important;
+    }
+    .fc .fc-col-header-cell-cushion {
+        font-weight: 500;
+        color: #70757a;
+        font-size: .8rem;
+        text-transform: uppercase;
+    }
+    .fc .fc-daygrid-day-number {
+        font-size: .85rem;
+        color: #3c4043;
+    }
+    .fc-day-today .fc-daygrid-day-number {
+        background: #1a73e8;
+        color: #fff;
+        border-radius: 50%;
+        width: 24px; height: 24px;
+        display: flex; align-items: center; justify-content: center;
+        margin: 2px;
+    }
+    .fc .fc-event {
+        border-radius: 4px;
+        font-size: .78rem;
+        padding: 1px 4px;
+        cursor: pointer;
+    }
+    .fc .fc-event-title {
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    /* Fuerza color del texto — Bootstrap 5 'a { color }' tiene más especificidad que FullCalendar */
+    .fc .fc-daygrid-dot-event .fc-event-title,
+    .fc .fc-daygrid-dot-event .fc-event-time,
+    .fc a.fc-event-main,
+    .fc .fc-event-main {
+        color: inherit !important;
+    }
+    .fc-theme-standard td, .fc-theme-standard th {
+        border-color: #e0e0e0;
+    }
+    .fc .fc-scrollgrid {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .fc-timegrid-slot-label-cushion {
+        font-size: .75rem;
+        color: #70757a;
+    }
+    .fc .fc-timegrid-now-indicator-line {
+        border-color: #ea4335;
+    }
+    .fc .fc-timegrid-now-indicator-arrow {
+        border-color: #ea4335;
+        color: #ea4335;
+    }
+</style>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const calendarEl = document.getElementById('medicalCalendar');
+
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+            locale: 'es',
+            initialView: 'dayGridMonth',
+            height: 'auto',
+            firstDay: 1,
+            nowIndicator: true,
+            headerToolbar: {
+                left:   'prev,next today',
+                center: 'title',
+                right:  'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            buttonText: {
+                today:   'Hoy',
+                month:   'Mes',
+                week:    'Semana',
+                day:     'Día'
+            },
+            events: function (info, successCallback, failureCallback) {
+                fetch(`/Medical/GetCalendarEvents?start=${info.startStr}&end=${info.endStr}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        successCallback(data);
+                        updateSubtitle(data.length);
+                    })
+                    .catch(() => failureCallback());
+            },
+            eventClick: function (info) {
+                showEventModal(info.event);
+            },
+            eventDidMount: function (info) {
+                const color = info.event.textColor;
+                if (color) {
+                    // Bootstrap 5 overrides FullCalendar textColor via 'a { color }' — force it directly
+                    info.el.style.setProperty('color', color, 'important');
+                    const titleEl = info.el.querySelector('.fc-event-title');
+                    if (titleEl) titleEl.style.setProperty('color', color, 'important');
+                    const timeEl = info.el.querySelector('.fc-event-time');
+                    if (timeEl) timeEl.style.setProperty('color', color, 'important');
+                    const mainEl = info.el.querySelector('.fc-event-main');
+                    if (mainEl) mainEl.style.setProperty('color', color, 'important');
+                }
+                info.el.title = `${info.event.title} — ${info.event.extendedProps.doctorName ?? ''}`;
+            },
+            noEventsContent: 'Sin citas en este período',
+        });
+
+        calendar.render();
+
+        function updateSubtitle(count) {
+            const subtitle = document.getElementById('calendarSubtitle');
+            const isSingleDoctor = subtitle.dataset.doctor;
+            subtitle.textContent = count === 0
+                ? 'Sin citas en el período visible'
+                : `${count} cita${count === 1 ? '' : 's'} en el período visible`;
+        }
+
+        function showEventModal(event) {
+            const props = event.extendedProps;
+
+            document.getElementById('eventModalTitle').textContent = event.title;
+
+            const date   = event.start;
+            const dayStr = date.toLocaleDateString('es-VE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('eventTime').textContent = `${capitalizeFirst(dayStr)}${props.time ? ' · ' + props.time : ''}`;
+
+            document.getElementById('eventDoctor').textContent   = props.doctorName   ?? '—';
+            document.getElementById('eventSpecialty').textContent = props.specialtyName ?? '—';
+
+            const statusEl = document.getElementById('eventStatus');
+            statusEl.textContent = props.statusName ?? '—';
+            statusEl.style.background = statusColor(props.statusId);
+            statusEl.style.color = props.statusId === 4 ? '#055160' : '#fff';
+
+            const headerEl = document.getElementById('eventModalHeader');
+            headerEl.style.borderTop = `4px solid ${statusColor(props.statusId)}`;
+
+            const btnAttend = document.getElementById('btnAttendPatient');
+            btnAttend.href = `/Medical/Patient/${props.appointmentId}`;
+            const canAttend = props.statusId === 2 || props.statusId === 4;
+            btnAttend.style.display = canAttend ? '' : 'none';
+
+            const modal = new bootstrap.Modal(document.getElementById('eventModal'));
+            modal.show();
+        }
+
+        function statusColor(id) {
+            const map = { 1: '#6c757d', 2: '#198754', 3: '#dc3545', 4: '#0dcaf0', 5: '#6f42c1' };
+            return map[id] ?? '#6c757d';
+        }
+
+        function capitalizeFirst(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+    });
+</script>
+}

@@ -3,13 +3,17 @@
     ViewData["Title"] = "Usuarios";
     var roles   = ViewBag.Roles   as List<Medycally.Models.SecurityRoleModel> ?? [];
     var doctors = ViewBag.Doctors as List<Medycally.Models.DoctorModel>       ?? [];
+    var userPerms = Permissions.GetPermissions(User, "/Admin/User");
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="mb-0">Usuarios del Sistema</h4>
-    <button class="btn btn-primary" onclick="openModal()">
-        <i class="fas fa-plus me-1"></i> Nuevo Usuario
-    </button>
+    @if (userPerms.CanCreate)
+    {
+        <button class="btn btn-primary" onclick="openModal()">
+            <i class="fas fa-plus me-1"></i> Nuevo Usuario
+        </button>
+    }
 </div>
 
 <div class="card shadow-sm">
@@ -88,7 +92,7 @@
                         <select class="form-select" id="securityRoleId" onchange="onRoleChange()">
                             @foreach (var r in roles)
                             {
-                                <option value="@r.SecurityRoleId" data-level="@r.RoleLevel">@r.RoleName</option>
+                                <option value="@r.SecurityRoleId" data-name="@r.RoleName">@r.RoleName</option>
                             }
                         </select>
                     </div>
@@ -118,6 +122,36 @@
                     <span id="btnSaveIcon"><i class="fas fa-paper-plane me-1"></i></span>
                     <span id="btnSaveText">Crear y enviar invitación</span>
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Clinics Assignment Modal -->
+<div class="modal fade" id="clinicsModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="clinicsModalTitle">Clínicas asignadas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="clinicsUserId" value="0" />
+                <p class="text-muted small mb-3">Selecciona las clínicas a las que este usuario podrá acceder con su mismo usuario y contraseña.</p>
+                <div class="input-group input-group-sm mb-3">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="clinicsSearch"
+                           placeholder="Buscar clínica..." oninput="filterClinicsList()" />
+                </div>
+                <div id="clinicsLoading" class="text-center py-3">
+                    <div class="spinner-border spinner-border-sm text-primary"></div>
+                </div>
+                <div id="clinicsChecks" class="d-none"></div>
+                <div id="clinicsError" class="alert alert-danger d-none mb-0"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSaveClinics" onclick="saveUserClinics()">Guardar</button>
             </div>
         </div>
     </div>
@@ -159,9 +193,12 @@
     .activation-pending  { background:#fef3c7; color:#92400e; }
 </style>
 <script>
-    const userModal   = new bootstrap.Modal(document.getElementById('userModal'));
-    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
-    const toast       = new bootstrap.Toast(document.getElementById('toast'), { delay: 3500 });
+    const userModal    = new bootstrap.Modal(document.getElementById('userModal'));
+    const deleteModal  = new bootstrap.Modal(document.getElementById('deleteModal'));
+    const clinicsModal = new bootstrap.Modal(document.getElementById('clinicsModal'));
+    const toast        = new bootstrap.Toast(document.getElementById('toast'), { delay: 3500 });
+
+    let userClinicsCache = [];
 
     let pendingDeleteId = 0;
     let filteredUsers   = [];
@@ -171,6 +208,12 @@
     const allUsers   = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
     const allRoles   = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(roles));
     const allDoctors = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(doctors));
+
+    const userPerms = {
+        canCreate: @(userPerms.CanCreate ? "true" : "false"),
+        canEdit:   @(userPerms.CanEdit   ? "true" : "false"),
+        canDelete: @(userPerms.CanDelete ? "true" : "false")
+    };
 
     function roleBadgeClass(roleName) {
         const lower = (roleName ?? '').toLowerCase();
@@ -202,6 +245,15 @@
             const resendBtn = !u.IsActivated
                 ? `<button class="btn-icon" onclick="resendActivation(${u.SecurityUserId},'${escaped}')" title="Reenviar invitación"><i class="fas fa-envelope text-warning"></i></button>`
                 : '';
+            const isDoctorUser = !!u.DoctorId;
+            let clinicsBtn = '';
+            if (u.IsSuperAdmin) {
+                clinicsBtn = `<button class="btn-icon" title="SuperAdmin: acceso a todas las clínicas" disabled><i class="fas fa-hospital text-muted"></i></button>`;
+            } else if (isDoctorUser) {
+                clinicsBtn = `<button class="btn-icon" title="Clínicas derivadas de la asignación de médico" disabled><i class="fas fa-hospital text-muted"></i></button>`;
+            } else {
+                clinicsBtn = `<button class="btn-icon" onclick="openClinicsModal(${u.SecurityUserId},'${escaped}')" title="Clínicas asignadas"><i class="fas fa-hospital text-info"></i></button>`;
+            }
             return `<tr data-id="${u.SecurityUserId}">
                 <td>${u.SecurityUserId}</td>
                 <td>
@@ -219,9 +271,10 @@
                 <td><span class="status-badge ${statusClass}"><i class="fas fa-circle"></i> ${statusLabel}</span></td>
                 <td class="text-end">
                     <div class="action-buttons">
-                        ${resendBtn}
-                        <button class="btn-icon" onclick="editUser(${u.SecurityUserId})" title="Editar"><i class="fas fa-edit"></i></button>
-                        <button class="btn-icon" onclick="confirmDelete(${u.SecurityUserId},'${escaped}')" title="Eliminar"><i class="fas fa-trash text-danger"></i></button>
+                        ${userPerms.canEdit ? resendBtn : ''}
+                        ${userPerms.canEdit ? clinicsBtn : ''}
+                        ${userPerms.canEdit   ? `<button class="btn-icon" onclick="editUser(${u.SecurityUserId})" title="Editar"><i class="fas fa-edit"></i></button>` : ''}
+                        ${userPerms.canDelete ? `<button class="btn-icon" onclick="confirmDelete(${u.SecurityUserId},'${escaped}')" title="Eliminar"><i class="fas fa-trash text-danger"></i></button>` : ''}
                     </div>
                 </td>
             </tr>`;
@@ -301,10 +354,11 @@
     }
 
     function onRoleChange() {
-        const sel   = document.getElementById('securityRoleId');
-        const level = parseInt(sel.options[sel.selectedIndex]?.dataset.level ?? '0');
-        document.getElementById('doctorRow').style.display = level === 5 ? '' : 'none';
-        if (level !== 5) document.getElementById('doctorId').value = '';
+        const sel  = document.getElementById('securityRoleId');
+        const name = (sel.options[sel.selectedIndex]?.dataset.name ?? '').toLowerCase();
+        const isDoctorRole = name.includes('médico') || name.includes('medico') || name.includes('doctor');
+        document.getElementById('doctorRow').style.display = isDoctorRole ? '' : 'none';
+        if (!isDoctorRole) document.getElementById('doctorId').value = '';
     }
 
     function openModal() {
@@ -405,7 +459,7 @@
                 UserIdNumber:   payload.userIdNumber,
                 SecurityRoleId: roleId,
                 RoleName:       roleEntry?.RoleName ?? null,
-                RoleLevel:      roleEntry?.RoleLevel ?? 0,
+                IsSuperAdmin:   roleEntry?.IsSuperAdmin ?? false,
                 StatusId:       statusId,
                 IsActivated:    id !== 0 ? (allUsers.find(x => x.SecurityUserId === id)?.IsActivated ?? false) : false,
                 DoctorId:       payload.doctorId ?? null,
@@ -461,6 +515,90 @@
         })
         .catch(() => showToast('Error al eliminar el usuario.', false))
         .finally(() => { document.getElementById('btnDelete').disabled = false; });
+    }
+
+    function openClinicsModal(securityUserId, userName) {
+        document.getElementById('clinicsUserId').value = securityUserId;
+        document.getElementById('clinicsModalTitle').textContent = `Clínicas — ${userName}`;
+        document.getElementById('clinicsLoading').classList.remove('d-none');
+        document.getElementById('clinicsChecks').classList.add('d-none');
+        document.getElementById('clinicsError').classList.add('d-none');
+        document.getElementById('clinicsSearch').value = '';
+        document.getElementById('btnSaveClinics').disabled = false;
+        userClinicsCache = [];
+        clinicsModal.show();
+
+        fetch(`/Admin/User/GetUserClinics?securityUserId=${securityUserId}`)
+            .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.message ?? 'Error al cargar.')))
+            .then(data => {
+                userClinicsCache = data ?? [];
+                renderClinicsChecks();
+                document.getElementById('clinicsLoading').classList.add('d-none');
+                document.getElementById('clinicsChecks').classList.remove('d-none');
+            })
+            .catch(err => {
+                document.getElementById('clinicsLoading').classList.add('d-none');
+                const errEl = document.getElementById('clinicsError');
+                errEl.textContent = typeof err === 'string' ? err : 'Error al cargar las clínicas.';
+                errEl.classList.remove('d-none');
+            });
+    }
+
+    function renderClinicsChecks() {
+        const q = (document.getElementById('clinicsSearch').value ?? '').trim().toLowerCase();
+        const container = document.getElementById('clinicsChecks');
+        const filtered = q
+            ? userClinicsCache.filter(c => (c.clinicName ?? '').toLowerCase().includes(q) ||
+                                            (c.stateName  ?? '').toLowerCase().includes(q))
+            : userClinicsCache;
+
+        if (filtered.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted py-3">No hay clínicas activas.</div>';
+            return;
+        }
+
+        container.innerHTML = filtered.map(c => `
+            <div class="form-check py-1">
+                <input class="form-check-input clinic-check" type="checkbox"
+                       id="chkClinic${c.clinicId}" value="${c.clinicId}"
+                       ${c.isAssigned ? 'checked' : ''}>
+                <label class="form-check-label d-flex justify-content-between" for="chkClinic${c.clinicId}">
+                    <span>${escapeHtml(c.clinicName ?? '')}</span>
+                    <small class="text-muted">${escapeHtml(c.stateName ?? '')}</small>
+                </label>
+            </div>
+        `).join('');
+
+        container.querySelectorAll('.clinic-check').forEach(chk => {
+            chk.addEventListener('change', () => {
+                const id = parseInt(chk.value);
+                const entry = userClinicsCache.find(c => c.clinicId === id);
+                if (entry) entry.isAssigned = chk.checked;
+            });
+        });
+    }
+
+    function filterClinicsList() {
+        renderClinicsChecks();
+    }
+
+    function saveUserClinics() {
+        const userId = parseInt(document.getElementById('clinicsUserId').value);
+        const clinicIds = userClinicsCache.filter(c => c.isAssigned).map(c => c.clinicId);
+
+        document.getElementById('btnSaveClinics').disabled = true;
+        fetch('/Admin/User/SaveUserClinics', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ securityUserId: userId, clinicIds })
+        })
+        .then(r => r.ok ? null : r.json().then(e => Promise.reject(e.message ?? 'Error al guardar.')))
+        .then(() => {
+            clinicsModal.hide();
+            showToast('Clínicas asignadas correctamente.', true);
+        })
+        .catch(err => showToast(typeof err === 'string' ? err : 'Error al guardar las clínicas.', false))
+        .finally(() => { document.getElementById('btnSaveClinics').disabled = false; });
     }
 
     function escapeHtml(text) {

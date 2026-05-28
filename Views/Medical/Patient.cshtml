@@ -7,6 +7,12 @@
     var patientId      = (int)(ViewBag.PatientId ?? 0);
     var isMinor        = Model.PatientTypeId == 2;
     var fromAttended   = Context.Request.Query["from"] == "attended";
+    // Cuando ya hay atención guardada, las tarjetas de Cita y Atención inician vacías;
+    // se llenan al hacer clic en un ítem del acordeón de Consultas.
+    var hasExisting    = existing != null;
+    var medPerms       = Permissions.GetPermissions(User, "/Medical/Index");
+    var patPerms       = Permissions.GetPermissions(User, "/Patient/Index");
+    var canSaveAttention = hasExisting ? medPerms.CanEdit : medPerms.CanCreate;
 
     string sel(int field, int val) => field == val ? "checked" : "";
 }
@@ -113,43 +119,39 @@
                 <i class="fas fa-calendar-check me-2"></i>Datos de la Cita
             </div>
             <div class="card-body">
+                @{
+                    var initialReason   = hasExisting ? "" : (Model.ReasonName ?? "");
+                    var initialSymptoms = hasExisting ? "" : (Model.Symptoms   ?? "");
+                    var showReasonRow   = !string.IsNullOrEmpty(initialReason);
+                    var showSymptomsBox = !string.IsNullOrEmpty(initialSymptoms);
+                }
                 <table class="table table-sm table-borderless mb-0 small">
                     <tr>
                         <td class="text-muted pe-2">Especialidad</td>
-                        <td class="fw-semibold">@(Model.SpecialtyName ?? "—")</td>
+                        <td class="fw-semibold" id="citaSpecialty">@(hasExisting ? "—" : (Model.SpecialtyName ?? "—"))</td>
                     </tr>
                     <tr>
                         <td class="text-muted pe-2">Médico</td>
-                        <td>@(Model.DoctorName ?? "—")</td>
+                        <td id="citaDoctor">@(hasExisting ? "—" : (Model.DoctorName ?? "—"))</td>
                     </tr>
                     <tr>
                         <td class="text-muted pe-2">Fecha</td>
-                        <td>@Model.AppointmentDate.ToString("dd/MM/yyyy")</td>
+                        <td id="citaDate">@(hasExisting ? "—" : Model.AppointmentDate.ToString("dd/MM/yyyy"))</td>
                     </tr>
                     <tr>
                         <td class="text-muted pe-2">Hora</td>
-                        <td>@(Model.AppointmentTime ?? "—")</td>
+                        <td id="citaTime">@(hasExisting ? "—" : (Model.AppointmentTime ?? "—"))</td>
                     </tr>
-                    @{
-                        var displayReason   = existing?.ReasonName ?? Model.ReasonName;
-                        var displaySymptoms = existing?.Symptoms    ?? Model.Symptoms;
-                    }
-                    @if (!string.IsNullOrEmpty(displayReason))
-                    {
-                        <tr>
-                            <td class="text-muted pe-2">Motivo</td>
-                            <td>@displayReason</td>
-                        </tr>
-                    }
+                    <tr id="citaReasonRow" class="@(showReasonRow ? "" : "d-none")">
+                        <td class="text-muted pe-2">Motivo</td>
+                        <td id="citaReason">@initialReason</td>
+                    </tr>
                 </table>
 
-                @if (!string.IsNullOrEmpty(displaySymptoms))
-                {
-                    <div class="mt-2 p-2 bg-light rounded small">
-                        <div class="text-muted mb-1"><i class="fas fa-comment-medical me-1"></i>Síntomas referidos</div>
-                        <div>@displaySymptoms</div>
-                    </div>
-                }
+                <div id="citaSymptomsBox" class="mt-2 p-2 bg-light rounded small @(showSymptomsBox ? "" : "d-none")">
+                    <div class="text-muted mb-1"><i class="fas fa-comment-medical me-1"></i>Síntomas referidos</div>
+                    <div id="citaSymptoms">@initialSymptoms</div>
+                </div>
             </div>
         </div>
 
@@ -158,19 +160,46 @@
     <!-- ======================== RIGHT: History + New Attention ======================== -->
     <div class="col-lg-8">
 
-        <!-- Tabs: Consultas | Antecedentes -->
+        <!-- Tabs: Atención | Consultas | Antecedentes -->
         @{
             var ph     = patientHistory;
             bool hasAnt = ph != null;
+            var atencionTab = new {
+                Active = !hasExisting ? "active" : "",
+                Pane   = !hasExisting ? "show active" : "",
+                Title  = hasExisting ? "Editar Atención" : "Nueva Atención"
+            };
+            var consultasTab = new {
+                Active = hasExisting ? "active" : "",
+                Pane   = hasExisting ? "show active" : ""
+            };
         }
         <ul class="nav nav-tabs mb-0" id="medTabs" role="tablist">
+            @if (!hasExisting)
+            {
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link @atencionTab.Active" id="tab-atencion" data-bs-toggle="tab"
+                            data-bs-target="#pane-atencion" type="button" role="tab">
+                        <i class="fas fa-file-medical-alt me-1"></i>@atencionTab.Title
+                    </button>
+                </li>
+            }
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="tab-consultas" data-bs-toggle="tab"
+                <button class="nav-link @consultasTab.Active" id="tab-consultas" data-bs-toggle="tab"
                         data-bs-target="#pane-consultas" type="button" role="tab">
                     <i class="fas fa-notes-medical me-1"></i>Consultas
                     <span class="badge bg-primary rounded-pill ms-1">@history.Count</span>
                 </button>
             </li>
+            @if (hasExisting)
+            {
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-atencion" data-bs-toggle="tab"
+                            data-bs-target="#pane-atencion" type="button" role="tab">
+                        <i class="fas fa-file-medical-alt me-1"></i>@atencionTab.Title
+                    </button>
+                </li>
+            }
             @if (patientId > 0)
             {
                 <li class="nav-item" role="presentation">
@@ -192,8 +221,85 @@
 
         <div class="tab-content border border-top-0 rounded-bottom shadow-sm mb-4">
 
+            <!-- ── TAB ATENCIÓN ── -->
+            <div class="tab-pane fade @atencionTab.Pane p-3" id="pane-atencion" role="tabpanel">
+                <input type="hidden" id="attentionId"   value="@(existing?.AttentionId ?? 0)" />
+                <input type="hidden" id="appointmentId" value="@Model.AppointmentId" />
+
+                @{
+                    // Si hay atención guardada, el formulario inicia vacío; sólo se carga
+                    // al hacer clic en una consulta del acordeón.
+                    string val(string? s) => hasExisting ? "" : (s ?? "");
+                }
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Motivo de Consulta</label>
+                    <textarea class="form-control" id="txtChiefComplaint" rows="2"
+                              placeholder="Motivo principal por el que acude el paciente...">@val(existing?.ChiefComplaint)</textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Enfermedad Actual</label>
+                    <textarea class="form-control" id="txtCurrentIlness" rows="3"
+                              placeholder="Descripción de la enfermedad actual...">@val(existing?.CurrentIlness)</textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                        Diagnóstico <span class="text-danger">*</span>
+                    </label>
+                    <textarea class="form-control" id="txtDiagnosis" rows="3"
+                              placeholder="Descripción del diagnóstico médico...">@val(existing?.Diagnosis)</textarea>
+                    <div class="invalid-feedback" id="diagnosisError"></div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Exámenes</label>
+                    <textarea class="form-control" id="txtLaboratoryTests" rows="2"
+                              placeholder="Exámenes de laboratorio o estudios indicados...">@val(existing?.LaboratoryTests)</textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Órdenes Médicas</label>
+                    <textarea class="form-control" id="txtTestRequisition" rows="2"
+                              placeholder="Órdenes médicas y solicitudes...">@val(existing?.TestRequisition)</textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                        Tratamiento <span class="text-danger">*</span>
+                    </label>
+                    <textarea class="form-control" id="txtTreatment" rows="3"
+                              placeholder="Plan de tratamiento indicado...">@val(existing?.Treatment)</textarea>
+                    <div class="invalid-feedback" id="treatmentError"></div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Notas adicionales</label>
+                    <textarea class="form-control" id="txtNotes" rows="2"
+                              placeholder="Observaciones, indicaciones adicionales...">@val(existing?.Notes)</textarea>
+                </div>
+
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    @if (canSaveAttention)
+                    {
+                        <button type="button" class="btn btn-success px-4" id="btnSaveAttention"
+                                onclick="confirmAction('atencion')">
+                            <i class="fas fa-save me-2"></i>Guardar Atención
+                        </button>
+                    }
+                    <a id="btnMedicalReport"
+                       href="/Medical/MedicalReport/@Model.AppointmentId"
+                       target="_blank"
+                       class="btn btn-outline-primary px-4 @(existing != null ? "" : "disabled pe-none")"
+                       @(existing != null ? "" : Html.Raw("aria-disabled=\"true\" tabindex=\"-1\""))>
+                        <i class="fas fa-file-medical me-2"></i>Informe Médico
+                    </a>
+                    <span id="saveStatus" class="small text-muted"></span>
+                </div>
+            </div><!-- /pane-atencion -->
+
             <!-- ── TAB CONSULTAS ── -->
-            <div class="tab-pane fade show active p-0" id="pane-consultas" role="tabpanel">
+            <div class="tab-pane fade @consultasTab.Pane p-0" id="pane-consultas" role="tabpanel">
                 @if (history.Count == 0)
                 {
                     <div class="text-center py-5 text-muted small">
@@ -210,9 +316,10 @@
                             var colId = $"hist-{i}";
                             <div class="accordion-item">
                                 <h2 class="accordion-header">
-                                    <button class="accordion-button @(i > 0 ? "collapsed" : "")"
+                                    <button class="accordion-button collapsed history-toggle"
                                             type="button" data-bs-toggle="collapse"
-                                            data-bs-target="#@colId">
+                                            data-bs-target="#@colId"
+                                            data-history-index="@i">
                                         <div class="d-flex w-100 align-items-center gap-3 flex-wrap">
                                             <span class="fw-semibold">@h.AttentionDate.ToString("dd/MM/yyyy")</span>
                                             @if (!string.IsNullOrEmpty(h.PatientName))
@@ -225,7 +332,7 @@
                                         </div>
                                     </button>
                                 </h2>
-                                <div id="@colId" class="accordion-collapse collapse @(i == 0 ? "show" : "")">
+                                <div id="@colId" class="accordion-collapse collapse" data-bs-parent="#historyAccordion">
                                     <div class="accordion-body small">
                                         @if (!string.IsNullOrEmpty(h.Symptoms))
                                         {
@@ -233,10 +340,38 @@
                                                 <span class="text-muted fw-semibold">Síntomas:&nbsp;</span>@h.Symptoms
                                             </div>
                                         }
+                                        @if (!string.IsNullOrEmpty(h.ChiefComplaint))
+                                        {
+                                            <div class="mb-2">
+                                                <div class="text-muted fw-semibold mb-1">Motivo de Consulta</div>
+                                                <div class="p-2 bg-light rounded">@h.ChiefComplaint</div>
+                                            </div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(h.CurrentIlness))
+                                        {
+                                            <div class="mb-2">
+                                                <div class="text-muted fw-semibold mb-1">Enfermedad Actual</div>
+                                                <div class="p-2 bg-light rounded">@h.CurrentIlness</div>
+                                            </div>
+                                        }
                                         <div class="mb-2">
                                             <div class="text-muted fw-semibold mb-1">Diagnóstico</div>
                                             <div class="p-2 bg-light rounded">@h.Diagnosis</div>
                                         </div>
+                                        @if (!string.IsNullOrEmpty(h.LaboratoryTests))
+                                        {
+                                            <div class="mb-2">
+                                                <div class="text-muted fw-semibold mb-1">Exámenes</div>
+                                                <div class="p-2 bg-light rounded">@h.LaboratoryTests</div>
+                                            </div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(h.TestRequisition))
+                                        {
+                                            <div class="mb-2">
+                                                <div class="text-muted fw-semibold mb-1">Órdenes Médicas</div>
+                                                <div class="p-2 bg-light rounded">@h.TestRequisition</div>
+                                            </div>
+                                        }
                                         <div class="mb-2">
                                             <div class="text-muted fw-semibold mb-1">Tratamiento</div>
                                             <div class="p-2 bg-light rounded">@h.Treatment</div>
@@ -378,68 +513,49 @@
                                     </div>
                                 </div>
 
-                    <div class="d-flex align-items-center gap-2 mt-3">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnSaveMedHistory" onclick="saveMedHistory()">
-                            <i class="fas fa-save me-1"></i>Guardar Antecedentes
-                        </button>
-                        <span id="medHistStatus" class="small text-muted"></span>
-                    </div>
+                    @if (patPerms.CanEdit)
+                    {
+                        <div class="d-flex align-items-center gap-2 mt-3">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnSaveMedHistory" onclick="confirmAction('antecedentes')">
+                                <i class="fas fa-save me-1"></i>Guardar Antecedentes
+                            </button>
+                            <span id="medHistStatus" class="small text-muted"></span>
+                        </div>
+                    }
                 </div><!-- /pane-antecedentes -->
             }
 
         </div><!-- /tab-content -->
 
-        <!-- New / Edit Attention form -->
-        <div class="card shadow-sm border-0">
-            <div class="card-header py-2 bg-success text-white">
-                <i class="fas fa-file-medical-alt me-2"></i>
-                @(existing != null ? "Editar Atención" : "Nueva Atención")
+    </div>
+</div>
+
+<!-- Modal confirmación -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmModalTitle">Confirmar guardado</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="card-body">
-                <input type="hidden" id="attentionId"   value="@(existing?.AttentionId ?? 0)" />
-                <input type="hidden" id="appointmentId" value="@Model.AppointmentId" />
-
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">
-                        Diagnóstico <span class="text-danger">*</span>
-                    </label>
-                    <textarea class="form-control" id="txtDiagnosis" rows="4"
-                              placeholder="Descripción del diagnóstico médico...">@(existing?.Diagnosis ?? "")</textarea>
-                    <div class="invalid-feedback" id="diagnosisError"></div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">
-                        Tratamiento <span class="text-danger">*</span>
-                    </label>
-                    <textarea class="form-control" id="txtTreatment" rows="4"
-                              placeholder="Plan de tratamiento indicado...">@(existing?.Treatment ?? "")</textarea>
-                    <div class="invalid-feedback" id="treatmentError"></div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Notas adicionales</label>
-                    <textarea class="form-control" id="txtNotes" rows="2"
-                              placeholder="Observaciones, indicaciones adicionales...">@(existing?.Notes ?? "")</textarea>
-                </div>
-
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <button type="button" class="btn btn-success px-4" id="btnSaveAttention"
-                            onclick="saveAttention()">
-                        <i class="fas fa-save me-2"></i>Guardar Atención
-                    </button>
-                    <a id="btnMedicalReport"
-                       href="/Medical/MedicalReport/@Model.AppointmentId"
-                       target="_blank"
-                       class="btn btn-outline-primary px-4 @(existing != null ? "" : "disabled pe-none")"
-                       @(existing != null ? "" : Html.Raw("aria-disabled=\"true\" tabindex=\"-1\""))>
-                        <i class="fas fa-file-medical me-2"></i>Informe Médico
-                    </a>
-                    <span id="saveStatus" class="small text-muted"></span>
-                </div>
+            <div class="modal-body">
+                <p id="confirmModalBody" class="mb-0"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btnConfirmAction" data-bs-dismiss="modal">Guardar</button>
             </div>
         </div>
+    </div>
+</div>
 
+<!-- Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="toast" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMessage"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
     </div>
 </div>
 
@@ -449,6 +565,86 @@
 
 @section Scripts {
 <script>
+    let _pendingAction = null;
+
+    const hasExistingAttention = @(hasExisting ? "true" : "false");
+    const historyItems         = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(history));
+
+    // Cuando hay atención guardada, ambas tarjetas inician vacías y se llenan al
+    // hacer clic en un ítem del acordeón de Consultas; además se cambia a la
+    // pestaña Atención para mostrar los datos cargados.
+    if (hasExistingAttention) {
+        document.querySelectorAll('.history-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.dataset.historyIndex ?? '-1', 10);
+                if (idx < 0) return;
+                loadHistoryIntoCards(idx);
+                const atencionTab = document.getElementById('tab-atencion');
+                if (atencionTab) bootstrap.Tab.getOrCreateInstance(atencionTab).show();
+            });
+        });
+    }
+
+    function loadHistoryIntoCards(idx) {
+        const h = historyItems[idx];
+        if (!h) return;
+
+        // Tarjeta Datos de la Cita
+        document.getElementById('citaSpecialty').textContent = h.SpecialtyName || '—';
+        document.getElementById('citaDoctor').textContent    = h.DoctorName    || '—';
+        document.getElementById('citaDate').textContent      = h.AppointmentDate
+            ? new Date(h.AppointmentDate).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+            : '—';
+        document.getElementById('citaTime').textContent      = '—';
+
+        // El SP del historial no trae ReasonName; ocultamos la fila.
+        document.getElementById('citaReasonRow').classList.add('d-none');
+
+        const symBox = document.getElementById('citaSymptomsBox');
+        if (h.Symptoms) {
+            document.getElementById('citaSymptoms').textContent = h.Symptoms;
+            symBox.classList.remove('d-none');
+        } else {
+            symBox.classList.add('d-none');
+        }
+
+        // Tarjeta Atención
+        document.getElementById('txtChiefComplaint').value  = h.ChiefComplaint  || '';
+        document.getElementById('txtCurrentIlness').value   = h.CurrentIlness   || '';
+        document.getElementById('txtDiagnosis').value       = h.Diagnosis       || '';
+        document.getElementById('txtLaboratoryTests').value = h.LaboratoryTests || '';
+        document.getElementById('txtTestRequisition').value = h.TestRequisition || '';
+        document.getElementById('txtTreatment').value       = h.Treatment       || '';
+        document.getElementById('txtNotes').value           = h.Notes           || '';
+    }
+
+    const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    const toast        = new bootstrap.Toast(document.getElementById('toast'), { delay: 3500 });
+
+    function showToast(message, success) {
+        const el = document.getElementById('toast');
+        el.classList.remove('bg-success', 'bg-danger');
+        el.classList.add(success ? 'bg-success' : 'bg-danger');
+        document.getElementById('toastMessage').textContent = message;
+        toast.show();
+    }
+
+    document.getElementById('btnConfirmAction').addEventListener('click', function () {
+        if (_pendingAction) { _pendingAction(); _pendingAction = null; }
+    });
+
+    function confirmAction(type) {
+        const body = document.getElementById('confirmModalBody');
+        if (type === 'antecedentes') {
+            body.textContent = '¿Desea guardar los antecedentes del paciente?';
+            _pendingAction   = saveMedHistory;
+        } else {
+            body.textContent = '¿Desea guardar la atención médica?';
+            _pendingAction   = saveAttention;
+        }
+        confirmModal.show();
+    }
+
     async function saveMedHistory() {
         const patientId = parseInt(document.getElementById('phPatientIdMed')?.value ?? '0');
         if (!patientId) return;
@@ -500,11 +696,13 @@
             });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
-                throw new Error(err.message ?? 'Error al guardar.');
+                throw new Error(err.message ?? 'Error al guardar los antecedentes.');
             }
-            status.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i>Guardado.';
+            status.innerHTML = '';
+            showToast('Antecedentes actualizados correctamente.', true);
         } catch (e) {
-            status.innerHTML = `<i class="fas fa-exclamation-circle text-danger me-1"></i>${e.message}`;
+            status.innerHTML = '';
+            showToast(e.message ?? 'Error al guardar los antecedentes.', false);
         } finally {
             btn.disabled = false;
         }
@@ -531,15 +729,22 @@
         if (!valid) return;
 
         const payload = {
-            attentionId:   parseInt(document.getElementById('attentionId').value),
-            appointmentId: parseInt(document.getElementById('appointmentId').value),
-            diagnosis:     diagnosis,
-            treatment:     treatment,
-            notes:         document.getElementById('txtNotes').value.trim() || null
+            attentionId:     parseInt(document.getElementById('attentionId').value),
+            appointmentId:   parseInt(document.getElementById('appointmentId').value),
+            chiefComplaint:  document.getElementById('txtChiefComplaint').value.trim()  || null,
+            currentIlness:   document.getElementById('txtCurrentIlness').value.trim()   || null,
+            diagnosis:       diagnosis,
+            laboratoryTests: document.getElementById('txtLaboratoryTests').value.trim() || null,
+            testRequisition: document.getElementById('txtTestRequisition').value.trim() || null,
+            treatment:       treatment,
+            notes:           document.getElementById('txtNotes').value.trim()           || null
         };
 
-        const btn = document.getElementById('btnSaveAttention');
-        btn.disabled = true;
+        const btn        = document.getElementById('btnSaveAttention');
+        const wasNew     = parseInt(document.getElementById('attentionId').value, 10) === 0;
+        btn.disabled     = true;
+        document.getElementById('saveStatus').innerHTML =
+            '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';
 
         try {
             const res = await fetch('/Medical/SaveAttention', {
@@ -548,20 +753,22 @@
                 body:    JSON.stringify(payload)
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.message ?? 'Error al guardar.');
+            if (!res.ok) throw new Error(data.message ?? 'Error al guardar la atención.');
 
             document.getElementById('attentionId').value = data.attentionId;
             const rBtn = document.getElementById('btnMedicalReport');
             rBtn.classList.remove('disabled', 'pe-none');
             rBtn.removeAttribute('aria-disabled');
             rBtn.removeAttribute('tabindex');
-            document.getElementById('saveStatus').innerHTML =
-                `<i class="fas fa-check-circle text-success me-1"></i>Guardado correctamente. Actualizando...`;
+
+            document.getElementById('saveStatus').innerHTML = '';
+            showToast(wasNew ? 'Atención médica registrada correctamente.'
+                             : 'Atención médica actualizada correctamente.', true);
 
             setTimeout(() => { window.location.reload(); }, 1500);
         } catch (e) {
-            document.getElementById('saveStatus').innerHTML =
-                `<i class="fas fa-exclamation-circle text-danger me-1"></i>${e.message}`;
+            document.getElementById('saveStatus').innerHTML = '';
+            showToast(e.message ?? 'Error al guardar la atención.', false);
         } finally {
             btn.disabled = false;
         }

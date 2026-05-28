@@ -8,7 +8,7 @@ namespace Medycally.Models
         public int UserIdNumber { get; set; }
         public int SecurityRoleId { get; set; }
         public string? RoleName { get; set; }
-        public int RoleLevel { get; set; }
+        public bool IsSuperAdmin { get; set; }
         public int StatusId { get; set; }
         public bool IsActivated { get; set; }
         public string? ActivationToken { get; set; }

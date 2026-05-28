@@ -717,6 +717,10 @@
                         <input type="tel" class="form-control" id="adultPhone" placeholder="Ej: 0414-1234567">
                     </div>
                     <div class="col-12">
+                        <label class="form-label" for="adultEmail">Correo electrónico <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="adultEmail" maxlength="150" placeholder="nombre@correo.com">
+                    </div>
+                    <div class="col-12">
                         <label class="form-label" for="adultAddress">Dirección</label>
                         <input type="text" class="form-control" id="adultAddress" placeholder="Dirección completa">
                     </div>
@@ -798,6 +802,10 @@
                     <div class="col-sm-6">
                         <label class="form-label" for="guardianPhone">Teléfono</label>
                         <input type="tel" class="form-control" id="guardianPhone" placeholder="Ej: 0414-1234567">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="guardianEmail">Correo electrónico <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="guardianEmail" maxlength="150" placeholder="nombre@correo.com">
                     </div>
                     <div class="col-12">
                         <label class="form-label" for="guardianState">Estado</label>
@@ -1011,7 +1019,9 @@ const state = {
     isExisting:         null,   // 'yes' | 'no'
     patientType:        null,   // 'adult' | 'minor'
     patientName:        '',
+    patientEmail:       '',
     idNumber:           '',
+    childGuardianEmail: '',
     guardianPatientId:  null,
     step6BackTarget:    'step-5a',
     step5bBackTarget:   'step-3'
@@ -1420,8 +1430,10 @@ document.getElementById('btnS4bNext').addEventListener('click', async function (
         state.idNumber                 = data.patientIdNumber;
         state.age                    = data.age;
         state.sexId                  = data.sexId;
+        state.patientEmail           = data.patientEmail;
         state.childGuardianIdNumber  = data.childGuardianIdNumber;
         state.childGuardianName      = data.childGuardianName;
+        state.childGuardianEmail     = data.childGuardianEmail;
         state.relationshipId         = data.relationshipId;
         state.step6BackTarget           = 'step-4b';
 
@@ -1436,6 +1448,7 @@ document.getElementById('btnS4bNext').addEventListener('click', async function (
             document.getElementById('guardianName').value      = (data.childGuardianName && data.childGuardianName !== '—') ? data.childGuardianName : '';
             document.getElementById('guardianAddress').value   = data.childGuardianAddress  || '';
             document.getElementById('guardianPhone').value     = data.childGuardianPhone    || '';
+            document.getElementById('guardianEmail').value     = data.childGuardianEmail    || '';
             document.getElementById('guardianBirthDate').value = data.childGuardianBirthDate || '';
             if (data.childGuardianSexId)   document.getElementById('guardianSex').value   = data.childGuardianSexId;
             if (data.childGuardianStateId) document.getElementById('guardianState').value  = data.childGuardianStateId;
@@ -1483,7 +1496,10 @@ document.getElementById('btnS5aNext').addEventListener('click', function () {
     const ced    = reqVal('adultIdNumber');
     const nombre = reqVal('adultName');
     const phone  = reqVal('adultPhone');
-    if (!ced || !nombre || !phone) return;
+    const email  = reqVal('adultEmail');
+    if (!ced || !nombre || !phone || !email) return;
+
+    if (!/^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/.test(email)) { markInvalid('adultEmail'); return; }
 
     state.idNumber    = ced;
     state.patientName = nombre;
@@ -1558,7 +1574,10 @@ document.getElementById('btnS5bBack').addEventListener('click', function () {
 
 document.getElementById('btnS5bNext').addEventListener('click', function () {
     const nombre = reqVal('minorName');
-    if (!nombre) return;
+    const gEmail = reqVal('guardianEmail');
+    if (!nombre || !gEmail) return;
+
+    if (!/^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/.test(gEmail)) { markInvalid('guardianEmail'); return; }
 
     state.idNumber      = document.getElementById('guardianIdNumber').value.trim();
     state.patientName = nombre;
@@ -1736,6 +1755,7 @@ document.getElementById('btnConfirmSave').addEventListener('click', async functi
         payload.patientAge              = parseInt(state.age) || 0;
         payload.sexId                   = parseInt(state.sexId) || 0;
         payload.patientPhone            = null;
+        payload.patientEmail            = state.patientEmail || null;
         payload.patientAddress          = null;
         payload.patientStateId          = 0;
         payload.patientBirthDate        = null;
@@ -1745,6 +1765,7 @@ document.getElementById('btnConfirmSave').addEventListener('click', async functi
             payload.childGuardianName       = state.childGuardianName || 'N/A';
             payload.relationshipId          = parseInt(state.relationshipId) || 1;
             payload.childGuardianPhone      = null;
+            payload.childGuardianEmail      = state.childGuardianEmail || null;
             payload.childGuardianAddress    = null;
             payload.childGuardianStateId    = 0;
             payload.childGuardianBirthDate  = null;
@@ -1755,6 +1776,7 @@ document.getElementById('btnConfirmSave').addEventListener('click', async functi
             payload.childGuardianName       = 'N/A';
             payload.relationshipId          = 1;
             payload.childGuardianPhone      = null;
+            payload.childGuardianEmail      = null;
             payload.childGuardianAddress    = null;
             payload.childGuardianStateId    = 0;
             payload.childGuardianBirthDate  = null;
@@ -1763,11 +1785,14 @@ document.getElementById('btnConfirmSave').addEventListener('click', async functi
     } else if (isMinor) {
         const minorBirthDate = document.getElementById('minorBirthDate').value;
         const rFecha = document.getElementById('guardianBirthDate').value;
+        const gEmail = document.getElementById('guardianEmail').value.trim() || null;
         payload.patientName             = document.getElementById('minorName').value;
         payload.patientIdNumber         = 0;
         payload.patientAge              = minorBirthDate ? calcAge(minorBirthDate) : (rFecha ? calcAge(rFecha) : 0);
         payload.sexId                   = parseInt(document.getElementById('minorSex').value) || 0;
         payload.patientPhone            = null;
+        // Para menores el email del paciente es el del representante (Patient.PatientEmail es NOT NULL).
+        payload.patientEmail            = gEmail;
         payload.patientAddress          = null;
         payload.patientStateId          = 0;
         payload.patientBirthDate        = minorBirthDate || null;
@@ -1775,6 +1800,7 @@ document.getElementById('btnConfirmSave').addEventListener('click', async functi
         payload.childGuardianName       = document.getElementById('guardianName').value || 'N/A';
         payload.relationshipId          = parseInt(document.getElementById('guardianRelationship').value) || 1;
         payload.childGuardianPhone      = document.getElementById('guardianPhone').value || null;
+        payload.childGuardianEmail      = gEmail;
         payload.childGuardianAddress    = document.getElementById('guardianAddress').value || null;
         payload.childGuardianStateId    = parseInt(document.getElementById('guardianState').value) || 0;
         payload.childGuardianBirthDate  = rFecha || null;
@@ -1786,6 +1812,7 @@ document.getElementById('btnConfirmSave').addEventListener('click', async functi
         payload.patientAge              = adultBirthDate ? calcAge(adultBirthDate) : 0;
         payload.sexId                   = parseInt(document.getElementById('adultSex').value) || 0;
         payload.patientPhone            = document.getElementById('adultPhone').value || null;
+        payload.patientEmail            = document.getElementById('adultEmail').value.trim() || null;
         payload.patientAddress          = document.getElementById('adultAddress').value || null;
         payload.patientStateId          = parseInt(document.getElementById('adultState').value) || 0;
         payload.patientBirthDate        = adultBirthDate || null;
@@ -1793,6 +1820,7 @@ document.getElementById('btnConfirmSave').addEventListener('click', async functi
         payload.childGuardianName       = 'N/A';
         payload.relationshipId          = 1;
         payload.childGuardianPhone      = null;
+        payload.childGuardianEmail      = null;
         payload.childGuardianAddress    = null;
         payload.childGuardianStateId    = 0;
         payload.childGuardianBirthDate  = null;
@@ -1801,15 +1829,24 @@ document.getElementById('btnConfirmSave').addEventListener('click', async functi
 
     try {
         const resp = await fetch('@Url.Action("Save", "Appointment")', {
-            method  : 'POST',
-            headers : { 'Content-Type': 'application/json' },
-            body    : JSON.stringify(payload)
+            method      : 'POST',
+            credentials : 'same-origin',
+            headers     : {
+                'Content-Type'              : 'application/json',
+                'Accept'                    : 'application/json',
+                'X-Requested-With'          : 'XMLHttpRequest',
+                'ngrok-skip-browser-warning': 'true'
+            },
+            body        : JSON.stringify(payload)
         });
-        const result = await resp.json();
+
+        const rawText = await resp.text();
+        let result = null;
+        try { result = rawText ? JSON.parse(rawText) : null; } catch { /* respuesta no es JSON */ }
 
         bootstrap.Modal.getInstance(document.getElementById('modalConfirmSave')).hide();
 
-        if (result.success) {
+        if (resp.ok && result && result.success) {
             document.getElementById('confirmResult').innerHTML =
                 `<div class="alert alert-success d-flex align-items-center gap-2 mb-2">
                     <i class="fas fa-check-circle fs-5"></i>
@@ -1825,20 +1862,32 @@ document.getElementById('btnConfirmSave').addEventListener('click', async functi
                 </div>`;
             document.getElementById('btnRegisterAppointment').classList.add('d-none');
         } else {
+            let msg;
+            if (resp.status === 401 || resp.redirected) {
+                msg = 'Tu sesión expiró. Vuelve a iniciar sesión.';
+            } else if (resp.status === 403) {
+                msg = (result && (result.message || result.error)) || 'No tienes permiso para registrar citas.';
+            } else if (result && (result.error || result.message)) {
+                msg = result.error || result.message;
+            } else {
+                msg = `Respuesta inválida del servidor (HTTP ${resp.status}).`;
+            }
+            console.error('Error al registrar cita:', { status: resp.status, redirected: resp.redirected, body: rawText.slice(0, 500) });
             document.getElementById('confirmResult').innerHTML =
                 `<div class="alert alert-danger d-flex align-items-center gap-2 mb-0">
                     <i class="fas fa-exclamation-circle fs-5"></i>
-                    <span>Error al registrar: ${result.error || 'Intente nuevamente.'}</span>
+                    <span>Error al registrar: ${msg}</span>
                 </div>`;
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-save me-1"></i> Sí, registrar';
         }
-    } catch {
+    } catch (err) {
+        console.error('Error de red al registrar cita:', err);
         bootstrap.Modal.getInstance(document.getElementById('modalConfirmSave')).hide();
         document.getElementById('confirmResult').innerHTML =
             `<div class="alert alert-danger d-flex align-items-center gap-2 mb-0">
                 <i class="fas fa-exclamation-circle fs-5"></i>
-                <span>Error de conexión. Intente nuevamente.</span>
+                <span>Error de conexión: ${err && err.message ? err.message : 'intente nuevamente.'}</span>
             </div>`;
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-save me-1"></i> Sí, registrar';

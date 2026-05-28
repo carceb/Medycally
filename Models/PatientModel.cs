@@ -5,6 +5,7 @@ namespace Medycally.Models
         public int     PatientId        { get; set; }
         public int?    PatientIdNumber  { get; set; }  // NULL para menores sin cédula
         public string? PatientName      { get; set; }
+        public string? PatientEmail     { get; set; }
         public int     SexId            { get; set; }
         public string? SexName          { get; set; }
         public DateTime? PatientBirthdate { get; set; }

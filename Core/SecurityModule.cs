@@ -32,15 +32,17 @@ namespace Medycally.Core
                 using SqlDataReader dr = cmd.ExecuteReader();
                 while (dr.Read())
                 {
+                    int parentOrd = dr.GetOrdinal("ParentSecurityModuleId");
                     modules.Add(new NavigationModuleModel
                     {
-                        SecurityModuleId = dr.GetInt32(dr.GetOrdinal("SecurityModuleId")),
-                        ModuleName       = dr.GetString(dr.GetOrdinal("ModuleName")),
-                        ModuleUrl        = dr.IsDBNull(dr.GetOrdinal("ModuleUrl"))  ? null : dr.GetString(dr.GetOrdinal("ModuleUrl")),
-                        ModuleIcon       = dr.IsDBNull(dr.GetOrdinal("ModuleIcon")) ? null : dr.GetString(dr.GetOrdinal("ModuleIcon")),
-                        CanCreate        = dr.GetBoolean(dr.GetOrdinal("CanCreate")),
-                        CanEdit          = dr.GetBoolean(dr.GetOrdinal("CanEdit")),
-                        CanDelete        = dr.GetBoolean(dr.GetOrdinal("CanDelete"))
+                        SecurityModuleId       = dr.GetInt32(dr.GetOrdinal("SecurityModuleId")),
+                        ParentSecurityModuleId = dr.IsDBNull(parentOrd) ? null : dr.GetInt32(parentOrd),
+                        ModuleName             = dr.GetString(dr.GetOrdinal("ModuleName")),
+                        ModuleUrl              = dr.IsDBNull(dr.GetOrdinal("ModuleUrl"))  ? null : dr.GetString(dr.GetOrdinal("ModuleUrl")),
+                        ModuleIcon             = dr.IsDBNull(dr.GetOrdinal("ModuleIcon")) ? null : dr.GetString(dr.GetOrdinal("ModuleIcon")),
+                        CanCreate              = dr.GetBoolean(dr.GetOrdinal("CanCreate")),
+                        CanEdit                = dr.GetBoolean(dr.GetOrdinal("CanEdit")),
+                        CanDelete              = dr.GetBoolean(dr.GetOrdinal("CanDelete"))
                     });
                 }
 
@@ -50,6 +52,25 @@ namespace Medycally.Core
             {
                 throw new Exception("Error al obtener los módulos del usuario", ex);
             }
+        }
+
+        public List<string> GetAllActiveModuleUrls()
+        {
+            using SqlConnection connection = _connectionFactory.CreateConnection();
+            connection.Open();
+
+            SqlCommand cmd = new("Security_GetAllActiveModuleUrls", connection)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+
+            List<string> urls = [];
+            using SqlDataReader dr = cmd.ExecuteReader();
+            int ord = dr.GetOrdinal("ModuleUrl");
+            while (dr.Read())
+                urls.Add(dr.GetString(ord));
+
+            return urls;
         }
     }
 }

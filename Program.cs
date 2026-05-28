@@ -1,17 +1,26 @@
 using Medycally.Core;
 using Medycally.Core.Data;
+using Medycally.Core.Security;
+using Medycally.Core.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllersWithViews();
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<ModulePermissionFilter>();
+
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.Add<ModulePermissionFilter>();
+});
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
         options.LoginPath        = "/Account/Login";
         options.LogoutPath       = "/Account/Logout";
-        options.AccessDeniedPath = "/Account/Login";
+        options.AccessDeniedPath = "/Account/AccessDenied";
         options.ExpireTimeSpan   = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
     });
@@ -33,9 +42,14 @@ builder.Services.AddScoped<ISecurityModule, SecurityModule>();
 builder.Services.AddScoped<IDoctor, Doctor>();
 builder.Services.AddScoped<IAdminUser, AdminUser>();
 builder.Services.AddScoped<ISecurityRole, SecurityRole>();
+builder.Services.AddScoped<IAdminModule, AdminModule>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IMedicalAttention, MedicalAttention>();
 builder.Services.AddScoped<IPatientHistory, PatientHistory>();
+builder.Services.AddScoped<IExchangeRate, ExchangeRate>();
+builder.Services.AddScoped<IClinicSpecialtyFee, ClinicSpecialtyFee>();
+builder.Services.AddSingleton<BcvScraperService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<BcvScraperService>());
 
 var app = builder.Build();
 

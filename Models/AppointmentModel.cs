@@ -22,10 +22,12 @@
 		public int ReasonId { get; set; }
 		public int? PatientId { get; set; }
 		public string? PatientPhone { get; set; }
+		public string? PatientEmail { get; set; }
 		public string? PatientAddress { get; set; }
 		public int PatientStateId { get; set; }
 		public DateTime? PatientBirthDate { get; set; }
 		public string? ChildGuardianPhone { get; set; }
+		public string? ChildGuardianEmail { get; set; }
 		public string? ChildGuardianAddress { get; set; }
 		public int ChildGuardianStateId { get; set; }
 		public DateTime? ChildGuardianBirthDate { get; set; }

@@ -4,13 +4,17 @@
     var sexes    = ViewBag.Sexes    as List<Medycally.Models.SexModel>        ?? [];
     var states   = ViewBag.States   as List<Medycally.Models.GeographyModel>  ?? [];
     var statuses = ViewBag.Statuses as List<Medycally.Models.StatusModel>     ?? [];
+    var docPerms = Permissions.GetPermissions(User, "/Admin/Doctor");
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="mb-0">Médicos</h4>
-    <button class="btn btn-primary" onclick="openModal()">
-        <i class="fas fa-plus me-1"></i> Nuevo Médico
-    </button>
+    @if (docPerms.CanCreate)
+    {
+        <button class="btn btn-primary" onclick="openModal()">
+            <i class="fas fa-plus me-1"></i> Nuevo Médico
+        </button>
+    }
 </div>
 
 <div class="card shadow-sm">
@@ -230,6 +234,12 @@
     let checkedSpecialtyIds = new Set();
 
     const allDoctors  = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+
+    const docPerms = {
+        canCreate: @(docPerms.CanCreate ? "true" : "false"),
+        canEdit:   @(docPerms.CanEdit   ? "true" : "false"),
+        canDelete: @(docPerms.CanDelete ? "true" : "false")
+    };
     const allSexes    = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(sexes));
     const allStates   = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(states));
     const allStatuses = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(statuses));
@@ -266,9 +276,9 @@
                 <td class="specialty-cell">${specialties}</td>
                 <td><span class="badge ${statusBadge}">${escapeHtml(d.StatusName ?? '')}</span></td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editDoctor(${d.DoctorId})" title="Editar"><i class="fas fa-edit"></i></button>
-                    <button class="btn btn-sm btn-outline-info me-1" onclick="openSpecialtiesModal(${d.DoctorId},'${nameEscaped}')" title="Especialidades"><i class="fas fa-stethoscope"></i></button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(${d.DoctorId},'${nameEscaped}')" title="Eliminar"><i class="fas fa-trash"></i></button>
+                    ${docPerms.canEdit   ? `<button class="btn btn-sm btn-outline-primary me-1" onclick="editDoctor(${d.DoctorId})" title="Editar"><i class="fas fa-edit"></i></button>` : ''}
+                    ${docPerms.canEdit   ? `<button class="btn btn-sm btn-outline-info me-1" onclick="openSpecialtiesModal(${d.DoctorId},'${nameEscaped}')" title="Especialidades"><i class="fas fa-stethoscope"></i></button>` : ''}
+                    ${docPerms.canDelete ? `<button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(${d.DoctorId},'${nameEscaped}')" title="Eliminar"><i class="fas fa-trash"></i></button>` : ''}
                 </td>
             </tr>`;
         }).join('');

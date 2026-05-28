@@ -11,6 +11,7 @@ namespace Medycally.Core
 	{
 		int AddOrEdit(ClinicModel model);
 		List<ClinicModel> GetAll();
+		List<ClinicModel> GetByUser(int securityUserId, bool isSuperAdmin, int? doctorId);
 		List<ClinicModel> GetBySpecialtyId(int specialtyId);
 		ClinicModel GetById(int clinicId);
 		void Delete(int clinicId);
@@ -73,6 +74,7 @@ namespace Medycally.Core
 		AppointmentDetailModel? GetById(int appointmentId);
 		void Delete(int appointmentId);
 		void SetPatientId(int appointmentId, int patientId);
+		List<CalendarAppointmentModel> GetForCalendar(int? doctorId, DateTime start, DateTime end);
 	}
 
 	public interface ICommonData
@@ -95,6 +97,7 @@ namespace Medycally.Core
 	public interface ISecurityModule
 	{
 		List<NavigationModuleModel> GetUserPermissions(int securityUserId);
+		List<string> GetAllActiveModuleUrls();
 	}
 
 	public interface IDoctor
@@ -113,6 +116,8 @@ namespace Medycally.Core
 		void Delete(int securityUserId);
 		List<SecurityRoleModel> GetAllRoles();
 		string? ResendToken(int securityUserId);
+		List<UserClinicModel> GetUserClinics(int securityUserId);
+		void SaveUserClinics(int securityUserId, List<int> clinicIds);
 	}
 
 	public interface ISecurityRole
@@ -121,6 +126,13 @@ namespace Medycally.Core
 		void Delete(int securityRoleId);
 		List<SecurityRoleModuleModel> GetModules(int securityRoleId);
 		void SaveModule(int securityRoleId, SecurityRoleModuleModel module);
+	}
+
+	public interface IAdminModule
+	{
+		List<SecurityModuleAdminModel> GetAll();
+		int AddOrEdit(SecurityModuleAdminModel model);
+		void Delete(int securityModuleId);
 	}
 
 	public interface IEmailService
@@ -143,5 +155,17 @@ namespace Medycally.Core
 		MedicalAttentionModel? GetByAppointment(int appointmentId);
 		int Save(MedicalAttentionModel model);
 		List<MedicalAttentionModel> GetAll();
+	}
+
+	public interface IExchangeRate
+	{
+		List<ExchangeRateModel> GetAll();
+		void Save(string currencyCode, decimal rate);
+	}
+
+	public interface IClinicSpecialtyFee
+	{
+		List<ClinicSpecialtyFeeModel> GetByClinic(int clinicId);
+		int Save(ClinicSpecialtyFeeModel model, int updatedByUserId);
 	}
 }

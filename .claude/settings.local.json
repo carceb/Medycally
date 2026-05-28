@@ -18,7 +18,10 @@
       "Bash(Select-Object Name)",
       "Bash(Get-ChildItem *)",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "WebFetch(domain:www.bcv.org.ve)",
+      "PowerShell(dotnet build *)",
+      "Bash(dir *)"
     ]
   }
 }

@@ -1,9 +1,12 @@
 using Medycally.Core;
+using Medycally.Core.Security;
 using Medycally.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Medycally.Controllers
 {
+    [AllowAnonymous]
     public class AppointmentController : Controller
     {
         private readonly ISpecialty _specialty;
@@ -139,9 +142,11 @@ namespace Medycally.Controllers
                         age                    = 0,
                         sexId                  = 0,
                         sexText                = "—",
+                        patientEmail           = "",
                         guardianPatientId      = guardian.PatientId,
                         childGuardianIdNumber  = guardian.PatientIdNumber ?? 0,
                         childGuardianName      = guardian.PatientName     ?? "—",
+                        childGuardianEmail     = guardian.PatientEmail    ?? "",
                         childGuardianSexId     = guardian.SexId,
                         childGuardianBirthDate = guardian.PatientBirthdate.HasValue
                                                  ? guardian.PatientBirthdate.Value.ToString("yyyy-MM-dd")
@@ -174,8 +179,10 @@ namespace Medycally.Controllers
                         age,
                         sexId                 = patient.SexId,
                         sexText               = patient.SexName        ?? "—",
+                        patientEmail          = patient.PatientEmail   ?? "",
                         childGuardianIdNumber = 0,
                         childGuardianName     = "—",
+                        childGuardianEmail    = "",
                         relationshipId        = 0,
                         relationshipName      = "—"
                     });
