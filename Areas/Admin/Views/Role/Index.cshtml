@@ -44,6 +44,14 @@
                     <div class="invalid-feedback" id="roleNameError"></div>
                 </div>
 
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="hasGlobalScope" />
+                    <label class="form-check-label" for="hasGlobalScope">
+                        Alcance global
+                        <small class="text-muted d-block">Ve los datos de <strong>todas</strong> las clínicas (clínicas, usuarios, tarifas), sin necesidad de asignación por clínica. Úsalo para roles de configuración/back-office.</small>
+                    </label>
+                </div>
+
                 <h6 class="mt-4 mb-2 text-muted text-uppercase small">Permisos por módulo</h6>
                 <div id="permissionsBody">
                     <div class="text-center py-4"><div class="spinner-border text-success"></div></div>
@@ -143,6 +151,7 @@
     function openRoleModal() {
         document.getElementById('securityRoleId').value = '0';
         document.getElementById('roleName').value       = '';
+        document.getElementById('hasGlobalScope').checked = false;
         document.getElementById('roleModalTitle').textContent = 'Nuevo Rol';
         document.getElementById('roleName').classList.remove('is-invalid');
         loadPermissionsMatrix(0);
@@ -155,6 +164,7 @@
         if (!r) return;
         document.getElementById('securityRoleId').value = r.SecurityRoleId;
         document.getElementById('roleName').value       = r.RoleName;
+        document.getElementById('hasGlobalScope').checked = !!r.HasGlobalScope;
         document.getElementById('roleModalTitle').textContent = 'Editar Rol';
         document.getElementById('roleName').classList.remove('is-invalid');
         loadPermissionsMatrix(id);
@@ -196,7 +206,7 @@
                 </tr>`;
             }
             const childClass = m.parentSecurityModuleId != null ? ' perm-child' : '';
-            return `<tr class="${childClass.trim()}" data-module-id="${m.securityModuleId}">
+            let html = `<tr class="${childClass.trim()}" data-module-id="${m.securityModuleId}">
                 <td>
                     <i class="fas ${icon} me-2 text-muted"></i>
                     ${escapeHtml(m.moduleName)}
@@ -206,6 +216,25 @@
                 <td class="text-center"><input class="form-check-input" type="checkbox" data-perm="edit"   ${m.canEdit   ? 'checked' : ''} /></td>
                 <td class="text-center"><input class="form-check-input" type="checkbox" data-perm="delete" ${m.canDelete ? 'checked' : ''} /></td>
             </tr>`;
+
+            // Sub-filas para acciones nombradas (botones individuales)
+            if (Array.isArray(m.actions) && m.actions.length > 0) {
+                html += m.actions.map(a => `
+                    <tr class="perm-action" data-action-id="${a.securityModuleActionId}">
+                        <td class="ps-5">
+                            <i class="fas fa-angle-right me-2 text-muted"></i>
+                            <small class="text-muted">${escapeHtml(a.actionName)}</small>
+                        </td>
+                        <td colspan="4" class="text-start">
+                            <label class="small text-muted d-inline-flex align-items-center gap-1">
+                                <input class="form-check-input" type="checkbox" data-perm="action"
+                                       ${a.isAllowed ? 'checked' : ''} />
+                                Permitir
+                            </label>
+                        </td>
+                    </tr>`).join('');
+            }
+            return html;
         }).join('');
 
         body.innerHTML = `
@@ -234,6 +263,13 @@
         }));
     }
 
+    function collectAllowedActionIds() {
+        const rows = document.querySelectorAll('#permissionsBody tbody tr[data-action-id]');
+        return Array.from(rows)
+            .filter(row => row.querySelector('[data-perm="action"]').checked)
+            .map(row => parseInt(row.dataset.actionId));
+    }
+
     function saveRole() {
         const name = document.getElementById('roleName').value.trim();
         if (!name) {
@@ -243,8 +279,15 @@
         }
         document.getElementById('roleName').classList.remove('is-invalid');
 
-        const id      = parseInt(document.getElementById('securityRoleId').value);
-        const payload = { securityRoleId: id, roleName: name, modules: collectModules() };
+        const id             = parseInt(document.getElementById('securityRoleId').value);
+        const hasGlobalScope = document.getElementById('hasGlobalScope').checked;
+        const payload = {
+            securityRoleId:   id,
+            roleName:         name,
+            hasGlobalScope:   hasGlobalScope,
+            modules:          collectModules(),
+            allowedActionIds: collectAllowedActionIds()
+        };
 
         document.getElementById('btnSaveRole').disabled = true;
 
@@ -257,13 +300,13 @@
         .then(data => {
             roleModal.hide();
             const newId  = id === 0 ? data.securityRoleId : id;
-            const newDoc = { SecurityRoleId: newId, RoleName: name, IsSuperAdmin: false };
+            const newDoc = { SecurityRoleId: newId, RoleName: name, IsSuperAdmin: false, HasGlobalScope: hasGlobalScope };
             if (id === 0) {
                 allRoles.push(newDoc);
                 showToast('Rol creado correctamente.', true);
             } else {
                 const idx = allRoles.findIndex(x => x.SecurityRoleId === id);
-                if (idx >= 0) allRoles[idx] = { ...allRoles[idx], RoleName: name };
+                if (idx >= 0) allRoles[idx] = { ...allRoles[idx], RoleName: name, HasGlobalScope: hasGlobalScope };
                 showToast('Rol actualizado correctamente.', true);
             }
             renderTable();

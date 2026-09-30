@@ -1158,6 +1158,41 @@
             });
     }
 
+    /* ══════════════════════════════════════════════════════════
+       REALTIME — SignalR sync con cola de atención
+    ══════════════════════════════════════════════════════════ */
+    (function initRealtime() {
+        if (typeof signalR === 'undefined') return;
+
+        const conn = new signalR.HubConnectionBuilder()
+            .withUrl('/hubs/appointments')
+            .withAutomaticReconnect()
+            .build();
+
+        let joinedClinicId = 0;
+
+        async function joinActiveClinic() {
+            try {
+                if (joinedClinicId && joinedClinicId !== activeClinicId) {
+                    await conn.invoke('LeaveClinic', joinedClinicId);
+                }
+                await conn.invoke('JoinClinic', activeClinicId);
+                joinedClinicId = activeClinicId;
+            } catch { /* swallow — reconnect handler retries */ }
+        }
+
+        conn.on('AppointmentChanged', payload => {
+            if (!payload || payload.clinicId !== activeClinicId) return;
+            loadAppointments();
+        });
+
+        conn.onreconnected(joinActiveClinic);
+
+        conn.start().then(joinActiveClinic).catch(() => {});
+
+        window.addEventListener('clinicChanged', joinActiveClinic);
+    })();
+
     function buildDetailHtml(d) {
         const isMinor   = d.patientTypeId === 2;
         const fmt       = v => escHtml(v ?? '—');

@@ -11,7 +11,7 @@ namespace Medycally.Core
 	{
 		int AddOrEdit(ClinicModel model);
 		List<ClinicModel> GetAll();
-		List<ClinicModel> GetByUser(int securityUserId, bool isSuperAdmin, int? doctorId);
+		List<ClinicModel> GetByUser(int securityUserId, bool isSuperAdmin, int? doctorId, bool hasGlobalScope);
 		List<ClinicModel> GetBySpecialtyId(int specialtyId);
 		ClinicModel GetById(int clinicId);
 		void Delete(int clinicId);
@@ -53,6 +53,26 @@ namespace Medycally.Core
 	{
 		List<ReasonModel> GetAll(int specialtyId);
 	}
+
+	public interface ILabTest
+	{
+		List<LabTestModel> GetAll();
+	}
+
+	public interface IPricingStructure
+	{
+		List<PricingStructureModel> GetByClinic(int clinicId);
+		List<PricingStructureModel> GetAll();
+		int AddOrEdit(PricingStructureModel model);
+		void Delete(int pricingStructureId);
+	}
+
+	public interface IDoctorPricingStructure
+	{
+		List<DoctorPricingStructureModel> GetByDoctor(int doctorId);
+		int AddOrEdit(DoctorPricingStructureModel model);
+		void Delete(int doctorPricingStructureId);
+	}
 	public interface IGeography
 	{
 		public List<GeographyModel> GetAllStates();
@@ -68,7 +88,7 @@ namespace Medycally.Core
 
 	public interface IAppointmentQuery
 	{
-		List<DashboardAppointmentModel> GetByClinic(int clinicId, DateTime? date);
+		List<DashboardAppointmentModel> GetByClinic(int clinicId, DateTime? date, int? doctorId);
 		List<AppointmentStatusModel> GetStatuses();
 		void UpdateStatus(int appointmentId, int appointmentStatusId);
 		AppointmentDetailModel? GetById(int appointmentId);
@@ -113,6 +133,7 @@ namespace Medycally.Core
 	{
 		AdminUserModel AddOrEdit(AdminUserModel model);
 		List<AdminUserModel> GetAll();
+		List<AdminUserModel> GetByUser(int securityUserId, bool isSuperAdmin, int? doctorId, bool hasGlobalScope);
 		void Delete(int securityUserId);
 		List<SecurityRoleModel> GetAllRoles();
 		string? ResendToken(int securityUserId);
@@ -126,6 +147,9 @@ namespace Medycally.Core
 		void Delete(int securityRoleId);
 		List<SecurityRoleModuleModel> GetModules(int securityRoleId);
 		void SaveModule(int securityRoleId, SecurityRoleModuleModel module);
+		List<SecurityModuleActionModel> GetActionsByRole(int securityRoleId);
+		void SaveActions(int securityRoleId, List<int> allowedActionIds);
+		List<string> GetUserActions(int securityUserId, string moduleUrl);
 	}
 
 	public interface IAdminModule

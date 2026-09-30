@@ -2,8 +2,10 @@ using System.Diagnostics;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Medycally.Models;
 using Medycally.Core;
+using Medycally.Core.Hubs;
 using Medycally.Core.Security;
 
 namespace Medycally.Controllers;
@@ -16,15 +18,26 @@ public class HomeController : Controller
     private readonly IGeography        _geography;
     private readonly ICommonData       _commonData;
     private readonly IPatient          _patient;
+    private readonly IHubContext<AppointmentHub, IAppointmentClient> _hub;
 
     public HomeController(IAppointmentQuery appointmentQuery, IClinic clinic,
-                          IGeography geography, ICommonData commonData, IPatient patient)
+                          IGeography geography, ICommonData commonData, IPatient patient,
+                          IHubContext<AppointmentHub, IAppointmentClient> hub)
     {
         _appointmentQuery = appointmentQuery;
         _clinic           = clinic;
         _geography        = geography;
         _commonData       = commonData;
         _patient          = patient;
+        _hub              = hub;
+    }
+
+    private Task BroadcastAppointmentChanged(int clinicId, int appointmentId, string action)
+    {
+        if (clinicId <= 0) return Task.CompletedTask;
+        return _hub.Clients
+            .Group(AppointmentHub.GroupName(clinicId))
+            .AppointmentChanged(new { clinicId, appointmentId, action });
     }
 
     [AllowAnonymous]
@@ -45,7 +58,7 @@ public class HomeController : Controller
 
     [HttpPost]
     [RequiresModulePermission(PermissionAction.Edit)]
-    public IActionResult UpdateAppointmentStatus([FromBody] UpdateStatusRequest request)
+    public async Task<IActionResult> UpdateAppointmentStatus([FromBody] UpdateStatusRequest request)
     {
         try
         {
@@ -54,6 +67,10 @@ public class HomeController : Controller
                 return BadRequest(new { message = "No se puede modificar el estatus: la cita ya fue atendida y el paciente está registrado." });
 
             _appointmentQuery.UpdateStatus(request.AppointmentId, request.AppointmentStatusId);
+
+            if (current != null)
+                await BroadcastAppointmentChanged(current.ClinicId, request.AppointmentId, "statusChanged");
+
             return Ok();
         }
         catch (Exception ex)
@@ -67,7 +84,11 @@ public class HomeController : Controller
     {
         try
         {
-            var appointments = _appointmentQuery.GetByClinic(clinicId, date ?? DateTime.Today);
+            // Si el usuario es médico (tiene claim DoctorId), solo ve sus propias citas.
+            int? doctorId = int.TryParse(User.FindFirst("DoctorId")?.Value, out int did) && did > 0
+                            ? did : null;
+
+            var appointments = _appointmentQuery.GetByClinic(clinicId, date ?? DateTime.Today, doctorId);
             return Json(appointments);
         }
         catch (Exception ex)
@@ -93,7 +114,7 @@ public class HomeController : Controller
 
     [HttpPost]
     [RequiresModulePermission(PermissionAction.Create)]
-    public IActionResult RegisterPatient([FromBody] RegisterPatientRequest request)
+    public async Task<IActionResult> RegisterPatient([FromBody] RegisterPatientRequest request)
     {
         try
         {
@@ -110,7 +131,12 @@ public class HomeController : Controller
                 _patient.LinkGuardian(patientId, guardianPatientId, request.RelationshipId);
 
             if (request.AppointmentId > 0)
+            {
                 _appointmentQuery.SetPatientId(request.AppointmentId, patientId);
+                var appt = _appointmentQuery.GetById(request.AppointmentId);
+                if (appt != null)
+                    await BroadcastAppointmentChanged(appt.ClinicId, request.AppointmentId, "patientRegistered");
+            }
 
             return Ok(new { patientId });
         }
@@ -185,8 +211,9 @@ public class HomeController : Controller
             int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int securityUserId);
             bool isSuperAdmin = string.Equals(User.FindFirst("IsSuperAdmin")?.Value, "true", StringComparison.OrdinalIgnoreCase);
             int? doctorId = int.TryParse(User.FindFirst("DoctorId")?.Value, out int did) ? did : null;
+            bool hasGlobalScope = string.Equals(User.FindFirst("HasGlobalScope")?.Value, "true", StringComparison.OrdinalIgnoreCase);
 
-            var clinics = _clinic.GetByUser(securityUserId, isSuperAdmin, doctorId);
+            var clinics = _clinic.GetByUser(securityUserId, isSuperAdmin, doctorId, hasGlobalScope);
             return Json(clinics.Select(c => new
             {
                 c.ClinicId,
@@ -203,11 +230,18 @@ public class HomeController : Controller
 
     [HttpPost]
     [RequiresModulePermission(PermissionAction.Delete)]
-    public IActionResult DeleteAppointment([FromBody] int appointmentId)
+    public async Task<IActionResult> DeleteAppointment([FromBody] int appointmentId)
     {
         try
         {
+            var appt    = _appointmentQuery.GetById(appointmentId);
+            int clinicId = appt?.ClinicId ?? 0;
+
             _appointmentQuery.Delete(appointmentId);
+
+            if (clinicId > 0)
+                await BroadcastAppointmentChanged(clinicId, appointmentId, "deleted");
+
             return Ok();
         }
         catch (Exception ex)

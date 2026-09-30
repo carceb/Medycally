@@ -5,6 +5,7 @@
     var states         = ViewBag.States         as List<Medycally.Models.GeographyModel>  ?? [];
     var municipalities = ViewBag.Municipalities as List<Medycally.Models.GeographyModel>  ?? [];
     var clinicPerms    = Permissions.GetPermissions(User, "/Admin/Clinic");
+    var clinicActions  = Permissions.GetModuleActions(User, "/Admin/Clinic");
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -297,6 +298,64 @@
     </div>
 </div>
 
+<!-- Pricing Modal -->
+<div class="modal fade" id="pricingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="pricingModalTitle">Estructura de Precios</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="pricingLoading" class="d-none text-center py-3">
+                    <div class="spinner-border spinner-border-sm text-primary"></div>
+                    <span class="ms-2 text-muted">Cargando...</span>
+                </div>
+                <div id="pricingSection">
+                    <table class="table table-sm table-hover mb-3">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nombre</th>
+                                <th class="text-end">Valor (USD)</th>
+                                <th class="text-end" style="width:120px">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pricingBody"></tbody>
+                    </table>
+                    <hr />
+                    <h6 id="pricingFormTitle" class="text-muted mb-3">Agregar estructura</h6>
+                    <div class="row g-2 align-items-end">
+                        <input type="hidden" id="pricingId" value="0" />
+                        <div class="col-md-6">
+                            <label class="form-label form-label-sm">Nombre</label>
+                            <input type="text" class="form-control form-control-sm" id="pricingName" maxlength="50" placeholder="Ej: Consulta general" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label form-label-sm">Valor (USD)</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control form-control-sm" id="pricingValue" min="0" step="0.01" value="0" />
+                            </div>
+                        </div>
+                        <div class="col-auto d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="savePricingRow()">
+                                <i class="fas fa-save"></i> Guardar
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="pricingCancelEdit"
+                                    onclick="cancelPricingEdit()" style="display:none">
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Delete Confirm Modal -->
 <div class="modal fade" id="deleteModal" tabindex="-1">
     <div class="modal-dialog modal-sm">
@@ -331,6 +390,7 @@
     const clinicModal   = new bootstrap.Modal(document.getElementById('clinicModal'));
     const doctorsModal  = new bootstrap.Modal(document.getElementById('doctorsModal'));
     const scheduleModal = new bootstrap.Modal(document.getElementById('scheduleModal'));
+    const pricingModal  = new bootstrap.Modal(document.getElementById('pricingModal'));
     const deleteModal   = new bootstrap.Modal(document.getElementById('deleteModal'));
     const toast         = new bootstrap.Toast(document.getElementById('toast'), { delay: 3500 });
 
@@ -353,6 +413,7 @@
         canEdit:   @(clinicPerms.CanEdit   ? "true" : "false"),
         canDelete: @(clinicPerms.CanDelete ? "true" : "false")
     };
+    const clinicActions = new Set(@Html.Raw(System.Text.Json.JsonSerializer.Serialize(clinicActions)));
     const allClinicTypes    = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(clinicTypes));
     const allStates         = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(states));
     const allMunicipalities = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(municipalities));
@@ -456,10 +517,11 @@
                 <td>${typeName}</td>
                 <td>${badge}</td>
                 <td class="text-end">
-                    ${clinicPerms.canEdit   ? `<button class="btn btn-sm btn-outline-primary me-1" onclick="editClinic(${c.ClinicId})" title="Editar"><i class="fas fa-edit"></i></button>` : ''}
-                    ${clinicPerms.canEdit   ? `<button class="btn btn-sm btn-outline-info me-1" onclick="openDoctorsModal(${c.ClinicId},'${escaped}')" title="Médicos"><i class="fas fa-user-md"></i></button>` : ''}
-                    ${clinicPerms.canEdit   ? `<button class="btn btn-sm btn-outline-success me-1" onclick="openScheduleModal(${c.ClinicId},'${escaped}')" title="Horarios"><i class="fas fa-calendar-alt"></i></button>` : ''}
-                    ${clinicPerms.canDelete ? `<button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(${c.ClinicId},'${escaped}')" title="Eliminar"><i class="fas fa-trash"></i></button>` : ''}
+                    ${clinicPerms.canEdit                ? `<button class="btn btn-sm btn-outline-primary me-1" onclick="editClinic(${c.ClinicId})" title="Editar"><i class="fas fa-edit"></i></button>` : ''}
+                    ${clinicActions.has('doctors')       ? `<button class="btn btn-sm btn-outline-info me-1" onclick="openDoctorsModal(${c.ClinicId},'${escaped}')" title="Médicos"><i class="fas fa-user-md"></i></button>` : ''}
+                    ${clinicActions.has('schedule')      ? `<button class="btn btn-sm btn-outline-success me-1" onclick="openScheduleModal(${c.ClinicId},'${escaped}')" title="Horarios"><i class="fas fa-calendar-alt"></i></button>` : ''}
+                    ${clinicActions.has('pricing')       ? `<button class="btn btn-sm btn-outline-warning me-1" onclick="openPricingModal(${c.ClinicId},'${escaped}')" title="Estructura de Precios"><i class="fas fa-dollar-sign"></i></button>` : ''}
+                    ${clinicPerms.canDelete              ? `<button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(${c.ClinicId},'${escaped}')" title="Eliminar"><i class="fas fa-trash"></i></button>` : ''}
                 </td>
             </tr>`;
         }).join('');
@@ -1078,6 +1140,139 @@
             showToast('Horario eliminado.', true);
         })
         .catch(msg => showToast(typeof msg === 'string' ? msg : 'Error al eliminar el horario.', false));
+    }
+
+    // ── Estructura de Precios ────────────────────────────────────────────────
+
+    let pricingClinicId      = 0;
+    let currentPricingData   = [];
+    let editingPricingId     = 0;
+
+    function openPricingModal(clinicId, clinicName) {
+        pricingClinicId    = clinicId;
+        currentPricingData = [];
+        editingPricingId   = 0;
+        document.getElementById('pricingModalTitle').textContent = `Estructura de Precios — ${clinicName}`;
+        document.getElementById('pricingLoading').classList.remove('d-none');
+        document.getElementById('pricingSection').classList.add('d-none');
+        resetPricingForm();
+        pricingModal.show();
+
+        fetch(`/Admin/Clinic/GetPricing?clinicId=${clinicId}`)
+            .then(r => r.ok ? r.json() : Promise.reject('Error al cargar la estructura de precios'))
+            .then(data => {
+                currentPricingData = data.map(p => ({
+                    pricingStructureId:    p.PricingStructureId    ?? p.pricingStructureId,
+                    clinicId:              p.ClinicId              ?? p.clinicId,
+                    pricingStructureName:  p.PricingStructureName  ?? p.pricingStructureName  ?? '',
+                    pricingStructureValue: p.PricingStructureValue ?? p.pricingStructureValue ?? 0,
+                }));
+                renderPricingTable();
+                document.getElementById('pricingLoading').classList.add('d-none');
+                document.getElementById('pricingSection').classList.remove('d-none');
+            })
+            .catch(msg => {
+                document.getElementById('pricingLoading').classList.add('d-none');
+                document.getElementById('pricingSection').classList.remove('d-none');
+                showToast(typeof msg === 'string' ? msg : 'Error al cargar la estructura de precios.', false);
+            });
+    }
+
+    function renderPricingTable() {
+        const tbody = document.getElementById('pricingBody');
+        if (currentPricingData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-2">Sin estructuras registradas.</td></tr>';
+            return;
+        }
+        const fmt = v => Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        tbody.innerHTML = currentPricingData.map(p => `
+            <tr>
+                <td>${escapeHtml(p.pricingStructureName)}</td>
+                <td class="text-end">$ ${fmt(p.pricingStructureValue)}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editPricingRow(${p.pricingStructureId})" title="Editar">
+                        <i class="fas fa-edit fa-sm"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deletePricingRow(${p.pricingStructureId})" title="Eliminar">
+                        <i class="fas fa-trash fa-sm"></i>
+                    </button>
+                </td>
+            </tr>`).join('');
+    }
+
+    function editPricingRow(id) {
+        const p = currentPricingData.find(x => x.pricingStructureId === id);
+        if (!p) return;
+        editingPricingId = id;
+        document.getElementById('pricingId').value    = id;
+        document.getElementById('pricingName').value  = p.pricingStructureName;
+        document.getElementById('pricingValue').value = p.pricingStructureValue;
+        document.getElementById('pricingFormTitle').textContent = 'Editar estructura';
+        document.getElementById('pricingCancelEdit').style.display = '';
+    }
+
+    function cancelPricingEdit() {
+        resetPricingForm();
+    }
+
+    function resetPricingForm() {
+        editingPricingId = 0;
+        document.getElementById('pricingId').value    = '0';
+        document.getElementById('pricingName').value  = '';
+        document.getElementById('pricingValue').value = '0';
+        document.getElementById('pricingFormTitle').textContent = 'Agregar estructura';
+        document.getElementById('pricingCancelEdit').style.display = 'none';
+    }
+
+    function savePricingRow() {
+        const name  = document.getElementById('pricingName').value.trim();
+        const value = parseFloat(document.getElementById('pricingValue').value);
+
+        if (!name) { showToast('Ingrese el nombre de la estructura.', false); return; }
+        if (isNaN(value) || value < 0) { showToast('El valor debe ser un número mayor o igual a cero.', false); return; }
+
+        const payload = {
+            pricingStructureId:    parseInt(document.getElementById('pricingId').value) || 0,
+            clinicId:              pricingClinicId,
+            pricingStructureName:  name,
+            pricingStructureValue: value,
+        };
+
+        fetch('/Admin/Clinic/SavePricing', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload)
+        })
+        .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.message ?? 'Error')))
+        .then(data => {
+            payload.pricingStructureId = data.pricingStructureId;
+            const prevId = editingPricingId;
+            const idx = prevId > 0 ? currentPricingData.findIndex(x => x.pricingStructureId === prevId) : -1;
+            if (idx >= 0) currentPricingData[idx] = payload;
+            else currentPricingData.push(payload);
+            currentPricingData.sort((a, b) => a.pricingStructureName.localeCompare(b.pricingStructureName));
+            renderPricingTable();
+            resetPricingForm();
+            showToast('Estructura guardada correctamente.', true);
+        })
+        .catch(msg => showToast(typeof msg === 'string' ? msg : 'Error al guardar la estructura.', false));
+    }
+
+    function deletePricingRow(id) {
+        if (!confirm('¿Eliminar esta estructura de precio?')) return;
+        fetch('/Admin/Clinic/DeletePricing', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(id)
+        })
+        .then(r => { if (!r.ok) return r.json().then(e => Promise.reject(e.message ?? 'Error')); })
+        .then(() => {
+            const idx = currentPricingData.findIndex(x => x.pricingStructureId === id);
+            if (idx >= 0) currentPricingData.splice(idx, 1);
+            renderPricingTable();
+            showToast('Estructura eliminada.', true);
+        })
+        .catch(msg => showToast(typeof msg === 'string' ? msg : 'Error al eliminar la estructura.', false));
     }
 
     // ─────────────────────────────────────────────────────────────────────────

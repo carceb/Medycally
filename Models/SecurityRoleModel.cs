@@ -5,5 +5,6 @@ namespace Medycally.Models
         public int SecurityRoleId { get; set; }
         public string RoleName { get; set; } = string.Empty;
         public bool IsSuperAdmin { get; set; }
+        public bool HasGlobalScope { get; set; }
     }
 }

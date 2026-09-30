@@ -3,7 +3,8 @@
     ViewData["Title"] = "Usuarios";
     var roles   = ViewBag.Roles   as List<Medycally.Models.SecurityRoleModel> ?? [];
     var doctors = ViewBag.Doctors as List<Medycally.Models.DoctorModel>       ?? [];
-    var userPerms = Permissions.GetPermissions(User, "/Admin/User");
+    var userPerms   = Permissions.GetPermissions(User, "/Admin/User");
+    var userActions = Permissions.GetModuleActions(User, "/Admin/User");
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -214,6 +215,7 @@
         canEdit:   @(userPerms.CanEdit   ? "true" : "false"),
         canDelete: @(userPerms.CanDelete ? "true" : "false")
     };
+    const userActions = new Set(@Html.Raw(System.Text.Json.JsonSerializer.Serialize(userActions)));
 
     function roleBadgeClass(roleName) {
         const lower = (roleName ?? '').toLowerCase();
@@ -245,15 +247,7 @@
             const resendBtn = !u.IsActivated
                 ? `<button class="btn-icon" onclick="resendActivation(${u.SecurityUserId},'${escaped}')" title="Reenviar invitación"><i class="fas fa-envelope text-warning"></i></button>`
                 : '';
-            const isDoctorUser = !!u.DoctorId;
-            let clinicsBtn = '';
-            if (u.IsSuperAdmin) {
-                clinicsBtn = `<button class="btn-icon" title="SuperAdmin: acceso a todas las clínicas" disabled><i class="fas fa-hospital text-muted"></i></button>`;
-            } else if (isDoctorUser) {
-                clinicsBtn = `<button class="btn-icon" title="Clínicas derivadas de la asignación de médico" disabled><i class="fas fa-hospital text-muted"></i></button>`;
-            } else {
-                clinicsBtn = `<button class="btn-icon" onclick="openClinicsModal(${u.SecurityUserId},'${escaped}')" title="Clínicas asignadas"><i class="fas fa-hospital text-info"></i></button>`;
-            }
+            const clinicsBtn = `<button class="btn-icon" onclick="openClinicsModal(${u.SecurityUserId},'${escaped}')" title="Clínicas asignadas"><i class="fas fa-hospital text-info"></i></button>`;
             return `<tr data-id="${u.SecurityUserId}">
                 <td>${u.SecurityUserId}</td>
                 <td>
@@ -271,8 +265,8 @@
                 <td><span class="status-badge ${statusClass}"><i class="fas fa-circle"></i> ${statusLabel}</span></td>
                 <td class="text-end">
                     <div class="action-buttons">
-                        ${userPerms.canEdit ? resendBtn : ''}
-                        ${userPerms.canEdit ? clinicsBtn : ''}
+                        ${userActions.has('resend')  ? resendBtn  : ''}
+                        ${userActions.has('clinics') ? clinicsBtn : ''}
                         ${userPerms.canEdit   ? `<button class="btn-icon" onclick="editUser(${u.SecurityUserId})" title="Editar"><i class="fas fa-edit"></i></button>` : ''}
                         ${userPerms.canDelete ? `<button class="btn-icon" onclick="confirmDelete(${u.SecurityUserId},'${escaped}')" title="Eliminar"><i class="fas fa-trash text-danger"></i></button>` : ''}
                     </div>

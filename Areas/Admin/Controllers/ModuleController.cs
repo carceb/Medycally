@@ -1,4 +1,5 @@
 using Medycally.Core;
+using Medycally.Core.Security;
 using Medycally.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,13 +10,19 @@ namespace Medycally.Areas.Admin.Controllers
     [Authorize]
     public class ModuleController : Controller
     {
-        private readonly IAdminModule _adminModule;
+        private const string ModuleUrl = "/Admin/Module";
 
-        public ModuleController(IAdminModule adminModule) => _adminModule = adminModule;
+        private readonly IAdminModule       _adminModule;
+        private readonly IPermissionService _permissions;
+
+        public ModuleController(IAdminModule adminModule, IPermissionService permissions)
+        {
+            _adminModule = adminModule;
+            _permissions = permissions;
+        }
 
         public IActionResult Index()
         {
-            if (!IsSuperAdmin()) return Forbid();
             var modules = _adminModule.GetAll();
             return View(modules);
         }
@@ -23,7 +30,9 @@ namespace Medycally.Areas.Admin.Controllers
         [HttpPost]
         public IActionResult Save([FromBody] SecurityModuleAdminModel model)
         {
-            if (!IsSuperAdmin()) return Forbid();
+            var required = model.SecurityModuleId == 0 ? PermissionAction.Create : PermissionAction.Edit;
+            if (!_permissions.HasPermission(User, ModuleUrl, required))
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "No tienes permiso para realizar esta acción." });
 
             if (string.IsNullOrWhiteSpace(model.ModuleName))
                 return BadRequest(new { message = "El nombre del módulo es requerido." });
@@ -51,9 +60,9 @@ namespace Medycally.Areas.Admin.Controllers
         }
 
         [HttpPost]
+        [RequiresModulePermission(PermissionAction.Delete)]
         public IActionResult Delete([FromBody] int securityModuleId)
         {
-            if (!IsSuperAdmin()) return Forbid();
             try
             {
                 _adminModule.Delete(securityModuleId);
@@ -64,8 +73,5 @@ namespace Medycally.Areas.Admin.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-
-        private bool IsSuperAdmin()
-            => string.Equals(User.FindFirst("IsSuperAdmin")?.Value, "true", StringComparison.OrdinalIgnoreCase);
     }
 }

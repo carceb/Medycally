@@ -21,7 +21,12 @@
       "Bash(Select-Object FullName)",
       "WebFetch(domain:www.bcv.org.ve)",
       "PowerShell(dotnet build *)",
-      "Bash(dir *)"
+      "Bash(dir *)",
+      "Bash(Select-Object -First 20)",
+      "Bash(xargs grep -l \"SecurityUser_GetAll\\\\|Clinic_GetByUser\\\\|SecurityUserClinic\")",
+      "Bash(xargs -0 grep -l \"CREATE.*PROCEDURE.*SecurityUser_GetAll\")",
+      "Bash(xargs grep -l \"Clinic_GetByUser\\\\|SecurityUser_GetByUser\")",
+      "PowerShell(dotnet build -nologo -clp:ErrorsOnly -p:UseAppHost=false -o \"$env:TEMP\\\\medycally_buildcheck\" 2>&1 | Select-Object -Last 20)"
     ]
   }
 }

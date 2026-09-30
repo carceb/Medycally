@@ -248,5 +248,38 @@
         updateClinicLabel();
         loadQueue();
     });
+
+    /* ── REALTIME — SignalR sync con dashboard de citas ──────────────── */
+    (function initRealtimeQueue() {
+        if (typeof signalR === 'undefined') return;
+
+        const conn = new signalR.HubConnectionBuilder()
+            .withUrl('/hubs/appointments')
+            .withAutomaticReconnect()
+            .build();
+
+        let joinedClinicId = 0;
+
+        async function joinActiveClinic() {
+            try {
+                if (joinedClinicId && joinedClinicId !== activeClinicId) {
+                    await conn.invoke('LeaveClinic', joinedClinicId);
+                }
+                await conn.invoke('JoinClinic', activeClinicId);
+                joinedClinicId = activeClinicId;
+            } catch { /* swallow — reconnect handler retries */ }
+        }
+
+        conn.on('AppointmentChanged', payload => {
+            if (!payload || payload.clinicId !== activeClinicId) return;
+            loadQueue();
+        });
+
+        conn.onreconnected(joinActiveClinic);
+
+        conn.start().then(joinActiveClinic).catch(() => {});
+
+        window.addEventListener('clinicChanged', joinActiveClinic);
+    })();
 </script>
 }

@@ -77,7 +77,7 @@ namespace Medycally.Core
             }
         }
 
-        public List<ClinicModel> GetByUser(int securityUserId, bool isSuperAdmin, int? doctorId)
+        public List<ClinicModel> GetByUser(int securityUserId, bool isSuperAdmin, int? doctorId, bool hasGlobalScope)
         {
             try
             {
@@ -91,6 +91,7 @@ namespace Medycally.Core
                 cmd.Parameters.AddWithValue("@SecurityUserId", securityUserId);
                 cmd.Parameters.AddWithValue("@IsSuperAdmin",   isSuperAdmin);
                 cmd.Parameters.AddWithValue("@DoctorId",       doctorId.HasValue ? (object)doctorId.Value : DBNull.Value);
+                cmd.Parameters.AddWithValue("@HasGlobalScope", hasGlobalScope);
 
                 List<ClinicModel> clinics = [];
                 using SqlDataReader reader = cmd.ExecuteReader();

@@ -252,7 +252,8 @@ namespace Medycally.Controllers
                 new(ClaimTypes.Email,           user.UserEmail),
                 new("SecurityRoleId",           user.SecurityRoleId.ToString()),
                 new(ClaimTypes.Role,            user.RoleName),
-                new("IsSuperAdmin",             user.IsSuperAdmin ? "true" : "false")
+                new("IsSuperAdmin",             user.IsSuperAdmin ? "true" : "false"),
+                new("HasGlobalScope",           user.HasGlobalScope ? "true" : "false")
             };
             if (user.DoctorId.HasValue)
                 claims.Add(new("DoctorId", user.DoctorId.Value.ToString()));

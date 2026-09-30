@@ -227,9 +227,11 @@
                 <input type="hidden" id="appointmentId" value="@Model.AppointmentId" />
 
                 @{
-                    // Si hay atención guardada, el formulario inicia vacío; sólo se carga
-                    // al hacer clic en una consulta del acordeón.
-                    string val(string? s) => hasExisting ? "" : (s ?? "");
+                    // Pre-llenado: cuando hay atención guardada, el formulario inicia con
+                    // los datos de `existing`. Esto evita inconsistencia con la restoración
+                    // automática de form que hace el navegador tras F5, y permite que la
+                    // hidratación de chips de LaboratoryTests funcione al cargar la página.
+                    string val(string? s) => s ?? "";
                 }
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Motivo de Consulta</label>
@@ -254,8 +256,24 @@
 
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Exámenes</label>
-                    <textarea class="form-control" id="txtLaboratoryTests" rows="2"
-                              placeholder="Exámenes de laboratorio o estudios indicados...">@val(existing?.LaboratoryTests)</textarea>
+
+                    <div class="position-relative" id="labTestPickerWrap">
+                        <input type="text" class="form-control" id="labTestSearch"
+                               placeholder="Buscar examen del catálogo..."
+                               autocomplete="off">
+                        <div id="labTestDropdown"
+                             class="list-group position-absolute w-100 shadow-sm d-none"
+                             style="z-index:1050; max-height:240px; overflow-y:auto; top:100%; left:0;">
+                        </div>
+                    </div>
+
+                    <div id="labTestChips"
+                         class="d-flex flex-wrap align-content-start gap-1 mt-2 p-2 border rounded bg-light"
+                         style="min-height:60px; max-height:140px; overflow-y:auto;"
+                         data-placeholder="Sin exámenes seleccionados"></div>
+
+                    <textarea class="form-control mt-2" id="txtLabTestNotes" rows="2"
+                              placeholder="Notas adicionales (en ayunas, ambos brazos, etc.)">@val(existing?.LaboratoryTests)</textarea>
                 </div>
 
                 <div class="mb-3">
@@ -569,6 +587,153 @@
 
     const hasExistingAttention = @(hasExisting ? "true" : "false");
     const historyItems         = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(history));
+    const allLabTests          = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.LabTests as List<Medycally.Models.LabTestModel> ?? new List<Medycally.Models.LabTestModel>()));
+
+    /* ──────────────────────────────────────────────────────────────────
+       Picker de Exámenes — input buscable + chips removibles + notas
+       renderLabTestChips vive fuera del IIFE para que funcione aunque
+       initLabTestPicker no encuentre todos los elementos al cargar.
+    ────────────────────────────────────────────────────────────────── */
+    let selectedLabTests = [];
+
+    function _labTestEsc(t) {
+        const d = document.createElement('div');
+        d.textContent = t ?? '';
+        return d.innerHTML;
+    }
+
+    function renderLabTestChips() {
+        const chipsBox = document.getElementById('labTestChips');
+        if (!chipsBox) return;
+        if (!selectedLabTests.length) {
+            chipsBox.innerHTML =
+                '<span class="text-muted small fst-italic align-self-center">Sin exámenes seleccionados</span>';
+            return;
+        }
+        chipsBox.innerHTML = selectedLabTests.map(t =>
+            `<span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle d-inline-flex align-items-center gap-2 py-1 px-2 fw-normal">
+                ${_labTestEsc(t.LabTestName)}
+                <button type="button" class="btn-close"
+                        style="font-size:.55rem; opacity:.7;"
+                        aria-label="Quitar" data-id="${t.LabTestId}"></button>
+            </span>`
+        ).join('');
+    }
+
+    (function initLabTestPicker() {
+        const search   = document.getElementById('labTestSearch');
+        const dropdown = document.getElementById('labTestDropdown');
+        const chipsBox = document.getElementById('labTestChips');
+        const wrap     = document.getElementById('labTestPickerWrap');
+        if (!search || !dropdown || !chipsBox || !wrap) return;
+
+        function renderDropdown() {
+            const q = search.value.trim().toLowerCase();
+            const selectedIds = new Set(selectedLabTests.map(t => t.LabTestId));
+            const matches = allLabTests
+                .filter(t => !selectedIds.has(t.LabTestId))
+                .filter(t => !q || (t.LabTestName ?? '').toLowerCase().includes(q))
+                .slice(0, 50);
+
+            if (!matches.length) {
+                dropdown.innerHTML = '<div class="list-group-item text-muted small py-2">Sin resultados</div>';
+            } else {
+                dropdown.innerHTML = matches.map(t =>
+                    `<button type="button" class="list-group-item list-group-item-action py-1 px-2 small"
+                             data-id="${t.LabTestId}">${_labTestEsc(t.LabTestName)}</button>`
+                ).join('');
+            }
+            dropdown.classList.remove('d-none');
+        }
+
+        function addLabTest(id) {
+            const test = allLabTests.find(t => t.LabTestId === id);
+            if (!test) return;
+            if (selectedLabTests.some(t => t.LabTestId === id)) return;
+            selectedLabTests.push(test);
+            search.value = '';
+            renderLabTestChips();
+            renderDropdown();
+            search.focus();
+        }
+
+        function removeLabTest(id) {
+            selectedLabTests = selectedLabTests.filter(t => t.LabTestId !== id);
+            renderLabTestChips();
+        }
+
+        search.addEventListener('focus', renderDropdown);
+        search.addEventListener('input', renderDropdown);
+
+        dropdown.addEventListener('click', e => {
+            const btn = e.target.closest('[data-id]');
+            if (!btn) return;
+            addLabTest(parseInt(btn.dataset.id, 10));
+        });
+
+        chipsBox.addEventListener('click', e => {
+            const btn = e.target.closest('button.btn-close');
+            if (!btn) return;
+            e.stopPropagation();
+            removeLabTest(parseInt(btn.dataset.id, 10));
+        });
+
+        document.addEventListener('click', e => {
+            if (!wrap.contains(e.target)) dropdown.classList.add('d-none');
+        });
+
+        search.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                dropdown.classList.add('d-none');
+                search.blur();
+            }
+        });
+    })();
+
+    // Hidrata chips desde un texto guardado: las líneas que coinciden con el
+    // catálogo (case-insensitive) se vuelven chips; el resto queda como notas.
+    function hydrateLabTestsFromText(text) {
+        const nameMap   = new Map(allLabTests.map(t => [t.LabTestName.trim().toLowerCase(), t]));
+        const seenIds   = new Set();
+        const remaining = [];
+        selectedLabTests = [];
+
+        (text || '').split(/\r?\n/).forEach(rawLine => {
+            const line = rawLine.trim();
+            if (!line) return;
+            const match = nameMap.get(line.toLowerCase());
+            if (match && !seenIds.has(match.LabTestId)) {
+                selectedLabTests.push(match);
+                seenIds.add(match.LabTestId);
+            } else {
+                remaining.push(rawLine);
+            }
+        });
+
+        const notesEl = document.getElementById('txtLabTestNotes');
+        if (notesEl) notesEl.value = remaining.join('\n');
+        renderLabTestChips();
+    }
+
+    // Convierte el texto pre-cargado del Razor (existing.LaboratoryTests) en chips.
+    (function hydrateOnLoad() {
+        const notesEl = document.getElementById('txtLabTestNotes');
+        if (notesEl) hydrateLabTestsFromText(notesEl.value);
+    })();
+
+    function composeLaboratoryTests() {
+        const chipPart  = selectedLabTests.map(t => t.LabTestName).join('\n');
+        const notesPart = document.getElementById('txtLabTestNotes').value.trim();
+        const parts = [];
+        if (chipPart)  parts.push(chipPart);
+        if (notesPart) parts.push(notesPart);
+        const composed = parts.join('\n').trim();
+        return composed || null;
+    }
+
+    function resetLabTestsTo(text) {
+        hydrateLabTestsFromText(text || '');
+    }
 
     // Cuando hay atención guardada, ambas tarjetas inician vacías y se llenan al
     // hacer clic en un ítem del acordeón de Consultas; además se cambia a la
@@ -612,7 +777,7 @@
         document.getElementById('txtChiefComplaint').value  = h.ChiefComplaint  || '';
         document.getElementById('txtCurrentIlness').value   = h.CurrentIlness   || '';
         document.getElementById('txtDiagnosis').value       = h.Diagnosis       || '';
-        document.getElementById('txtLaboratoryTests').value = h.LaboratoryTests || '';
+        resetLabTestsTo(h.LaboratoryTests || '');
         document.getElementById('txtTestRequisition').value = h.TestRequisition || '';
         document.getElementById('txtTreatment').value       = h.Treatment       || '';
         document.getElementById('txtNotes').value           = h.Notes           || '';
@@ -734,7 +899,7 @@
             chiefComplaint:  document.getElementById('txtChiefComplaint').value.trim()  || null,
             currentIlness:   document.getElementById('txtCurrentIlness').value.trim()   || null,
             diagnosis:       diagnosis,
-            laboratoryTests: document.getElementById('txtLaboratoryTests').value.trim() || null,
+            laboratoryTests: composeLaboratoryTests(),
             testRequisition: document.getElementById('txtTestRequisition').value.trim() || null,
             treatment:       treatment,
             notes:           document.getElementById('txtNotes').value.trim()           || null

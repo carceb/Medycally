@@ -10,9 +10,12 @@
             Context.User.FindFirst("IsSuperAdmin")?.Value, "true",
             StringComparison.OrdinalIgnoreCase);
         int? _doctorIdClinics = int.TryParse(Context.User.FindFirst("DoctorId")?.Value, out int _did) ? _did : null;
+        bool _hasGlobalScopeClinics = string.Equals(
+            Context.User.FindFirst("HasGlobalScope")?.Value, "true",
+            StringComparison.OrdinalIgnoreCase);
         try
         {
-            userClinics = ClinicService.GetByUser(_securityUserId, _isSuperAdminClinics, _doctorIdClinics);
+            userClinics = ClinicService.GetByUser(_securityUserId, _isSuperAdminClinics, _doctorIdClinics, _hasGlobalScopeClinics);
         }
         catch
         {
@@ -62,80 +65,8 @@
                 </a>
             </div>
 
-            @{
-                var currentPath   = Context.Request.Path.Value ?? "";
-                var isAdminActive = currentPath.StartsWith("/Admin", StringComparison.OrdinalIgnoreCase);
-                bool isSuperAdmin = string.Equals(
-                    Context.User.FindFirst("IsSuperAdmin")?.Value, "true",
-                    StringComparison.OrdinalIgnoreCase);
-            }
             <ul class="sidebar-nav">
                 @await Component.InvokeAsync("Sidebar")
-
-                @if (isSuperAdmin)
-                {
-                <li class="sidebar-item">
-                    <a class="sidebar-link sidebar-link-parent @(isAdminActive ? "active" : "")"
-                       data-bs-toggle="collapse" data-bs-target="#adminMenu"
-                       href="#" role="button"
-                       aria-expanded="@(isAdminActive ? "true" : "false")">
-                        <i class="fas fa-cog"></i>
-                        <span>Configuración</span>
-                        <i class="fas fa-chevron-right sidebar-chevron"></i>
-                    </a>
-                    <ul class="sidebar-dropdown collapse @(isAdminActive ? "show" : "")" id="adminMenu">
-                        <li class="sidebar-item">
-                            <a href="/Admin/Specialty"
-                               class="sidebar-link @(currentPath.StartsWith("/Admin/Specialty", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
-                                <i class="fas fa-stethoscope"></i>
-                                <span>Especialidades</span>
-                            </a>
-                        </li>
-                        <li class="sidebar-item">
-                            <a href="/Admin/Clinic"
-                               class="sidebar-link @(currentPath.StartsWith("/Admin/Clinic", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
-                                <i class="fas fa-hospital"></i>
-                                <span>Clínicas</span>
-                            </a>
-                        </li>
-                        <li class="sidebar-item">
-                            <a href="/Admin/Doctor"
-                               class="sidebar-link @(currentPath.StartsWith("/Admin/Doctor", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
-                                <i class="fas fa-user-md"></i>
-                                <span>Médicos</span>
-                            </a>
-                        </li>
-                        <li class="sidebar-item">
-                            <a href="/Admin/User"
-                               class="sidebar-link @(currentPath.StartsWith("/Admin/User", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
-                                <i class="fas fa-users-cog"></i>
-                                <span>Usuarios</span>
-                            </a>
-                        </li>
-                        <li class="sidebar-item">
-                            <a href="/Admin/Fee"
-                               class="sidebar-link @(currentPath.StartsWith("/Admin/Fee", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
-                                <i class="fas fa-dollar-sign"></i>
-                                <span>Tarifas</span>
-                            </a>
-                        </li>
-                        <li class="sidebar-item">
-                            <a href="/Admin/Role"
-                               class="sidebar-link @(currentPath.StartsWith("/Admin/Role", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
-                                <i class="fas fa-shield-alt"></i>
-                                <span>Roles</span>
-                            </a>
-                        </li>
-                        <li class="sidebar-item">
-                            <a href="/Admin/Module"
-                               class="sidebar-link @(currentPath.StartsWith("/Admin/Module", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
-                                <i class="fas fa-th-list"></i>
-                                <span>Módulos</span>
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-                }
             </ul>
 
             <div class="sidebar-footer">
@@ -273,6 +204,7 @@
     <!-- Scripts -->
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@@8.0.7/dist/browser/signalr.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     <script src="~/js/admin.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)

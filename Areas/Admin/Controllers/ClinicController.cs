@@ -17,14 +17,17 @@ namespace Medycally.Areas.Admin.Controllers
 		private readonly IClinicType        _clinicType;
 		private readonly IGeography         _geography;
 		private readonly IDoctorSchedule    _schedule;
+		private readonly IPricingStructure  _pricing;
 		private readonly IPermissionService _permissions;
 
-		public ClinicController(IClinic clinic, IClinicType clinicType, IGeography geography, IDoctorSchedule schedule, IPermissionService permissions)
+		public ClinicController(IClinic clinic, IClinicType clinicType, IGeography geography,
+			IDoctorSchedule schedule, IPricingStructure pricing, IPermissionService permissions)
 		{
 			_clinic      = clinic;
 			_clinicType  = clinicType;
 			_geography   = geography;
 			_schedule    = schedule;
+			_pricing     = pricing;
 			_permissions = permissions;
 		}
 
@@ -33,8 +36,9 @@ namespace Medycally.Areas.Admin.Controllers
 			int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int securityUserId);
 			bool isSuperAdmin = string.Equals(User.FindFirst("IsSuperAdmin")?.Value, "true", StringComparison.OrdinalIgnoreCase);
 			int? doctorId = int.TryParse(User.FindFirst("DoctorId")?.Value, out int did) ? did : null;
+			bool hasGlobalScope = string.Equals(User.FindFirst("HasGlobalScope")?.Value, "true", StringComparison.OrdinalIgnoreCase);
 
-			var clinics = _clinic.GetByUser(securityUserId, isSuperAdmin, doctorId);
+			var clinics = _clinic.GetByUser(securityUserId, isSuperAdmin, doctorId, hasGlobalScope);
 			ViewBag.ClinicTypes    = _clinicType.GetAll();
 			ViewBag.States         = _geography.GetAllStates();
 			ViewBag.Municipalities = _geography.GetAllMunicipalities();
@@ -134,6 +138,60 @@ namespace Medycally.Areas.Admin.Controllers
 			try
 			{
 				_schedule.DeleteSchedule(doctorScheduleId);
+				return Ok();
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, new { message = ex.Message });
+			}
+		}
+
+		[HttpGet]
+		public IActionResult GetPricing(int clinicId)
+		{
+			try
+			{
+				var list = _pricing.GetByClinic(clinicId);
+				return Json(list);
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, new { message = ex.Message });
+			}
+		}
+
+		[HttpPost]
+		public IActionResult SavePricing([FromBody] PricingStructureModel model)
+		{
+			try
+			{
+				if (string.IsNullOrWhiteSpace(model.PricingStructureName))
+					return BadRequest(new { message = "El nombre de la estructura es requerido." });
+				if (model.PricingStructureValue < 0)
+					return BadRequest(new { message = "El valor no puede ser negativo." });
+				if (model.ClinicId <= 0)
+					return BadRequest(new { message = "Clínica inválida." });
+
+				var required = model.PricingStructureId == 0 ? PermissionAction.Create : PermissionAction.Edit;
+				if (!_permissions.HasPermission(User, ModuleUrl, required))
+					return StatusCode(StatusCodes.Status403Forbidden, new { message = "No tienes permiso para realizar esta acción." });
+
+				var id = _pricing.AddOrEdit(model);
+				return Ok(new { pricingStructureId = id });
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, new { message = ex.Message });
+			}
+		}
+
+		[HttpPost]
+		[RequiresModulePermission(PermissionAction.Delete)]
+		public IActionResult DeletePricing([FromBody] int pricingStructureId)
+		{
+			try
+			{
+				_pricing.Delete(pricingStructureId);
 				return Ok();
 			}
 			catch (Exception ex)

@@ -1,8 +1,10 @@
 using Medycally.Core;
+using Medycally.Core.Hubs;
 using Medycally.Core.Security;
 using Medycally.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 
 namespace Medycally.Controllers
 {
@@ -16,15 +18,21 @@ namespace Medycally.Controllers
         private readonly IPatient           _patient;
         private readonly IPatientHistory    _patientHistory;
         private readonly IPermissionService _permissions;
+        private readonly ILabTest           _labTest;
+        private readonly IHubContext<AppointmentHub, IAppointmentClient> _hub;
 
         public MedicalController(IMedicalAttention medical, IAppointmentQuery appointmentQuery,
-            IPatient patient, IPatientHistory patientHistory, IPermissionService permissions)
+            IPatient patient, IPatientHistory patientHistory, IPermissionService permissions,
+            ILabTest labTest,
+            IHubContext<AppointmentHub, IAppointmentClient> hub)
         {
             _medical          = medical;
             _appointmentQuery = appointmentQuery;
             _patient          = patient;
             _patientHistory   = patientHistory;
             _permissions      = permissions;
+            _labTest          = labTest;
+            _hub              = hub;
         }
 
         public IActionResult Index()
@@ -42,7 +50,7 @@ namespace Medycally.Controllers
 
         [HttpPost]
         [RequiresModulePermission(PermissionAction.Edit, "/Medical/Index")]
-        public IActionResult StartAttention([FromBody] int appointmentId)
+        public async Task<IActionResult> StartAttention([FromBody] int appointmentId)
         {
             var detail = _appointmentQuery.GetById(appointmentId);
             if (detail == null)
@@ -52,6 +60,14 @@ namespace Medycally.Controllers
                 return BadRequest(new { message = "Este paciente no está registrado en el sistema. Completa su registro antes de iniciar la atención." });
 
             _appointmentQuery.UpdateStatus(appointmentId, 4);
+
+            if (detail.ClinicId > 0)
+            {
+                await _hub.Clients
+                    .Group(AppointmentHub.GroupName(detail.ClinicId))
+                    .AppointmentChanged(new { clinicId = detail.ClinicId, appointmentId, action = "statusChanged" });
+            }
+
             return Ok();
         }
 
@@ -114,11 +130,12 @@ namespace Medycally.Controllers
             ViewBag.Existing        = _medical.GetByAppointment(id);
             ViewBag.PatientHistory  = patient != null ? _patientHistory.GetByPatientId(patient.PatientId) : null;
             ViewBag.PatientId       = patient?.PatientId ?? 0;
+            ViewBag.LabTests        = _labTest.GetAll();
             return View(detail);
         }
 
         [HttpPost]
-        public IActionResult SaveAttention([FromBody] MedicalAttentionModel model)
+        public async Task<IActionResult> SaveAttention([FromBody] MedicalAttentionModel model)
         {
             if (string.IsNullOrWhiteSpace(model.Diagnosis))
                 return BadRequest(new { message = "El diagnóstico es requerido." });
@@ -131,6 +148,22 @@ namespace Medycally.Controllers
                 return StatusCode(StatusCodes.Status403Forbidden, new { message = "No tienes permiso para realizar esta acción." });
 
             var id = _medical.Save(model);
+
+            // MedicalAttention_Save SP también marca la cita como Atendida (status 5).
+            // Notificar a las vistas conectadas al grupo de la clínica.
+            var appt = _appointmentQuery.GetById(model.AppointmentId);
+            if (appt != null && appt.ClinicId > 0)
+            {
+                await _hub.Clients
+                    .Group(AppointmentHub.GroupName(appt.ClinicId))
+                    .AppointmentChanged(new
+                    {
+                        clinicId      = appt.ClinicId,
+                        appointmentId = model.AppointmentId,
+                        action        = "attentionSaved"
+                    });
+            }
+
             return Ok(new { attentionId = id });
         }
 

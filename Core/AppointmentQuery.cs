@@ -203,7 +203,7 @@ namespace Medycally.Core
             }
         }
 
-        public List<DashboardAppointmentModel> GetByClinic(int clinicId, DateTime? date)
+        public List<DashboardAppointmentModel> GetByClinic(int clinicId, DateTime? date, int? doctorId)
         {
             try
             {
@@ -219,6 +219,7 @@ namespace Medycally.Core
                 {
                     Value = date.HasValue ? (object)date.Value.Date : DBNull.Value
                 });
+                cmd.Parameters.AddWithValue("@DoctorId", doctorId.HasValue ? (object)doctorId.Value : DBNull.Value);
 
                 var list = new List<DashboardAppointmentModel>();
                 using SqlDataReader reader = cmd.ExecuteReader();

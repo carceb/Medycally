@@ -31,6 +31,18 @@ namespace Medycally.Core.Security
         /// (exact o prefijo). Devuelve el más específico (más largo). null = no gated.
         /// </summary>
         string? FindModuleUrl(string requestScope);
+
+        /// <summary>
+        /// Indica si el rol del usuario tiene asignada la acción nombrada dentro
+        /// del módulo (ej. "doctors" en /Admin/Clinic). SuperAdmin siempre true.
+        /// </summary>
+        bool HasModuleAction(ClaimsPrincipal user, string moduleUrl, string actionKey);
+
+        /// <summary>
+        /// Devuelve el conjunto de ActionKeys permitidas al usuario para ese módulo.
+        /// SuperAdmin obtiene todas las que su rol tenga asignadas (por seed → todas).
+        /// </summary>
+        HashSet<string> GetModuleActions(ClaimsPrincipal user, string moduleUrl);
     }
 
     public class PermissionService : IPermissionService
@@ -39,11 +51,13 @@ namespace Medycally.Core.Security
         private static readonly TimeSpan AllUrlsTtl   = TimeSpan.FromMinutes(10);
 
         private readonly ISecurityModule _securityModule;
+        private readonly ISecurityRole   _securityRole;
         private readonly IMemoryCache    _cache;
 
-        public PermissionService(ISecurityModule securityModule, IMemoryCache cache)
+        public PermissionService(ISecurityModule securityModule, ISecurityRole securityRole, IMemoryCache cache)
         {
             _securityModule = securityModule;
+            _securityRole   = securityRole;
             _cache          = cache;
         }
 
@@ -57,7 +71,9 @@ namespace Medycally.Core.Security
             if (!int.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int userId))
                 return ActionPermissions.None;
 
-            var perms = LoadUserPermissions(userId);
+            // Sin cache para garantizar que los cambios en SecurityRoleModule se reflejen
+            // inmediatamente. El SP es muy ligero (un INNER JOIN sobre tablas pequeñas).
+            var perms = _securityModule.GetUserPermissions(userId);
             var match = perms.FirstOrDefault(m =>
                 !string.IsNullOrEmpty(m.ModuleUrl) && IsScopeMatch(moduleUrl, m.ModuleUrl));
             if (match == null) return ActionPermissions.None;
@@ -66,6 +82,28 @@ namespace Medycally.Core.Security
 
         public bool HasPermission(ClaimsPrincipal user, string moduleUrl, PermissionAction action)
             => GetPermissions(user, moduleUrl).Has(action);
+
+        public bool HasModuleAction(ClaimsPrincipal user, string moduleUrl, string actionKey)
+        {
+            if (user?.Identity?.IsAuthenticated != true) return false;
+            if (string.Equals(user.FindFirst("IsSuperAdmin")?.Value, "true", StringComparison.OrdinalIgnoreCase))
+                return true;
+            return GetModuleActions(user, moduleUrl).Contains(actionKey);
+        }
+
+        public HashSet<string> GetModuleActions(ClaimsPrincipal user, string moduleUrl)
+        {
+            if (user?.Identity?.IsAuthenticated != true) return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (!int.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int userId))
+                return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // Sin cache intencionalmente: un SELECT con dos JOINs por request es barato
+            // y evita problemas de staleness cuando un admin cambia las acciones de un
+            // rol mientras hay usuarios activos. Si crece la carga, considerar invalidar
+            // por usuario al editar el rol.
+            var actions = _securityRole.GetUserActions(userId, moduleUrl) ?? new List<string>();
+            return new HashSet<string>(actions, StringComparer.OrdinalIgnoreCase);
+        }
 
         public string? FindModuleUrl(string requestScope)
         {

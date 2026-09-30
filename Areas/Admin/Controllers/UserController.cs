@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Medycally.Core;
 using Medycally.Core.Security;
 using Medycally.Models;
@@ -37,8 +38,22 @@ namespace Medycally.Areas.Admin.Controllers
 
         public IActionResult Index()
         {
-            var users = _adminUser.GetAll();
-            ViewBag.Roles   = _adminUser.GetAllRoles();
+            int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int securityUserId);
+            bool isSuperAdmin = string.Equals(User.FindFirst("IsSuperAdmin")?.Value, "true",
+                                              StringComparison.OrdinalIgnoreCase);
+            int? doctorId = int.TryParse(User.FindFirst("DoctorId")?.Value, out int did) && did > 0
+                            ? did : null;
+            bool hasGlobalScope = string.Equals(User.FindFirst("HasGlobalScope")?.Value, "true",
+                                                StringComparison.OrdinalIgnoreCase);
+
+            var users    = _adminUser.GetByUser(securityUserId, isSuperAdmin, doctorId, hasGlobalScope);
+            var allRoles = _adminUser.GetAllRoles();
+
+            // El rol SuperAdmin (IsSuperAdmin=1) sólo es visible/asignable por usuarios SuperAdmin.
+            // El resto de usuarios nunca debe ver ese rol en la lista de selección.
+            ViewBag.Roles   = isSuperAdmin
+                              ? allRoles
+                              : allRoles.Where(r => !r.IsSuperAdmin).ToList();
             ViewBag.Doctors = _doctor.GetAll();
             return View(users);
         }
@@ -56,6 +71,18 @@ namespace Medycally.Areas.Admin.Controllers
             var required = isNew ? PermissionAction.Create : PermissionAction.Edit;
             if (!_permissions.HasPermission(User, ModuleUrl, required))
                 return StatusCode(StatusCodes.Status403Forbidden, new { message = "No tienes permiso para realizar esta acción." });
+
+            // Guard: sólo SuperAdmin puede asignar un rol SuperAdmin.
+            bool callerIsSuperAdmin = string.Equals(User.FindFirst("IsSuperAdmin")?.Value, "true",
+                                                    StringComparison.OrdinalIgnoreCase);
+            if (!callerIsSuperAdmin)
+            {
+                var targetRole = _adminUser.GetAllRoles()
+                                           .FirstOrDefault(r => r.SecurityRoleId == model.SecurityRoleId);
+                if (targetRole?.IsSuperAdmin == true)
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        new { message = "No tienes permiso para asignar este rol." });
+            }
 
             var saved  = _adminUser.AddOrEdit(model);
 

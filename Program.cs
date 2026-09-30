@@ -1,5 +1,6 @@
 using Medycally.Core;
 using Medycally.Core.Data;
+using Medycally.Core.Hubs;
 using Medycally.Core.Security;
 using Medycally.Core.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -14,6 +15,8 @@ builder.Services.AddControllersWithViews(options =>
 {
     options.Filters.Add<ModulePermissionFilter>();
 });
+
+builder.Services.AddSignalR();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -48,6 +51,9 @@ builder.Services.AddScoped<IMedicalAttention, MedicalAttention>();
 builder.Services.AddScoped<IPatientHistory, PatientHistory>();
 builder.Services.AddScoped<IExchangeRate, ExchangeRate>();
 builder.Services.AddScoped<IClinicSpecialtyFee, ClinicSpecialtyFee>();
+builder.Services.AddScoped<ILabTest, LabTest>();
+builder.Services.AddScoped<IPricingStructure, PricingStructure>();
+builder.Services.AddScoped<IDoctorPricingStructure, DoctorPricingStructure>();
 builder.Services.AddSingleton<BcvScraperService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<BcvScraperService>());
 
@@ -67,6 +73,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();
+
+app.MapHub<AppointmentHub>("/hubs/appointments");
 
 app.MapControllerRoute(
     name: "areas",

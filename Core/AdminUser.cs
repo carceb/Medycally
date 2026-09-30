@@ -20,26 +20,43 @@ namespace Medycally.Core
             conn.Open();
             using var cmd = new SqlCommand("SecurityUser_GetAll", conn) { CommandType = CommandType.StoredProcedure };
             using var r = cmd.ExecuteReader();
-            while (r.Read())
-            {
-                int doctorIdOrd   = r.GetOrdinal("DoctorId");
-                int doctorNameOrd = r.GetOrdinal("DoctorName");
-                list.Add(new AdminUserModel
-                {
-                    SecurityUserId = Convert.ToInt32(r["SecurityUserId"]),
-                    UserName       = r["UserName"]     == DBNull.Value ? null : r["UserName"].ToString(),
-                    UserEmail      = r["UserEmail"]    == DBNull.Value ? null : r["UserEmail"].ToString(),
-                    UserIdNumber   = r["UserIdNumber"] == DBNull.Value ? 0 : Convert.ToInt32(r["UserIdNumber"]),
-                    SecurityRoleId = Convert.ToInt32(r["SecurityRoleId"]),
-                    RoleName       = r["RoleName"]     == DBNull.Value ? null : r["RoleName"].ToString(),
-                    IsSuperAdmin   = r["IsSuperAdmin"] != DBNull.Value && Convert.ToBoolean(r["IsSuperAdmin"]),
-                    StatusId       = Convert.ToInt32(r["StatusId"]),
-                    IsActivated    = r["IsActivated"]  != DBNull.Value && Convert.ToBoolean(r["IsActivated"]),
-                    DoctorId       = r.IsDBNull(doctorIdOrd)   ? null : r.GetInt32(doctorIdOrd),
-                    DoctorName     = r.IsDBNull(doctorNameOrd) ? null : r.GetString(doctorNameOrd),
-                });
-            }
+            while (r.Read()) list.Add(MapUserRow(r));
             return list;
+        }
+
+        public List<AdminUserModel> GetByUser(int securityUserId, bool isSuperAdmin, int? doctorId, bool hasGlobalScope)
+        {
+            var list = new List<AdminUserModel>();
+            using var conn = _db.CreateConnection();
+            conn.Open();
+            using var cmd = new SqlCommand("SecurityUser_GetByUser", conn) { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@SecurityUserId", securityUserId);
+            cmd.Parameters.AddWithValue("@IsSuperAdmin",   isSuperAdmin);
+            cmd.Parameters.AddWithValue("@DoctorId",       doctorId.HasValue ? (object)doctorId.Value : DBNull.Value);
+            cmd.Parameters.AddWithValue("@HasGlobalScope", hasGlobalScope);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) list.Add(MapUserRow(r));
+            return list;
+        }
+
+        private static AdminUserModel MapUserRow(SqlDataReader r)
+        {
+            int doctorIdOrd   = r.GetOrdinal("DoctorId");
+            int doctorNameOrd = r.GetOrdinal("DoctorName");
+            return new AdminUserModel
+            {
+                SecurityUserId = Convert.ToInt32(r["SecurityUserId"]),
+                UserName       = r["UserName"]     == DBNull.Value ? null : r["UserName"].ToString(),
+                UserEmail      = r["UserEmail"]    == DBNull.Value ? null : r["UserEmail"].ToString(),
+                UserIdNumber   = r["UserIdNumber"] == DBNull.Value ? 0 : Convert.ToInt32(r["UserIdNumber"]),
+                SecurityRoleId = Convert.ToInt32(r["SecurityRoleId"]),
+                RoleName       = r["RoleName"]     == DBNull.Value ? null : r["RoleName"].ToString(),
+                IsSuperAdmin   = r["IsSuperAdmin"] != DBNull.Value && Convert.ToBoolean(r["IsSuperAdmin"]),
+                StatusId       = Convert.ToInt32(r["StatusId"]),
+                IsActivated    = r["IsActivated"]  != DBNull.Value && Convert.ToBoolean(r["IsActivated"]),
+                DoctorId       = r.IsDBNull(doctorIdOrd)   ? null : r.GetInt32(doctorIdOrd),
+                DoctorName     = r.IsDBNull(doctorNameOrd) ? null : r.GetString(doctorNameOrd),
+            };
         }
 
         public AdminUserModel AddOrEdit(AdminUserModel model)
@@ -88,6 +105,7 @@ namespace Medycally.Core
                     SecurityRoleId = Convert.ToInt32(r["SecurityRoleId"]),
                     RoleName       = r["RoleName"].ToString() ?? string.Empty,
                     IsSuperAdmin   = r["IsSuperAdmin"] != DBNull.Value && Convert.ToBoolean(r["IsSuperAdmin"]),
+                    HasGlobalScope = r["HasGlobalScope"] != DBNull.Value && Convert.ToBoolean(r["HasGlobalScope"]),
                 });
             }
             return list;

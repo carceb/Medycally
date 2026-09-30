@@ -1,8 +1,10 @@
 using Medycally.Core;
+using Medycally.Core.Hubs;
 using Medycally.Core.Security;
 using Medycally.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 
 namespace Medycally.Controllers
 {
@@ -17,8 +19,9 @@ namespace Medycally.Controllers
         private readonly IGeography _geography;
         private readonly ICommonData _commonData;
         private readonly IAppointment _appointment;
+        private readonly IHubContext<AppointmentHub, IAppointmentClient> _hub;
 
-        public AppointmentController(ISpecialty specialty, IClinic clinic, IDoctorSchedule doctorSchedule, IPatient patient, IReason reason, IGeography geography, ICommonData commonData, IAppointment appointment)
+        public AppointmentController(ISpecialty specialty, IClinic clinic, IDoctorSchedule doctorSchedule, IPatient patient, IReason reason, IGeography geography, ICommonData commonData, IAppointment appointment, IHubContext<AppointmentHub, IAppointmentClient> hub)
         {
             _specialty      = specialty;
             _clinic         = clinic;
@@ -28,6 +31,7 @@ namespace Medycally.Controllers
             _geography      = geography;
             _commonData     = commonData;
             _appointment    = appointment;
+            _hub            = hub;
         }
 
         public IActionResult Wizard()
@@ -36,11 +40,24 @@ namespace Medycally.Controllers
         }
 
         [HttpPost]
-        public IActionResult Save([FromBody] AppointmentModel model)
+        public async Task<IActionResult> Save([FromBody] AppointmentModel model)
         {
             try
             {
                 var id = _appointment.AddOrEdit(model);
+
+                if (model.ClinicId > 0)
+                {
+                    await _hub.Clients
+                        .Group(AppointmentHub.GroupName(model.ClinicId))
+                        .AppointmentChanged(new
+                        {
+                            clinicId      = model.ClinicId,
+                            appointmentId = id,
+                            action        = "created"
+                        });
+                }
+
                 return Json(new { success = true, appointmentId = id });
             }
             catch (Exception ex)

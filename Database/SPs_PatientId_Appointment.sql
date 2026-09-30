@@ -161,7 +161,8 @@ GO
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.Appointment_GetByClinic
     @ClinicId INT,
-    @Date     DATE = NULL
+    @Date     DATE = NULL,
+    @DoctorId INT  = NULL   -- Cuando el usuario es médico, solo sus propias citas
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -181,7 +182,8 @@ BEGIN
         IsRegistered
     FROM dbo.Appointment_Detail
     WHERE ClinicId = @ClinicId
-      AND (@Date IS NULL OR AppointmentDay = @Date)
+      AND (@Date     IS NULL OR AppointmentDay = @Date)
+      AND (@DoctorId IS NULL OR DoctorId       = @DoctorId)
     ORDER BY AppointmentDate;
 END
 GO
